@@ -60,7 +60,7 @@ def sqlQuery(sql_statement, *args):
     sqlSubmitQueue.put(sql_statement)
 
     if args == ():
-        sqlSubmitQueue.put('')
+        sqlSubmitQueue.put("")
     elif isinstance(args[0], (list, tuple)):
         sqlSubmitQueue.put(args[0])
     else:
@@ -88,25 +88,22 @@ def sqlExecuteChunked(sql_statement, idCount, *args):
     total_row_count = 0
     with sql_lock:
         for i in range(
-                len(args) - idCount, len(args),
-                sqlExecuteChunked.chunkSize - (len(args) - idCount)
+            len(args) - idCount,
+            len(args),
+            sqlExecuteChunked.chunkSize - (len(args) - idCount),
         ):
             chunk_slice = args[
                 i:i + sqlExecuteChunked.chunkSize - (len(args) - idCount)
             ]
-            sqlSubmitQueue.put(
-                sql_statement.format(','.join('?' * len(chunk_slice)))
-            )
+            sqlSubmitQueue.put(f"{sql_statement},{','.join('?' * len(chunk_slice))}")
             # first static args, and then iterative chunk
-            sqlSubmitQueue.put(
-                args[0:len(args) - idCount] + chunk_slice
-            )
+            sqlSubmitQueue.put(args[0:len(args) - idCount] + chunk_slice)
             try:
                 ret_val = _sql_get()
             except RuntimeError:
                 break
             total_row_count += ret_val[1]
-        sqlSubmitQueue.put('commit')
+        sqlSubmitQueue.put("commit")
     return total_row_count
 
 
@@ -118,14 +115,14 @@ def sqlExecute(sql_statement, *args):
     sqlSubmitQueue.put(sql_statement)
 
     if args == ():
-        sqlSubmitQueue.put('')
+        sqlSubmitQueue.put("")
     else:
         sqlSubmitQueue.put(args)
     try:
         _, rowcount = _sql_get()
     except RuntimeError:
         rowcount = 0
-    sqlSubmitQueue.put('commit')
+    sqlSubmitQueue.put("commit")
     sql_lock.release()
     return rowcount
 
@@ -136,7 +133,7 @@ def sqlExecuteScript(sql_statement):
     statements = sql_statement.split(";")
     with SqlBulkExecute() as sql:
         for q in statements:
-            sql.execute("{}".format(q))
+            sql.execute(f"{q}")
 
 
 def sqlStoredProcedure(procName):
@@ -159,7 +156,7 @@ class SqlBulkExecute(object):
         return self
 
     def __exit__(self, exc_type, value, traceback):
-        sqlSubmitQueue.put('commit')
+        sqlSubmitQueue.put("commit")
         sql_lock.release()
 
     @staticmethod
@@ -170,7 +167,7 @@ class SqlBulkExecute(object):
         sqlSubmitQueue.put(sql_statement)
 
         if args == ():
-            sqlSubmitQueue.put('')
+            sqlSubmitQueue.put("")
         else:
             sqlSubmitQueue.put(args)
         try:

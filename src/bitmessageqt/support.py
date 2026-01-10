@@ -1,6 +1,5 @@
 """Composing support request message functions."""
 
-
 import ctypes
 import ssl
 import sys
@@ -26,12 +25,14 @@ from tr import _translate
 
 
 # this is BM support address going to Peter Surda
-OLD_SUPPORT_ADDRESS = 'BM-2cTkCtMYkrSPwFTpgcBrMrf5d8oZwvMZWK'
-SUPPORT_ADDRESS = 'BM-2cUdgkDDAahwPAU6oD2A7DnjqZz3hgY832'
+OLD_SUPPORT_ADDRESS = "BM-2cTkCtMYkrSPwFTpgcBrMrf5d8oZwvMZWK"
+SUPPORT_ADDRESS = "BM-2cUdgkDDAahwPAU6oD2A7DnjqZz3hgY832"
 SUPPORT_LABEL = _translate("Support", "PyBitmessage support")
 SUPPORT_MY_LABEL = _translate("Support", "My new address")
-SUPPORT_SUBJECT = 'Support request'
-SUPPORT_MESSAGE = _translate("Support", '''
+SUPPORT_SUBJECT = "Support request"
+SUPPORT_MESSAGE = _translate(
+    "Support",
+    """
 You can use this message to send a report to one of the PyBitmessage core \
 developers regarding PyBitmessage or the mailchuck.com email service. \
 If you are using PyBitmessage involuntarily, for example because \
@@ -62,38 +63,49 @@ Locale: {}
 SOCKS: {}
 UPnP: {}
 Connected hosts: {}
-''')
+""",
+)
 
 
 def checkAddressBook(myapp):
-    sqlExecute('DELETE from addressbook WHERE address=?', OLD_SUPPORT_ADDRESS)
-    queryreturn = sqlQuery('SELECT * FROM addressbook WHERE address=?', SUPPORT_ADDRESS)
+    sqlExecute("DELETE from addressbook WHERE address=?", OLD_SUPPORT_ADDRESS)
+    queryreturn = sqlQuery("SELECT * FROM addressbook WHERE address=?", SUPPORT_ADDRESS)
     if queryreturn == []:
         sqlExecute(
-            'INSERT INTO addressbook VALUES (?,?)',
-            SUPPORT_LABEL, SUPPORT_ADDRESS)
+            "INSERT INTO addressbook VALUES (?,?)", SUPPORT_LABEL, SUPPORT_ADDRESS
+        )
         myapp.rerenderAddressBook()
 
 
 def checkHasNormalAddress():
     for address in config.addresses():
         acct = account.accountClass(address)
-        if acct is not None and acct.type_ == AccountMixin.NORMAL and config.safeGetBoolean(address, 'enabled'):
+        if (
+            acct is not None
+            and acct.type_ == AccountMixin.NORMAL
+            and config.safeGetBoolean(address, "enabled")
+        ):
             return address
     return False
 
 
 def createAddressIfNeeded(myapp):
     if not checkHasNormalAddress():
-        queues.addressGeneratorQueue.put((
-            'createRandomAddress', 4, 1,
-            str(SUPPORT_MY_LABEL),
-            1, "", False,
-            defaults.networkDefaultProofOfWorkNonceTrialsPerByte,
-            defaults.networkDefaultPayloadLengthExtraBytes
-        ))
+        queues.addressGeneratorQueue.put(
+            (
+                "createRandomAddress",
+                4,
+                1,
+                str(SUPPORT_MY_LABEL),
+                1,
+                "",
+                False,
+                defaults.networkDefaultProofOfWorkNonceTrialsPerByte,
+                defaults.networkDefaultPayloadLengthExtraBytes,
+            )
+        )
     while state.shutdown == 0 and not checkHasNormalAddress():
-        time.sleep(.2)
+        time.sleep(0.2)
     myapp.rerenderComboBoxSendFrom()
     return checkHasNormalAddress()
 
@@ -106,21 +118,23 @@ def createSupportMessage(myapp):
 
     myapp.ui.lineEditSubject.setText(SUPPORT_SUBJECT)
     addrIndex = myapp.ui.comboBoxSendFrom.findData(
-        address, QtCore.Qt.ItemDataRole.UserRole,
-        QtCore.Qt.MatchFlag.MatchFixedString | QtCore.Qt.MatchFlag.MatchCaseSensitive)
+        address,
+        QtCore.Qt.ItemDataRole.UserRole,
+        QtCore.Qt.MatchFlag.MatchFixedString | QtCore.Qt.MatchFlag.MatchCaseSensitive,
+    )
     if addrIndex == -1:  # something is very wrong
         return
     myapp.ui.comboBoxSendFrom.setCurrentIndex(addrIndex)
     myapp.ui.lineEditTo.setText(SUPPORT_ADDRESS)
 
     version = softwareVersion
-    commit = paths.lastCommit().get('commit')
+    commit = paths.lastCommit().get("commit")
     if commit:
         version += " GIT " + commit
 
     os = sys.platform
     if os == "win32":
-        get_win_ver = getattr(sys, 'getwindowsversion', None)
+        get_win_ver = getattr(sys, "getwindowsversion", None)
         if get_win_ver is not None:
             windowsversion = get_win_ver()
             os = "Windows " + str(windowsversion[0]) + "." + str(windowsversion[1])
@@ -129,6 +143,7 @@ def createSupportMessage(myapp):
     else:
         try:
             from os import uname
+
             unixversion = uname()
             os = unixversion[0] + " " + unixversion[2]
         except Exception:
@@ -138,35 +153,38 @@ def createSupportMessage(myapp):
 
     try:
         import cryptography
+
         crypto_ver = cryptography.__version__
     except ImportError:
         crypto_ver = "N/A"
     opensslversion = "%s (Python internal), %s (cryptography library)" % (
-        ssl.OPENSSL_VERSION, crypto_ver)
+        ssl.OPENSSL_VERSION,
+        crypto_ver,
+    )
 
     frozen = "N/A"
     if paths.frozen:
         frozen = paths.frozen
     portablemode = "True" if state.appdata == paths.lookupExeFolder() else "False"
     cpow = "True" if proofofwork.bmpow else "False"
-    openclpow = str(
-        config.safeGet('bitmessagesettings', 'opencl')
-    ) if openclEnabled() else "None"
+    openclpow = (
+        str(config.safeGet("bitmessagesettings", "opencl"))
+        if openclEnabled()
+        else "None"
+    )
     locale = getTranslationLanguage()
     socks = getSOCKSProxyType(config) or "N/A"
-    upnp = config.safeGet('bitmessagesettings', 'upnp', "N/A")
+    upnp = config.safeGet("bitmessagesettings", "upnp", "N/A")
     connectedhosts = len(network.stats.connectedHostsList())
 
-    support_msg = SUPPORT_MESSAGE if isinstance(SUPPORT_MESSAGE, str) else str(SUPPORT_MESSAGE)
-    myapp.ui.textEditMessage.setText(support_msg.format(
-        version, os, architecture, pythonversion, opensslversion, frozen,
-        portablemode, cpow, openclpow, locale, socks, upnp, connectedhosts))
+    myapp.ui.textEditMessage.setText(
+        f"{version} {os} {architecture} {pythonversion} {opensslversion} {frozen} "
+        f"{portablemode} {cpow} {openclpow} {locale} {socks} {upnp} {connectedhosts}"
+    )
 
     # single msg tab
     myapp.ui.tabWidgetSend.setCurrentIndex(
         myapp.ui.tabWidgetSend.indexOf(myapp.ui.sendDirect)
     )
     # send tab
-    myapp.ui.tabWidget.setCurrentIndex(
-        myapp.ui.tabWidget.indexOf(myapp.ui.send)
-    )
+    myapp.ui.tabWidget.setCurrentIndex(myapp.ui.tabWidget.indexOf(myapp.ui.send))

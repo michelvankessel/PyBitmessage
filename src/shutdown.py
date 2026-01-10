@@ -52,7 +52,7 @@ def doCleanShutdown():
         if inventory is not None:
             inventory.flush()
     except Exception as e:
-        logger.info("Inventory not available for flushing: {}".format(e))
+        logger.info(f"Inventory not available for flushing: {e}")
 
     # Verify that the objectProcessor has finished exiting. It should have
     # incremented the shutdown variable from 1 to 2. This must finish before
@@ -64,8 +64,9 @@ def doCleanShutdown():
         shutdown_wait_count += 1
         if shutdown_wait_count > 100:  # 10 second timeout
             logger.warning(
-                'Timeout waiting for objectProcessor to acknowledge shutdown.'
-                ' Forcing shutdown.')
+                "Timeout waiting for objectProcessor to acknowledge shutdown."
+                " Forcing shutdown."
+            )
             state.shutdown = 2
             break
 

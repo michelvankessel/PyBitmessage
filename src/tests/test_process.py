@@ -24,30 +24,35 @@ class TestProcessProto(unittest.TestCase):
     """Test case implementing common logic for external testing:
     it starts pybitmessage in setUpClass() and stops it in tearDownClass()
     """
-    _process_cmd = ['pybitmessage', '-d']
+
+    _process_cmd = ["pybitmessage", "-d"]
     _threads_count_min = 15
     _threads_count_max = 16
     _threads_names = [
-        'PyBitmessage',
-        'addressGenerato',
-        'singleWorker',
-        'SQL',
-        'objectProcessor',
-        'singleCleaner',
-        'singleAPI',
-        'Asyncore',
-        'ReceiveQueue_0',
-        'ReceiveQueue_1',
-        'ReceiveQueue_2',
-        'Announcer',
-        'InvBroadcaster',
-        'AddrBroadcaster',
-        'Downloader',
-        'Uploader'
+        "PyBitmessage",
+        "addressGenerato",
+        "singleWorker",
+        "SQL",
+        "objectProcessor",
+        "singleCleaner",
+        "singleAPI",
+        "Asyncore",
+        "ReceiveQueue_0",
+        "ReceiveQueue_1",
+        "ReceiveQueue_2",
+        "Announcer",
+        "InvBroadcaster",
+        "AddrBroadcaster",
+        "Downloader",
+        "Uploader",
     ]
     _files = (
-        'keys.dat', 'debug.log', 'messages.dat', 'knownnodes.dat',
-        '.api_started', 'unittest.lock'
+        "keys.dat",
+        "debug.log",
+        "messages.dat",
+        "knownnodes.dat",
+        ".api_started",
+        "unittest.lock",
     )
     home: Optional[str] = None
 
@@ -58,13 +63,12 @@ class TestProcessProto(unittest.TestCase):
         if not cls.home:
             cls.home = tempfile.gettempdir()
             cls._cleanup_files()
-        os.environ['BITMESSAGE_HOME'] = cls.home
-        put_signal_file(cls.home, 'unittest.lock')
+        os.environ["BITMESSAGE_HOME"] = cls.home
+        put_signal_file(cls.home, "unittest.lock")
         starttime = int(time.time()) - 0.5
-        cls.process = psutil.Popen(
-            cls._process_cmd, stderr=subprocess.STDOUT)
+        cls.process = psutil.Popen(cls._process_cmd, stderr=subprocess.STDOUT)
 
-        pidfile = str(Path(cls.home) / 'singleton.lock')
+        pidfile = str(Path(cls.home) / "singleton.lock")
         for _ in range(10):
             time.sleep(1)
             try:
@@ -75,7 +79,7 @@ class TestProcessProto(unittest.TestCase):
                 continue
 
         try:
-            pid = int(cls._get_readline('singleton.lock'))
+            pid = int(cls._get_readline("singleton.lock"))
             cls.process = psutil.Process(pid)
             time.sleep(5)
         except (psutil.NoSuchProcess, TypeError):
@@ -91,7 +95,7 @@ class TestProcessProto(unittest.TestCase):
             return b""
         pfile_path = str(Path(cls.home) / pfile)
         try:
-            with open(pfile_path, 'rb') as p:
+            with open(pfile_path, "rb") as p:
                 return p.readline().strip()
         except (OSError, IOError):
             return b""
@@ -146,10 +150,9 @@ class TestProcessProto(unittest.TestCase):
         try:
             # using ps for posix platforms
             # because of https://github.com/giampaolo/psutil/issues/613
-            thread_names = subprocess.check_output([
-                "ps", "-L", "-o", "comm=", "--pid",
-                str(self.process.pid)
-            ]).split()
+            thread_names = subprocess.check_output(
+                ["ps", "-L", "-o", "comm=", "--pid", str(self.process.pid)]
+            ).split()
         except subprocess.CalledProcessError:
             thread_names = []
         except Exception:
@@ -166,65 +169,60 @@ class TestProcessProto(unittest.TestCase):
                 if thread_name not in thread_names:
                     missing_threads.append(thread_name)
 
-            msg = "Missing threads: {}, Extra threads: {}".format(
-                ",".join(missing_threads), ",".join(extra_threads))
+            msg = f"Missing threads: {','.join(missing_threads)}, Extra threads: {','.join(extra_threads)}"
         else:
             running_threads = self.process.num_threads()
-            if sys.platform.startswith('win'):
+            if sys.platform.startswith("win"):
                 running_threads -= 1  # one extra thread on Windows!
             msg = "Unexpected running thread count"
 
-        self.assertGreaterEqual(
-            running_threads,
-            self._threads_count_min,
-            msg)
+        self.assertGreaterEqual(running_threads, self._threads_count_min, msg)
 
-        self.assertLessEqual(
-            running_threads,
-            self._threads_count_max,
-            msg)
+        self.assertLessEqual(running_threads, self._threads_count_max, msg)
 
 
 class TestProcessShutdown(TestProcessProto):
     """Separate test case for SIGTERM"""
+
     def test_shutdown(self):
         """Send to pybitmessage SIGTERM and ensure it stopped"""
         # longer wait time because it's not a benchmark
         self.assertTrue(
             self._stop_process(20),
-            '%s has not stopped in 20 sec' % ' '.join(self._process_cmd))
+            "%s has not stopped in 20 sec" % " ".join(self._process_cmd),
+        )
 
 
 class TestProcess(TestProcessProto):
     """A test case for pybitmessage process"""
-    @unittest.skipIf(sys.platform[:5] != 'linux', 'probably needs prctl')
+
+    @unittest.skipIf(sys.platform[:5] != "linux", "probably needs prctl")
     def test_process_name(self):
         """Check PyBitmessage process name"""
-        self.assertEqual(self.process.name(), 'PyBitmessage')
+        self.assertEqual(self.process.name(), "PyBitmessage")
 
-    @unittest.skipIf(psutil.version_info < (4, 0), 'psutil is too old')
+    @unittest.skipIf(psutil.version_info < (4, 0), "psutil is too old")
     def test_home(self):
         """Ensure BITMESSAGE_HOME is used by process"""
-        self.assertEqual(
-            self.process.environ().get('BITMESSAGE_HOME'), self.home)
+        self.assertEqual(self.process.environ().get("BITMESSAGE_HOME"), self.home)
 
     @unittest.skipIf(
-        os.getenv('WINEPREFIX'), "process.connections() doesn't work on wine")
+        os.getenv("WINEPREFIX"), "process.connections() doesn't work on wine"
+    )
     def test_listening(self):
         """Check that pybitmessage listens on port 8444"""
         for c in self.process.connections():
-            if c.status == 'LISTEN':
+            if c.status == "LISTEN":
                 self.assertEqual(c.laddr[1], 8444)
                 break
 
     def test_files(self):
         """Check existence of PyBitmessage files"""
         for pfile in self._files:
-            if pfile.startswith('.'):
+            if pfile.startswith("."):
                 continue
             self.assertIsNot(
-                self._get_readline(pfile), None,
-                'Failed to read file %s' % pfile
+                self._get_readline(pfile), None, "Failed to read file %s" % pfile
             )
 
     def test_threads(self):

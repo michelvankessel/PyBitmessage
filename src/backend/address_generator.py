@@ -6,44 +6,55 @@ from pybitmessage import queues
 from pybitmessage.bmconfigparser import config
 from pybitmessage.defaults import (
     networkDefaultProofOfWorkNonceTrialsPerByte,
-    networkDefaultPayloadLengthExtraBytes
+    networkDefaultPayloadLengthExtraBytes,
 )
 
 
 class AddressGenerator(object):
-    """"Base class for address generation and validation"""
+    """ "Base class for address generation and validation"""
+
     def __init__(self):
         pass
 
     @staticmethod
     def random_address_generation(
-        label, streamNumberForAddress=1, eighteenByteRipe=False,
+        label,
+        streamNumberForAddress=1,
+        eighteenByteRipe=False,
         nonceTrialsPerByte=networkDefaultProofOfWorkNonceTrialsPerByte,
-        payloadLengthExtraBytes=networkDefaultPayloadLengthExtraBytes
+        payloadLengthExtraBytes=networkDefaultPayloadLengthExtraBytes,
     ):
         """Start address generation and return whether validation was successful"""
 
-        labels = [config.get(obj, 'label')
-                  for obj in config.addresses()]
+        labels = [config.get(obj, "label") for obj in config.addresses()]
         if label and label not in labels:
-            queues.addressGeneratorQueue.put((
-                'createRandomAddress', 4, streamNumberForAddress, label, 1,
-                "", eighteenByteRipe, nonceTrialsPerByte,
-                payloadLengthExtraBytes))
+            queues.addressGeneratorQueue.put(
+                (
+                    "createRandomAddress",
+                    4,
+                    streamNumberForAddress,
+                    label,
+                    1,
+                    "",
+                    eighteenByteRipe,
+                    nonceTrialsPerByte,
+                    payloadLengthExtraBytes,
+                )
+            )
             return True
         return False
 
     @staticmethod
     def address_validation(instance, label):
         """Checking address validation while creating"""
-        labels = [config.get(obj, 'label') for obj in config.addresses()]
+        labels = [config.get(obj, "label") for obj in config.addresses()]
         if label in labels:
             instance.error = True
-            instance.helper_text = 'it is already exist you'\
-                ' can try this Ex. ( {0}_1, {0}_2 )'.format(
-                    label)
+            instance.helper_text = (
+                f"it is already exist you can try this Ex. ( {label}_1, {label}_2 )"
+            )
         elif label:
             instance.error = False
         else:
             instance.error = True
-            instance.helper_text = 'This field is required'
+            instance.helper_text = "This field is required"

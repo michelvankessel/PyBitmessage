@@ -244,7 +244,7 @@ class AddressPassPhraseValidatorMixin(object):
                 (
                     "joinChan",
                     addBMIfNotPresent(address),
-                    "{} {}".format(str_chan, passPhrase),
+                    f"{str_chan} {passPhrase}",
                     passPhrase,
                     False,
                 )

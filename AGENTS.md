@@ -127,7 +127,7 @@ class NetworkMessage(BaseModel):
 
 - [x] **Phase 1**: Eliminate `type: ignore` (0 violations)
 - [x] **Phase 2**: Migrate to `pathlib.Path` (0 `os.path` usages)
-- [ ] **Phase 3**: Convert `.format()` to f-strings (86 remaining)
+- [x] **Phase 3**: Convert `.format()` to f-strings (95/96 complete, 99%)
 - [ ] **Phase 4**: Systematic type hints + Pydantic adoption
 - [ ] **Phase 5**: Address FIXME security issues + thread-safety for GIL-free
 
@@ -135,7 +135,7 @@ class NetworkMessage(BaseModel):
 
 - **0 `type: ignore` violations** - Phase 1 Complete ✅
 - **0 `os.path` usages** - Phase 2 Complete ✅
-- **86 `.format()` calls** - convert to f-strings (Phase 3 pending)
+- **95 `.format()` calls** - convert to f-strings (99% complete, 1 legitimate use case in test_logger.py)
 - **Multiple UI entry points**: bitmessagemain.py dispatches to bitmessageqt, bitmessagecurses, or Kivy
 - **Non-standard layout**: Tests in `src/tests/`, not root; source in `src/` (flat), not `src/pybitmessage/`
 
@@ -169,6 +169,6 @@ class NetworkMessage(BaseModel):
 | Future imports | ✅ Removed |
 | Type safety (type: ignore) | ✅ Phase 1 Complete (0 violations) |
 | Linting (flake8/mypy/pyright) | ✅ Clean (0 errors) |
-| F-string conversion | ⚠️ 86 pending (Phase 3) |
+| F-string conversion | ⚠️ 95/96 complete (99%) |
 | Pathlib migration | ✅ Phase 2 Complete (150/150 done) |
 | Type hints | ⚠️ Systematic adoption needed (Phase 4) |

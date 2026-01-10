@@ -19,9 +19,7 @@ def constructObject(data):
     if data[""] not in whitelist:
         return None
     try:
-        classBase = getattr(
-            import_module(".{}".format(data[""]), __name__), data[""].title()
-        )
+        classBase = getattr(import_module(f".{data['']}", __name__), data[""].title())
     except (NameError, AttributeError, ValueError, ImportError):
         logger.error(
             'Don\'t know how to handle message type: "%s"', data[""], exc_info=True
@@ -57,7 +55,7 @@ else:
             continue
         mod = mod_path.name
         try:
-            import_module(".{}".format(mod_path.stem), __name__)
+            import_module(f".{mod_path.stem}", __name__)
         except ImportError:
             logger.error("Error importing %s", mod, exc_info=True)
         else:

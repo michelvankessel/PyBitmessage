@@ -88,9 +88,7 @@ class Placeholder(object):
 
     def _raise(self):
         raise NotImplementedError(
-            "Probabaly you forgot to initialize state variable for {}".format(
-                self.className
-            )
+            f"Probabaly you forgot to initialize state variable for {self.className}"
         )
 
 

@@ -23,13 +23,13 @@ keys=default
 keys=default
 
 [formatter_default]
-format=%(asctime)s {1} %(message)s
+format=%(asctime)s {{1}} %(message)s
 
 [handler_default]
 class=FileHandler
 level=NOTSET
 formatter=default
-args=({0!r}, 'w')
+args=('{0!r}', 'w')
 
 [logger_root]
 level=DEBUG

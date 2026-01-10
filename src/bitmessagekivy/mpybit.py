@@ -253,7 +253,7 @@ class NavigateApp(MDApp):
     @staticmethod
     def format_address(address):
         """Formatting address"""
-        return " ({0})".format(address)
+        return f" ({address})"
 
     @staticmethod
     def format_label(label):
@@ -276,10 +276,7 @@ class NavigateApp(MDApp):
                 address = NavigateApp.get_enabled_addresses()[0]
             except IndexError:
                 return ""
-        return "{0}{1}".format(
-            NavigateApp.format_label(config.get(address, "label")),
-            NavigateApp.format_address(address),
-        )
+        return f"{NavigateApp.format_label(config.get(address, 'label'))}{NavigateApp.format_address(address)}"
 
     def get_default_account_data(self, instance):
         """Getting Default Account Data"""

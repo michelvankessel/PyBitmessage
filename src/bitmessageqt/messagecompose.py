@@ -2,12 +2,12 @@
 Message editor with a wheel zoom functionality
 """
 
-
 from PyQt6 import QtCore, QtWidgets
 
 
 class MessageCompose(QtWidgets.QTextEdit):
     """Editor class with wheel zoom functionality"""
+
     def __init__(self, parent=None):
         super(MessageCompose, self).__init__(parent)
         self.setAcceptRichText(False)
@@ -18,7 +18,8 @@ class MessageCompose(QtWidgets.QTextEdit):
         if e is None:
             return
         if (
-            QtWidgets.QApplication.queryKeyboardModifiers() & QtCore.Qt.KeyboardModifier.ControlModifier
+            QtWidgets.QApplication.queryKeyboardModifiers()
+            & QtCore.Qt.KeyboardModifier.ControlModifier
         ) == QtCore.Qt.KeyboardModifier.ControlModifier:
             angle_delta = e.angleDelta()
             delta = angle_delta.y() if angle_delta is not None else 0
@@ -29,13 +30,13 @@ class MessageCompose(QtWidgets.QTextEdit):
             zoom = self.currentFont().pointSize() * 100 / self.defaultFontPointSize
             active_window = QtWidgets.QApplication.activeWindow()
             if active_window is not None:
-                status_bar_func = getattr(active_window, 'statusBar', None)
+                status_bar_func = getattr(active_window, "statusBar", None)
                 if status_bar_func is not None and callable(status_bar_func):
                     status_bar = status_bar_func()
                     if status_bar is not None:
                         status_bar.showMessage(
-                            QtWidgets.QApplication.translate("MainWindow", "Zoom level {}%").format(
-                                int(zoom)
+                            QtWidgets.QApplication.translate(
+                                "MainWindow", f"Zoom level {int(zoom)}%"
                             )
                         )
         else:
@@ -44,4 +45,4 @@ class MessageCompose(QtWidgets.QTextEdit):
 
     def reset(self):
         """Clear the edit content"""
-        self.setText('')
+        self.setText("")

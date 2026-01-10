@@ -1,13 +1,20 @@
 """
 Sql queries for bitmessagekivy
 """
+
 from pybitmessage.helper_sql import sqlQuery
 
 
 def search_sql(
-        xAddress="toaddress", account=None, folder="inbox", where=None,
-        what=None, unreadOnly=False, start_indx=0, end_indx=20):
-
+    xAddress="toaddress",
+    account=None,
+    folder="inbox",
+    where=None,
+    what=None,
+    unreadOnly=False,
+    start_indx=0,
+    end_indx=20,
+):
     """Method helping for searching mails"""
     if what is not None and what != "":
         what = "%" + what + "%"
@@ -15,20 +22,20 @@ def search_sql(
         what = None
     if folder in ("sent", "draft"):
         sqlStatementBase = (
-            '''SELECT toaddress, fromaddress, subject, message, status,'''
-            ''' ackdata, senttime FROM sent '''
+            """SELECT toaddress, fromaddress, subject, message, status,"""
+            """ ackdata, senttime FROM sent """
         )
     elif folder == "addressbook":
-        sqlStatementBase = '''SELECT label, address From addressbook '''
+        sqlStatementBase = """SELECT label, address From addressbook """
     else:
         sqlStatementBase = (
-            '''SELECT folder, msgid, toaddress, message, fromaddress,'''
-            ''' subject, received, read FROM inbox '''
+            """SELECT folder, msgid, toaddress, message, fromaddress,"""
+            """ subject, received, read FROM inbox """
         )
     sqlStatementParts = []
     sqlArguments = []
     if account is not None:
-        if xAddress == 'both':
+        if xAddress == "both":
             sqlStatementParts.append("(fromaddress = ? OR toaddress = ?)")
             sqlArguments.append(account)
             sqlArguments.append(account)
@@ -61,11 +68,7 @@ def search_sql(
     if sqlStatementParts:
         sqlStatementBase += "WHERE " + " AND ".join(sqlStatementParts)
     if folder in ("sent", "draft"):
-        sqlStatementBase += \
-            "ORDER BY senttime DESC limit {0}, {1}".format(
-                start_indx, end_indx)
+        sqlStatementBase += f"ORDER BY senttime DESC limit {start_indx}, {end_indx}"
     elif folder == "inbox":
-        sqlStatementBase += \
-            "ORDER BY received DESC limit {0}, {1}".format(
-                start_indx, end_indx)
+        sqlStatementBase += f"ORDER BY received DESC limit {start_indx}, {end_indx}"
     return sqlQuery(sqlStatementBase, sqlArguments)

@@ -811,10 +811,10 @@ class MyForm(settingsmixin.SMainWindow):
             if addressVersionNumber == 1:
                 displayMsg = _translate(
                     "MainWindow",
-                    "One of your addresses, {}, is an old version 1 address. "
+                    f"One of your addresses, {addressInKeysFile}, is an old version 1 address. "
                     "Version 1 addresses are no longer supported. "
                     "May we delete it now?",
-                ).format(addressInKeysFile)
+                )
                 reply = QtWidgets.QMessageBox.question(
                     self,
                     "Message",
@@ -1346,11 +1346,13 @@ class MyForm(settingsmixin.SMainWindow):
             statusText = _translate("MainWindow", "Queued.")
         elif status == "msgsent":
             statusText = _translate(
-                "MainWindow", "Message sent. Waiting for acknowledgement. Sent at {}"
-            ).format(l10n.formatTimestamp(lastactiontime))
+                "MainWindow",
+                f"Message sent. Waiting for acknowledgement. Sent at {l10n.formatTimestamp(lastactiontime)}",
+            )
         elif status == "msgsentnoackexpected":
-            statusText = _translate("MainWindow", "Message sent. Sent at {}").format(
-                l10n.formatTimestamp(lastactiontime)
+            statusText = _translate(
+                "MainWindow",
+                f"Message sent. Sent at {l10n.formatTimestamp(lastactiontime)}",
             )
         elif status == "doingmsgpow":
             statusText = _translate(
@@ -1358,8 +1360,9 @@ class MyForm(settingsmixin.SMainWindow):
             )
         elif status == "ackreceived":
             statusText = _translate(
-                "MainWindow", "Acknowledgement of the message received {}"
-            ).format(l10n.formatTimestamp(lastactiontime))
+                "MainWindow",
+                f"Acknowledgement of the message received {l10n.formatTimestamp(lastactiontime)}",
+            )
         elif status == "broadcastqueued":
             statusText = _translate("MainWindow", "Broadcast queued.")
         elif status == "doingbroadcastpow":
@@ -1367,28 +1370,29 @@ class MyForm(settingsmixin.SMainWindow):
                 "MainWindow", "Doing work necessary to send broadcast."
             )
         elif status == "broadcastsent":
-            statusText = _translate("MainWindow", "Broadcast on {}").format(
-                l10n.formatTimestamp(lastactiontime)
+            statusText = _translate(
+                "MainWindow", f"Broadcast on {l10n.formatTimestamp(lastactiontime)}"
             )
         elif status == "toodifficult":
             statusText = _translate(
                 "MainWindow",
-                "Problem: The work demanded by the recipient is more"
-                " difficult than you are willing to do. {}",
-            ).format(l10n.formatTimestamp(lastactiontime))
+                f"Problem: The work demanded by the recipient is more"
+                f" difficult than you are willing to do. {l10n.formatTimestamp(lastactiontime)}",
+            )
         elif status == "badkey":
             statusText = _translate(
                 "MainWindow",
-                "Problem: The recipient's encryption key is no good."
-                " Could not encrypt message. {}",
-            ).format(l10n.formatTimestamp(lastactiontime))
+                f"Problem: The recipient's encryption key is no good."
+                f" Could not encrypt message. {l10n.formatTimestamp(lastactiontime)}",
+            )
         elif status == "forcepow":
             statusText = _translate(
                 "MainWindow", "Forced difficulty override. Send should start soon."
             )
         else:
-            statusText = _translate("MainWindow", "Unknown status: {} {}").format(
-                status, l10n.formatTimestamp(lastactiontime)
+            statusText = _translate(
+                "MainWindow",
+                f"Unknown status: {status} {l10n.formatTimestamp(lastactiontime)}",
             )
 
         items = [
@@ -1815,10 +1819,10 @@ class MyForm(settingsmixin.SMainWindow):
                     "keys.dat?",
                     _translate(
                         "MainWindow",
-                        "You may manage your keys by editing the keys.dat file stored in"
-                        "\n {} \n"
-                        "It is important that you back up this file.",
-                    ).format(state.appdata),
+                        f"You may manage your keys by editing the keys.dat file stored in"
+                        f"\n {state.appdata} \n"
+                        f"It is important that you back up this file.",
+                    ),
                     QtWidgets.QMessageBox.StandardButton.Ok,
                 )
         elif sys.platform == "win32" or sys.platform == "win64":
@@ -1842,10 +1846,10 @@ class MyForm(settingsmixin.SMainWindow):
                     _translate("MainWindow", "Open keys.dat?"),
                     _translate(
                         "MainWindow",
-                        "You may manage your keys by editing the keys.dat file stored in\n {} \n"
-                        "It is important that you back up this file. Would you like to open the file now?"
-                        "(Be sure to close Bitmessage before making any changes.)",
-                    ).format(state.appdata),
+                        f"You may manage your keys by editing the keys.dat file stored in\n {state.appdata} \n"
+                        f"It is important that you back up this file. Would you like to open the file now?"
+                        f"(Be sure to close Bitmessage before making any changes.)",
+                    ),
                     QtWidgets.QMessageBox.StandardButton.Yes,
                     QtWidgets.QMessageBox.StandardButton.No,
                 )
@@ -2209,9 +2213,9 @@ class MyForm(settingsmixin.SMainWindow):
         self.updateStatusBar(
             _translate(
                 "MainWindow",
-                "New version of PyBitmessage is available: {}. Download it"
-                " from https://github.com/Bitmessage/PyBitmessage/releases/latest",
-            ).format(self.notifiedNewVersion)
+                f"New version of PyBitmessage is available: {self.notifiedNewVersion}. Download it"
+                f" from https://github.com/Bitmessage/PyBitmessage/releases/latest",
+            )
         )
 
     def displayAlert(self, title, text, exitAfterUserClicksOk):
@@ -2372,10 +2376,10 @@ class MyForm(settingsmixin.SMainWindow):
                 _translate("MainWindow", "Message too long"),
                 _translate(
                     "MainWindow",
-                    "The message that you are trying to send is too long"
-                    " by {} bytes. (The maximum is 261644 bytes). Please"
-                    " cut it down before sending.",
-                ).format(len(message) - (2**18 - 500)),
+                    f"The message that you are trying to send is too long"
+                    f" by {len(message) - (2**18 - 500)} bytes. (The maximum is 261644 bytes). Please"
+                    f" cut it down before sending.",
+                ),
             )
             return
 
@@ -2436,16 +2440,16 @@ class MyForm(settingsmixin.SMainWindow):
                             self.updateStatusBar(
                                 _translate(
                                     "MainWindow",
-                                    "Error: Your account wasn't registered at"
-                                    " an email gateway. Sending registration"
-                                    " now as {}, please wait for the registration"
-                                    " to be processed before retrying sending.",
-                                ).format(email)
+                                    f"Error: Your account wasn't registered at"
+                                    f" an email gateway. Sending registration"
+                                    f" now as {email}, please wait for the registration"
+                                    f" to be processed before retrying sending.",
+                                )
                             )
                             return
-                    status, addressVersionNumber, streamNumber = decodeAddress(
-                        toAddress
-                    )[:3]
+                        status, addressVersionNumber, streamNumber = decodeAddress(
+                            toAddress
+                        )[:3]
                     if status != "success":
                         try:
                             toAddress = str(toAddress)
@@ -2462,73 +2466,73 @@ class MyForm(settingsmixin.SMainWindow):
                             self.updateStatusBar(
                                 _translate(
                                     "MainWindow",
-                                    "Error: Bitmessage addresses start with"
-                                    " BM-   Please check the recipient address {}",
-                                ).format(toAddress)
+                                    f"Error: Bitmessage addresses start with"
+                                    f" BM-   Please check the recipient address {toAddress}",
+                                )
                             )
                         elif status == "checksumfailed":
                             self.updateStatusBar(
                                 _translate(
                                     "MainWindow",
-                                    "Error: The recipient address {} is not"
-                                    " typed or copied correctly. Please check it.",
-                                ).format(toAddress)
+                                    f"Error: The recipient address {toAddress} is not"
+                                    f" typed or copied correctly. Please check it.",
+                                )
                             )
                         elif status == "invalidcharacters":
                             self.updateStatusBar(
                                 _translate(
                                     "MainWindow",
-                                    "Error: The recipient address {} contains"
-                                    " invalid characters. Please check it.",
-                                ).format(toAddress)
+                                    f"Error: The recipient address {toAddress} contains"
+                                    f" invalid characters. Please check it.",
+                                )
                             )
                         elif status == "versiontoohigh":
                             self.updateStatusBar(
                                 _translate(
                                     "MainWindow",
-                                    "Error: The version of the recipient address"
-                                    " {} is too high. Either you need to upgrade"
-                                    " your Bitmessage software or your"
-                                    " acquaintance is being clever.",
-                                ).format(toAddress)
+                                    f"Error: The version of the recipient address"
+                                    f" {toAddress} is too high. Either you need to upgrade"
+                                    f" your Bitmessage software or your"
+                                    f" acquaintance is being clever.",
+                                )
                             )
                         elif status == "ripetooshort":
                             self.updateStatusBar(
                                 _translate(
                                     "MainWindow",
-                                    "Error: Some data encoded in the recipient"
-                                    " address {} is too short. There might be"
-                                    " something wrong with the software of"
-                                    " your acquaintance.",
-                                ).format(toAddress)
+                                    f"Error: Some data encoded in the recipient"
+                                    f" address {toAddress} is too short. There might be"
+                                    f" something wrong with the software of"
+                                    f" your acquaintance.",
+                                )
                             )
                         elif status == "ripetoolong":
                             self.updateStatusBar(
                                 _translate(
                                     "MainWindow",
-                                    "Error: Some data encoded in the recipient"
-                                    " address {} is too long. There might be"
-                                    " something wrong with the software of"
-                                    " your acquaintance.",
-                                ).format(toAddress)
+                                    f"Error: Some data encoded in the recipient"
+                                    f" address {toAddress} is too long. There might be"
+                                    f" something wrong with the software of"
+                                    f" your acquaintance.",
+                                )
                             )
                         elif status == "varintmalformed":
                             self.updateStatusBar(
                                 _translate(
                                     "MainWindow",
-                                    "Error: Some data encoded in the recipient"
-                                    " address {} is malformed. There might be"
-                                    " something wrong with the software of"
-                                    " your acquaintance.",
-                                ).format(toAddress)
+                                    f"Error: Some data encoded in the recipient"
+                                    f" address {toAddress} is malformed. There might be"
+                                    f" something wrong with the software of"
+                                    f" your acquaintance.",
+                                )
                             )
                         else:
                             self.updateStatusBar(
                                 _translate(
                                     "MainWindow",
-                                    "Error: Something is wrong with the"
-                                    " recipient address {}.",
-                                ).format(toAddress)
+                                    f"Error: Something is wrong with the"
+                                    f" recipient address {toAddress}.",
+                                )
                             )
                     elif fromAddress == "":
                         self.updateStatusBar(
@@ -2548,9 +2552,9 @@ class MyForm(settingsmixin.SMainWindow):
                                 _translate("MainWindow", "Address version number"),
                                 _translate(
                                     "MainWindow",
-                                    "Concerning the address {}, Bitmessage cannot understand address version numbers"
-                                    " of {}. Perhaps upgrade Bitmessage to the latest version.",
-                                ).format(toAddress, str(addressVersionNumber)),
+                                    f"Concerning the address {toAddress}, Bitmessage cannot understand address version numbers"
+                                    f" of {addressVersionNumber}. Perhaps upgrade Bitmessage to the latest version.",
+                                ),
                             )
                             continue
                         if streamNumber > 1 or streamNumber == 0:
@@ -2559,9 +2563,9 @@ class MyForm(settingsmixin.SMainWindow):
                                 _translate("MainWindow", "Stream number"),
                                 _translate(
                                     "MainWindow",
-                                    "Concerning the address {}, Bitmessage cannot handle stream numbers of {}."
-                                    " Perhaps upgrade Bitmessage to the latest version.",
-                                ).format(toAddress, str(streamNumber)),
+                                    f"Concerning the address {toAddress}, Bitmessage cannot handle stream numbers of {streamNumber}."
+                                    f" Perhaps upgrade Bitmessage to the latest version.",
+                                ),
                             )
                             continue
                         self.statusbar.clearMessage()
@@ -2674,7 +2678,7 @@ class MyForm(settingsmixin.SMainWindow):
         identities = str(self.ui.lineEditTo.text()).split(";")
         err, addr = self.namecoin.query(identities[-1].strip())
         if err is not None:
-            self.updateStatusBar(_translate("MainWindow", "Error: {}").format(err))
+            self.updateStatusBar(_translate("MainWindow", f"Error: {err}"))
         else:
             identities[-1] = addr
             self.ui.lineEditTo.setText("; ".join(identities))
@@ -2858,7 +2862,7 @@ class MyForm(settingsmixin.SMainWindow):
         if config.safeGetBoolean("bitmessagesettings", "showtraynotifications"):
             self.notifierShow(
                 _translate("MainWindow", "New Message"),
-                _translate("MainWindow", "From {}").format(str(acct.fromLabel)),
+                _translate("MainWindow", f"From {acct.fromLabel}"),
                 sound.SOUND_UNKNOWN,
             )
         if self.getCurrentAccount() is not None and (
@@ -3190,7 +3194,7 @@ class MyForm(settingsmixin.SMainWindow):
         self.quitAccepted = True
 
         self.updateStatusBar(
-            _translate("MainWindow", "Shutting down PyBitmessage... {}%").format(0)
+            _translate("MainWindow", "Shutting down PyBitmessage... 0%")
         )
 
         if waitForConnection:
@@ -3230,9 +3234,8 @@ class MyForm(settingsmixin.SMainWindow):
                 if curWorkerQueue > 0:
                     self.updateStatusBar(
                         _translate(
-                            "MainWindow", "Waiting for PoW to finish... {}%"
-                        ).format(
-                            50 * (maxWorkerQueue - curWorkerQueue) / maxWorkerQueue
+                            "MainWindow",
+                            f"Waiting for PoW to finish... {int(50 * (maxWorkerQueue - curWorkerQueue) / maxWorkerQueue)}%",
                         )
                     )
                     time.sleep(0.5)
@@ -3241,7 +3244,7 @@ class MyForm(settingsmixin.SMainWindow):
                     )
 
             self.updateStatusBar(
-                _translate("MainWindow", "Shutting down Pybitmessage... {}%").format(50)
+                _translate("MainWindow", "Shutting down Pybitmessage... 50%")
             )
 
             QtCore.QCoreApplication.processEvents(
@@ -3256,9 +3259,7 @@ class MyForm(settingsmixin.SMainWindow):
 
             # check if upload (of objects created locally) pending
             self.updateStatusBar(
-                _translate(
-                    "MainWindow", "Waiting for objects to be sent... {}%"
-                ).format(50)
+                _translate("MainWindow", "Waiting for objects to be sent... 50%")
             )
             maxPendingUpload = max(1, pendingUpload())
 
@@ -3266,8 +3267,9 @@ class MyForm(settingsmixin.SMainWindow):
             while pendingUpload() > 1 and time.time() - wait_start < 60:
                 self.updateStatusBar(
                     _translate(
-                        "MainWindow", "Waiting for objects to be sent... {}%"
-                    ).format(int(50 + 20 * (pendingUpload() / maxPendingUpload)))
+                        "MainWindow",
+                        f"Waiting for objects to be sent... {int(50 + 20 * (pendingUpload() / maxPendingUpload))}%",
+                    )
                 )
                 time.sleep(0.5)
                 QtCore.QCoreApplication.processEvents(
@@ -3282,9 +3284,7 @@ class MyForm(settingsmixin.SMainWindow):
         )
 
         # save state and geometry self and all widgets
-        self.updateStatusBar(
-            _translate("MainWindow", "Saving settings... {}%").format(70)
-        )
+        self.updateStatusBar(_translate("MainWindow", "Saving settings... 70%"))
         QtCore.QCoreApplication.processEvents(
             QtCore.QEventLoop.ProcessEventsFlag.AllEvents, 1000
         )
@@ -3297,22 +3297,16 @@ class MyForm(settingsmixin.SMainWindow):
                 if callable(saveMethod):
                     obj.saveSettings()
 
-        self.updateStatusBar(
-            _translate("MainWindow", "Shutting down core... {}%").format(80)
-        )
+        self.updateStatusBar(_translate("MainWindow", "Shutting down core... 80%"))
         QtCore.QCoreApplication.processEvents(
             QtCore.QEventLoop.ProcessEventsFlag.AllEvents, 1000
         )
         shutdown.doCleanShutdown()
 
-        self.updateStatusBar(
-            _translate("MainWindow", "Stopping notifications... {}%").format(90)
-        )
+        self.updateStatusBar(_translate("MainWindow", "Stopping notifications... 90%"))
         self.tray.hide()
 
-        self.updateStatusBar(
-            _translate("MainWindow", "Shutdown imminent... {}%").format(100)
-        )
+        self.updateStatusBar(_translate("MainWindow", "Shutdown imminent... 100%"))
 
         logger.info("Shutdown complete")
         self.close()
@@ -3513,8 +3507,8 @@ class MyForm(settingsmixin.SMainWindow):
                 _translate("MainWindow", "Address is gone"),
                 _translate(
                     "MainWindow",
-                    "Bitmessage cannot find your address {}. Perhaps you removed it?",
-                ).format(toAddressAtCurrentInboxRow),
+                    f"Bitmessage cannot find your address {toAddressAtCurrentInboxRow}. Perhaps you removed it?",
+                ),
                 QtWidgets.QMessageBox.StandardButton.Ok,
             )
         elif not config.getboolean(toAddressAtCurrentInboxRow, "enabled"):
@@ -3621,7 +3615,7 @@ class MyForm(settingsmixin.SMainWindow):
         else:
             list_type = "whitelist"
         queryreturn = sqlQuery(
-            "select * from {} where address=?".format(list_type),
+            f"select * from {list_type} where address=?",
             addressAtCurrentInboxRow,
         )
         if queryreturn == []:
@@ -3632,7 +3626,7 @@ class MyForm(settingsmixin.SMainWindow):
                 + config.safeGet(recipientAddress, "label", recipientAddress)
             )
             sqlExecute(
-                "INSERT INTO {} VALUES (?,?, ?)".format(list_type),
+                f"INSERT INTO {list_type} VALUES (?,?, ?)",
                 label,
                 addressAtCurrentInboxRow,
                 True,

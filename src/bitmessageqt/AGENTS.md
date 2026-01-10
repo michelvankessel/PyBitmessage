@@ -69,7 +69,7 @@ except ValidationError as e:
 
 ## Anti-Patterns (This Module)
 
-- **37 .format() calls** (mainwindow.py) - convert to f-strings (Phase 3)
+- **0 .format() calls** (mainwindow.py) - convert to f-strings (Phase 3 complete ✅)
 - **Type hints**: Partial coverage in main modules (Phase 4)
 - **FIXME: newlocale, impossible condition** (mainwindow.py)
 - **FIXME: rewrite loops, reuse utils** (mainwindow.py)

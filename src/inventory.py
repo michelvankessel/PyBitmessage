@@ -11,9 +11,7 @@ def create_inventory_instance(backend="sqlite"):
     Create an instance of the inventory class
     defined in `storage.<backend>`.
     """
-    return getattr(
-        getattr(storage, backend),
-        "{}Inventory".format(backend.title()))()
+    return getattr(getattr(storage, backend), f"{backend.title()}Inventory")()
 
 
 class Inventory:
@@ -21,6 +19,7 @@ class Inventory:
     Inventory class which uses storage backends
     to manage the inventory.
     """
+
     def __init__(self):
         self._moduleName = config.safeGet("inventory", "storage")
         self._realInventory = create_inventory_instance(self._moduleName)
@@ -32,8 +31,7 @@ class Inventory:
             realRet = getattr(self._realInventory, attr)
         except AttributeError:
             raise AttributeError(
-                "%s instance has no attribute '%s'" %
-                (self.__class__.__name__, attr)
+                "%s instance has no attribute '%s'" % (self.__class__.__name__, attr)
             )
         else:
             return realRet

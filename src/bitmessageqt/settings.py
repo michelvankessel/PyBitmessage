@@ -1,4 +1,5 @@
 """This module setting file is for settings"""
+
 from pathlib import Path
 
 import configparser
@@ -142,7 +143,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
         # Get window style from app if available
         current_style = ""
-        if self.app is not None and hasattr(self.app, 'get_windowstyle'):
+        if self.app is not None and hasattr(self.app, "get_windowstyle"):
             current_style = self.app.get_windowstyle()
         for i, sk in enumerate(QtWidgets.QStyleFactory.keys()):
             self.comboBoxStyle.addItem(sk)
@@ -150,10 +151,14 @@ class SettingsDialog(QtWidgets.QDialog):
                 self.comboBoxStyle.setCurrentIndex(i)
 
         # Get font from app if available
-        if self.app is not None and hasattr(self.app, 'font'):
+        if self.app is not None and hasattr(self.app, "font"):
             self.save_font_setting(self.app.font())
 
-        if self._parent is not None and hasattr(self._parent, 'tray') and not self._parent.tray.isSystemTrayAvailable():
+        if (
+            self._parent is not None
+            and hasattr(self._parent, "tray")
+            and not self._parent.tray.isSystemTrayAvailable()
+        ):
             self.groupBoxTray.setEnabled(False)
             self.groupBoxTray.setTitle(
                 _translate("MainWindow", "Tray (not available in your system)")
@@ -216,7 +221,9 @@ class SettingsDialog(QtWidgets.QDialog):
                 )
             )
 
-        if not sys.platform.startswith("win") and (self._parent is None or not getattr(self._parent, 'desktop', False)):
+        if not sys.platform.startswith("win") and (
+            self._parent is None or not getattr(self._parent, "desktop", False)
+        ):
             self.checkBoxStartOnLogon.setDisabled(True)
             self.checkBoxStartOnLogon.setText(
                 _translate("MainWindow", "Start-on-login not yet supported on your OS.")
@@ -455,8 +462,8 @@ class SettingsDialog(QtWidgets.QDialog):
     def save_font_setting(self, font):
         """Save user font setting and set the buttonFont text"""
         font_setting = (font.family(), font.pointSize())
-        self.buttonFont.setText("{} {}".format(*font_setting))
-        self.font_setting = "{},{}".format(*font_setting)
+        self.buttonFont.setText(f"{font_setting[0]} {font_setting[1]}")
+        self.font_setting = f"{font_setting[0]},{font_setting[1]}"
 
     def choose_font(self):
         """Show the font selection dialog"""
@@ -516,7 +523,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
         window_style = str(self.comboBoxStyle.currentText())
         current_app_style = ""
-        if self.app is not None and hasattr(self.app, 'get_windowstyle'):
+        if self.app is not None and hasattr(self.app, "get_windowstyle"):
             current_app_style = self.app.get_windowstyle() or ""
         if (
             current_app_style != window_style
@@ -540,7 +547,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
         lang = str(self.languageComboBox.itemData(self.languageComboBox.currentIndex()))
         self.config.set("bitmessagesettings", "userlocale", lang)
-        if self._parent is not None and hasattr(self._parent, 'change_translation'):
+        if self._parent is not None and hasattr(self._parent, "change_translation"):
             self._parent.change_translation()
 
         if int(self.config.get("bitmessagesettings", "port")) != int(
@@ -572,8 +579,8 @@ class SettingsDialog(QtWidgets.QDialog):
                 announceThread.daemon = True
                 announceThread.start()
             else:
-                ann_thread = getattr(state, 'announceThread', None)
-                if ann_thread is not None and hasattr(ann_thread, 'stopThread'):
+                ann_thread = getattr(state, "announceThread", None)
+                if ann_thread is not None and hasattr(ann_thread, "stopThread"):
                     try:
                         ann_thread.stopThread()
                     except AttributeError:
@@ -589,7 +596,7 @@ class SettingsDialog(QtWidgets.QDialog):
             self.net_restart_needed = False
         elif self.comboBoxProxyType.currentText() != self._proxy_type:
             self.net_restart_needed = True
-            if self._parent is not None and hasattr(self._parent, 'statusbar'):
+            if self._parent is not None and hasattr(self._parent, "statusbar"):
                 self._parent.statusbar.clearMessage()
 
         self.config.set(
@@ -694,7 +701,9 @@ class SettingsDialog(QtWidgets.QDialog):
             "namecoinrpcpassword",
             str(self.lineEditNamecoinPassword.text()),
         )
-        if self._parent is not None and hasattr(self._parent, 'resetNamecoinConnection'):
+        if self._parent is not None and hasattr(
+            self._parent, "resetNamecoinConnection"
+        ):
             self._parent.resetNamecoinConnection()
 
         # Demanded difficulty tab
@@ -854,7 +863,7 @@ class SettingsDialog(QtWidgets.QDialog):
                 ),
             )
 
-        if self._parent is not None and hasattr(self._parent, 'updateStartOnLogon'):
+        if self._parent is not None and hasattr(self._parent, "updateStartOnLogon"):
             self._parent.updateStartOnLogon()
 
         if (

@@ -2,7 +2,6 @@
 Namecoin queries
 """
 
-
 import base64
 import json
 import os
@@ -30,7 +29,7 @@ class RPCError(Exception):
         self.error = data
 
     def __str__(self):
-        return "{0}: {1}".format(type(self).__name__, self.error)
+        return f"{type(self).__name__}: {self.error}"
 
 
 class namecoinConnection(object):
@@ -53,16 +52,11 @@ class namecoinConnection(object):
         actually changing the values (yet).
         """
         if options is None:
-            self.nmctype = config.get(
-                configSection, "namecoinrpctype")
-            self.host = config.get(
-                configSection, "namecoinrpchost")
-            self.port = int(config.get(
-                configSection, "namecoinrpcport"))
-            self.user = config.get(
-                configSection, "namecoinrpcuser")
-            self.password = config.get(
-                configSection, "namecoinrpcpassword")
+            self.nmctype = config.get(configSection, "namecoinrpctype")
+            self.host = config.get(configSection, "namecoinrpchost")
+            self.port = int(config.get(configSection, "namecoinrpcport"))
+            self.user = config.get(configSection, "namecoinrpcuser")
+            self.password = config.get(configSection, "namecoinrpcpassword")
         else:
             self.nmctype = options["type"]
             self.host = options["host"]
@@ -96,9 +90,12 @@ class namecoinConnection(object):
                 res = self.callRPC("data", ["getValue", identity])
                 res = res["reply"]
                 if not res:
-                    return (_translate(
-                        "MainWindow", "The name %1 was not found."
-                    ).arg(identity.decode("utf-8", "ignore")), None)
+                    return (
+                        _translate("MainWindow", "The name %1 was not found.").arg(
+                            identity.decode("utf-8", "ignore")
+                        ),
+                        None,
+                    )
             else:
                 assert False
         except RPCError as exc:
@@ -107,17 +104,22 @@ class namecoinConnection(object):
                 errmsg = exc.error["message"]
             else:
                 errmsg = exc.error
-            return (_translate(
-                "MainWindow", "The namecoin query failed (%1)"
-            ).arg(errmsg.decode("utf-8", "ignore")), None)
+            return (
+                _translate("MainWindow", "The namecoin query failed (%1)").arg(
+                    errmsg.decode("utf-8", "ignore")
+                ),
+                None,
+            )
         except AssertionError:
-            return (_translate(
-                "MainWindow", "Unknown namecoin interface type: %1"
-            ).arg(self.nmctype.decode("utf-8", "ignore")), None)
+            return (
+                _translate("MainWindow", "Unknown namecoin interface type: %1").arg(
+                    self.nmctype.decode("utf-8", "ignore")
+                ),
+                None,
+            )
         except Exception:
             logger.exception("Namecoin query exception")
-            return (_translate(
-                "MainWindow", "The namecoin query failed."), None)
+            return (_translate("MainWindow", "The namecoin query failed."), None)
 
         try:
             res = json.loads(res)
@@ -132,12 +134,15 @@ class namecoinConnection(object):
 
         valid = decodeAddress(res)[0] == "success"
         return (
-            None, "%s <%s>" % (display_name, res)
-        ) if valid else (
-            _translate(
-                "MainWindow",
-                "The name %1 has no associated Bitmessage address."
-            ).arg(identity.decode("utf-8", "ignore")), None)
+            (None, "%s <%s>" % (display_name, res))
+            if valid
+            else (
+                _translate(
+                    "MainWindow", "The name %1 has no associated Bitmessage address."
+                ).arg(identity.decode("utf-8", "ignore")),
+                None,
+            )
+        )
 
     def test(self):
         """
@@ -164,29 +169,25 @@ class namecoinConnection(object):
                 message = (
                     "success",
                     _translate(
-                        "MainWindow",
-                        "Success!  Namecoind version %1 running.").arg(
-                            versStr.decode("utf-8", "ignore")))
+                        "MainWindow", "Success!  Namecoind version %1 running."
+                    ).arg(versStr.decode("utf-8", "ignore")),
+                )
 
             elif self.nmctype == "nmcontrol":
                 res = self.callRPC("data", ["status"])
                 prefix = "Plugin data running"
-                if ("reply" in res) and res["reply"][:len(prefix)] == prefix:
+                if ("reply" in res) and res["reply"][: len(prefix)] == prefix:
                     return (
                         "success",
                         _translate(
-                            "MainWindow",
-                            "Success!  NMControll is up and running."
-                        )
+                            "MainWindow", "Success!  NMControll is up and running."
+                        ),
                     )
 
                 logger.error("Unexpected nmcontrol reply: %s", res)
                 message = (
                     "failed",
-                    _translate(
-                        "MainWindow",
-                        "Couldn\'t understand NMControl."
-                    )
+                    _translate("MainWindow", "Couldn't understand NMControl."),
                 )
 
             else:
@@ -198,8 +199,7 @@ class namecoinConnection(object):
             logger.info("Namecoin connection test failure")
             return (
                 "failed",
-                _translate(
-                    "MainWindow", "The connection to namecoin failed.")
+                _translate("MainWindow", "The connection to namecoin failed."),
             )
 
     def callRPC(self, method, params):
@@ -242,8 +242,7 @@ class namecoinConnection(object):
             self.con.putheader("Content-Length", str(len(data)))
             self.con.putheader("Accept", "application/json")
             authstr = "%s:%s" % (self.user, self.password)
-            self.con.putheader(
-                "Authorization", "Basic %s" % base64.b64encode(authstr))
+            self.con.putheader("Authorization", "Basic %s" % base64.b64encode(authstr))
             self.con.endheaders()
             self.con.send(data)
         except Exception:
@@ -255,8 +254,8 @@ class namecoinConnection(object):
             result = resp.read()
             if resp.status != 200:
                 raise Exception(
-                    "Namecoin returned status"
-                    " %i: %s" % (resp.status, resp.reason))
+                    "Namecoin returned status %i: %s" % (resp.status, resp.reason)
+                )
         except Exception:
             logger.info("HTTP receive error")
             return None
@@ -298,10 +297,12 @@ def lookupNamecoinFolder():
 
     app = "namecoin"
     from os import environ, path
+
     if sys.platform == "darwin":
         if "HOME" in environ:
-            dataFolder = path.join(os.environ["HOME"],
-                                   "Library/Application Support/", app) + "/"
+            dataFolder = (
+                path.join(os.environ["HOME"], "Library/Application Support/", app) + "/"
+            )
         else:
             sys.exit(
                 "Could not find home folder, please report this message"
@@ -358,8 +359,8 @@ def ensureNamecoinOptions():
         nmc.close()
     except IOError:
         logger.warning(
-            "%s unreadable or missing, Namecoin support deactivated",
-            nmcConfig)
+            "%s unreadable or missing, Namecoin support deactivated", nmcConfig
+        )
     except Exception:
         logger.warning("Error processing namecoin.conf", exc_info=True)
 

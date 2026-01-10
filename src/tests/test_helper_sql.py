@@ -41,8 +41,7 @@ class TestHelperSql(unittest.TestCase):
         """Test sqlExecute with valid arguments"""
         mock_sqlreturnqueue_get.return_value = (None, 1)
         rowcount = helper_sql.sqlExecute(
-            "UPDATE sent SET status = 'msgqueued'"
-            "WHERE ackdata = ? AND folder = 'sent'",
+            "UPDATE sent SET status = 'msgqueued'WHERE ackdata = ? AND folder = 'sent'",
             "1710652313",
         )
         self.assertEqual(mock_sqlsubmitqueue_put.call_count, 3)
@@ -69,10 +68,12 @@ class TestHelperSql(unittest.TestCase):
         ID_COUNT = CHUNK_COUNT * CHUNK_SIZE
         CHUNKS_ROWCOUNT_LIST = [50, 29, 28, 18, 678, 900]
         TOTAL_ROW_COUNT = sum(CHUNKS_ROWCOUNT_LIST)
-        mock_sqlreturnqueue_get.side_effect = [(None, rowcount) for rowcount in CHUNKS_ROWCOUNT_LIST]
+        mock_sqlreturnqueue_get.side_effect = [
+            (None, rowcount) for rowcount in CHUNKS_ROWCOUNT_LIST
+        ]
         args = []
         for i in range(0, ID_COUNT):
-            args.append("arg{}".format(i))
+            args.append(f"arg{i}")
         total_row_count_return = helper_sql.sqlExecuteChunked(
             "INSERT INTO table VALUES {}", ID_COUNT, *args
         )
@@ -89,7 +90,7 @@ class TestHelperSql(unittest.TestCase):
         ID_COUNT = 0
         args = list()
         for i in range(0, ID_COUNT):
-            args.append("arg{}".format(i))
+            args.append(f"arg{i}")
         total_row_count = helper_sql.sqlExecuteChunked(
             "INSERT INTO table VALUES {}", ID_COUNT, *args
         )

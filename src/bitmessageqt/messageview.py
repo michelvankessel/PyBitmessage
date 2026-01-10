@@ -50,7 +50,8 @@ class MessageView(QtWidgets.QTextBrowser):
             ev.button() == QtCore.Qt.MouseButton.LeftButton
             and self.html
             and self.html.has_html
-            and self.cursorForPosition(ev.position().toPoint()).block().blockNumber() == 0
+            and self.cursorForPosition(ev.position().toPoint()).block().blockNumber()
+            == 0
         ):
             if self.mode == MessageView.MODE_PLAIN:
                 self.showHTML()
@@ -69,22 +70,18 @@ class MessageView(QtWidgets.QTextBrowser):
         angle_delta = e.angleDelta()
         is_vertical = angle_delta is not None and angle_delta.y() != 0
         if (
-            (
-                QtWidgets.QApplication.queryKeyboardModifiers()
-                & QtCore.Qt.KeyboardModifier.ControlModifier
-            )
-            == QtCore.Qt.KeyboardModifier.ControlModifier
-            and is_vertical
-        ):
+            QtWidgets.QApplication.queryKeyboardModifiers()
+            & QtCore.Qt.KeyboardModifier.ControlModifier
+        ) == QtCore.Qt.KeyboardModifier.ControlModifier and is_vertical:
             zoom = self.currentFont().pointSize() * 100 / self.defaultFontPointSize
             active_window = QtWidgets.QApplication.activeWindow()
             if active_window is not None:
-                status_bar_func = getattr(active_window, 'statusBar', None)
+                status_bar_func = getattr(active_window, "statusBar", None)
                 if status_bar_func is not None and callable(status_bar_func):
                     status_bar = status_bar_func()
                     if status_bar is not None:
                         status_bar.showMessage(
-                            _translate("MainWindow", "Zoom level {}%").format(int(zoom))
+                            _translate("MainWindow", f"Zoom level {int(zoom)}%")
                         )
 
     def setWrappingWidth(self, width=None):
@@ -99,25 +96,23 @@ class MessageView(QtWidgets.QTextBrowser):
         if link.scheme() == "mailto":
             window = QtWidgets.QApplication.activeWindow()
             if window is not None:
-                ui = getattr(window, 'ui', None)
+                ui = getattr(window, "ui", None)
                 if ui is not None:
-                    if hasattr(ui, 'lineEditTo'):
+                    if hasattr(ui, "lineEditTo"):
                         ui.lineEditTo.setText(link.path())
-                    if link.hasQueryItem("subject") and hasattr(ui, 'lineEditSubject'):
+                    if link.hasQueryItem("subject") and hasattr(ui, "lineEditSubject"):
                         ui.lineEditSubject.setText(link.queryItemValue("subject"))
-                    if link.hasQueryItem("body") and hasattr(ui, 'textEditMessage'):
+                    if link.hasQueryItem("body") and hasattr(ui, "textEditMessage"):
                         ui.textEditMessage.setText(link.queryItemValue("body"))
-                set_send_func = getattr(window, 'setSendFromComboBox', None)
+                set_send_func = getattr(window, "setSendFromComboBox", None)
                 if set_send_func is not None and callable(set_send_func):
                     set_send_func()
                 if ui is not None:
-                    if hasattr(ui, 'tabWidgetSend'):
+                    if hasattr(ui, "tabWidgetSend"):
                         ui.tabWidgetSend.setCurrentIndex(0)
-                    if hasattr(ui, 'tabWidget') and hasattr(ui, 'send'):
-                        ui.tabWidget.setCurrentIndex(
-                            ui.tabWidget.indexOf(ui.send)
-                        )
-                    if hasattr(ui, 'textEditMessage'):
+                    if hasattr(ui, "tabWidget") and hasattr(ui, "send"):
+                        ui.tabWidget.setCurrentIndex(ui.tabWidget.indexOf(ui.send))
+                    if hasattr(ui, "textEditMessage"):
                         ui.textEditMessage.setFocus()
             return
         reply = QtWidgets.QMessageBox.warning(
@@ -125,9 +120,9 @@ class MessageView(QtWidgets.QTextBrowser):
             QtWidgets.QApplication.translate("MessageView", "Follow external link"),
             QtWidgets.QApplication.translate(
                 "MessageView",
-                'The link "{}" will open in a browser. It may be a security risk, it could de-anonymise you'
-                " or download malicious data. Are you sure?",
-            ).format(str(link.toString())),
+                f'The link "{link.toString()}" will open in a browser. It may be a security risk, it could de-anonymise you'
+                f" or download malicious data. Are you sure?",
+            ),
             QtWidgets.QMessageBox.StandardButton.Yes,
             QtWidgets.QMessageBox.StandardButton.No,
         )
@@ -157,8 +152,7 @@ class MessageView(QtWidgets.QTextBrowser):
         cursor = QtGui.QTextCursor(doc)
         while (
             self.outpos < len(self.out)
-            and scrollbar.value()
-            >= doc.size().height() - 2 * self.size().height()
+            and scrollbar.value() >= doc.size().height() - 2 * self.size().height()
         ):
             startpos = self.outpos
             self.outpos += 10240
@@ -171,7 +165,7 @@ class MessageView(QtWidgets.QTextBrowser):
                 QtGui.QTextCursor.MoveOperation.End,
                 QtGui.QTextCursor.MoveMode.MoveAnchor,
             )
-            cursor.insertHtml(self.out[startpos: self.outpos])
+            cursor.insertHtml(self.out[startpos:self.outpos])
         scrollbar.setValue(position)
         self.rendering = False
 
