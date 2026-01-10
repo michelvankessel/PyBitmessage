@@ -65,11 +65,54 @@ PyBitmessage follows a **defensive coding** approach to ensure security, reliabi
 
 | Principle | Implementation | Benefit |
 |-----------|----------------|---------|
-| **Type Safety** | Zero `type: ignore` violations | Catches bugs at compile-time, prevents runtime type errors in critical paths |
+| **Type Safety** | Zero `type: ignore` violations, mypy/pyright strict | Catches bugs at compile-time, prevents runtime type errors in critical paths |
 | **Modern Path Handling** | `pathlib.Path` over `os.path` | Cross-platform path handling, better error messages, safer file operations |
 | **String Safety** | f-strings over `.format()` | Compile-time validation, prevents injection vulnerabilities |
-| **Explicit Error Handling** | No empty `except:` blocks | Prevents silent failures in encryption, network, and storage code |
-| **Input Validation** | Type hints + runtime checks | Validates untrusted P2P messages before processing |
+| **Explicit Error Handling** | No empty `except:` blocks, specific exception types | Prevents silent failures in encryption, network, and storage code |
+| **Input Validation** | Type hints + Pydantic models for untrusted data | Validates all P2P messages and API inputs at runtime |
+| **Thread Safety** | Thread-local storage, explicit locking for free-threading | Safe concurrent operation for Python 3.13+ GIL-free builds |
+
+### Python 3.13+ Specific Features
+
+| Feature | Recommendation | Status |
+|---------|----------------|--------|
+| **Free-threading (GIL optional)** | Use `threading.local()` for thread-safe state | Future-proofing |
+| **Enhanced SSL/TLS** | Python 3.13 has hardened security - ensure compatibility | Verified |
+| **Type Hints** | Full coverage required, use `TYPE_CHECKING` guard | In Progress |
+| **Zero-cost exceptions** | Use specific exceptions, avoid bare `except:` | Enforced |
+
+### Pydantic for Runtime Validation (Recommended)
+
+Pydantic is the industry standard for runtime type validation in Python. For a P2P encrypted messaging system, we should use Pydantic to validate:
+
+```python
+# Example: Network message validation
+from pydantic import BaseModel, ValidationError
+
+class NetworkMessage(BaseModel):
+    payload: bytes
+    signature: bytes
+    sender: str
+    stream: int
+    version: int
+
+    @classmethod
+    def validate_message(cls, data: dict) -> "NetworkMessage | None":
+        try:
+            return cls.model_validate(data)
+        except ValidationError as e:
+            logger.error("Invalid network message: %s", e)
+            return None
+```
+
+### Recommended Pydantic Usage Areas
+
+| Area | Priority | Benefit |
+|------|----------|---------|
+| **Network protocol messages** | High | Validate all incoming P2P messages |
+| **API parameters** | High | Prevent injection attacks via API |
+| **Configuration files** | Medium | Validate keys.dat and settings |
+| **User input** | Medium | Sanitize all user-provided data |
 
 ### Why Defensive Coding Matters for PyBitmessage
 
@@ -78,14 +121,15 @@ PyBitmessage follows a **defensive coding** approach to ensure security, reliabi
 3. **Network Protocol**: Malformed messages should fail safely, not crash the node
 4. **Long-Running Process**: Memory safety and type correctness prevent daemon crashes
 5. **Multi-Platform**: Path handling must work on Windows, macOS, Linux, and Android
+6. **Future-proofing**: Python 3.13 free-threading requires explicit thread safety
 
 ### Defensive Coding Checklist
 
 - [x] **Phase 1**: Eliminate `type: ignore` (0 violations)
 - [x] **Phase 2**: Migrate to `pathlib.Path` (0 `os.path` usages)
 - [ ] **Phase 3**: Convert `.format()` to f-strings (86 remaining)
-- [ ] **Phase 4**: Systematic type hints adoption
-- [ ] **Phase 5**: Address FIXME security issues
+- [ ] **Phase 4**: Systematic type hints + Pydantic adoption
+- [ ] **Phase 5**: Address FIXME security issues + thread-safety for GIL-free
 
 ## Anti-Patterns (This Project)
 

@@ -57,11 +57,45 @@ uv run python3.13 src/mockbm/kivy_main.py
 - **Mobile-first** touch interface patterns
 - **Pathlib** for all path operations (migrated)
 
+## Defensive Coding for Mobile
+
+### Mobile-Specific Considerations
+
+| Concern | Implementation | Notes |
+|---------|----------------|-------|
+| **Android storage** | Use `Path.home() / ".config"` on Android | Environment detection needed |
+| **Image paths** | Use `pathlib.Path` for avatar/image directories | Migrated in Phase 2 |
+| **QR code scanning** | Validate scanned addresses before use | TODO: add Pydantic validation |
+| **Offline storage** | SQLite + filesystem with proper escaping | Already implemented |
+| **Thread safety** | Use `threading.local()` for app state | Future-proof for GIL-free |
+
+### Pydantic for User Input (Recommended)
+
+Mobile users provide input through touch interfaces - validation is critical:
+
+```python
+# Example: Address input validation
+from pydantic import BaseModel, ValidationError, field_validator
+
+class AddressInput(BaseModel):
+    address: str
+    label: str | None = None
+
+    @field_validator('address')
+    @classmethod
+    def validate_address(cls, v: str) -> str:
+        if not v.startswith('BM-'):
+            raise ValueError('Address must start with BM-')
+        # Add more validation as per protocol
+        return v
+```
+
 ## Anti-Patterns (This Module)
 
 - **18 .format() calls** in tests - convert to f-strings (Phase 3)
 - **TODO: get_free_credits, sc18 screen** (payment.py)
 - **TODO: checkLabel_valid, checkAddress_valid** (popup.kv)
+- **Type hints**: Partial coverage - needs Phase 4 completion
 
 ## Where to Look
 
@@ -80,3 +114,4 @@ uv run python3.13 src/mockbm/kivy_main.py
 - Test files: 18 .format() calls need f-string conversion (Phase 3)
 - Payment screen: incomplete get_free_credits implementation
 - Address validation: TODO in popup.kv templates
+- Type hints: Partial coverage in screen modules (Phase 4)

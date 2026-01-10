@@ -12,19 +12,54 @@ PyBitmessage follows a **defensive coding** approach to ensure security, reliabi
 
 | Principle | Implementation | Status |
 |-----------|----------------|--------|
-| **Type Safety** | Zero `type: ignore` violations | ✅ Phase 1 Complete (0/7) |
+| **Type Safety** | Zero `type: ignore` violations, mypy/pyright strict | ✅ Phase 1 Complete (0/7) |
 | **Modern Path Handling** | `pathlib.Path` over `os.path` | ✅ Phase 2 Complete (0/150) |
 | **String Safety** | f-strings over `.format()` | 🔄 Phase 3 (86/96 done) |
 | **Explicit Error Handling** | No empty `except:` blocks | ✅ Enforced by linting |
-| **Input Validation** | Type hints + runtime checks | 🔄 Phase 4 (partial) |
+| **Input Validation** | Type hints + Pydantic models for runtime validation | 🔄 Phase 4 (partial) |
+| **Thread Safety** | Thread-local storage for free-threading compatibility | 🔄 Phase 4 (future-proofing) |
 
-### Why Defensive Coding Matters for PyBitmessage
+### Python 3.13+ Specific Features
 
-1. **P2P Security**: Nodes receive untrusted data from unknown peers - type safety prevents exploitation
-2. **Cryptographic Operations**: Filesystem bugs can leak private keys or corrupt wallets
-3. **Network Protocol**: Malformed messages should fail safely, not crash the node
-4. **Long-Running Process**: Memory safety and type correctness prevent daemon crashes
-5. **Multi-Platform**: Path handling must work on Windows, macOS, Linux, and Android
+| Feature | Recommendation | Status |
+|---------|----------------|--------|
+| **Free-threading (GIL optional)** | Use `threading.local()` for thread-safe state | Future-proofing |
+| **Enhanced SSL/TLS** | Python 3.13 has hardened security requirements | Verified compatible |
+| **Type Hints** | Full coverage required, use `TYPE_CHECKING` guard | In Progress |
+| **Zero-cost exceptions** | Use specific exceptions, avoid bare `except:` | Enforced |
+
+### Pydantic for Runtime Validation (Phase 4 Priority)
+
+Pydantic is the industry standard for runtime type validation. For PyBitmessage's P2P network, we should validate:
+
+```python
+# Example: Network message validation for P2P protocol
+from pydantic import BaseModel, ValidationError
+
+class NetworkMessage(BaseModel):
+    payload: bytes
+    signature: bytes
+    sender: str
+    stream: int
+    version: int
+
+    @classmethod
+    def validate_message(cls, data: dict) -> "NetworkMessage | None":
+        try:
+            return cls.model_validate(data)
+        except ValidationError as e:
+            logger.error("Invalid network message: %s", e)
+            return None
+```
+
+### Recommended Pydantic Usage Areas
+
+| Area | Priority | Effort | Benefit |
+|------|----------|--------|---------|
+| **Network protocol messages** | High | 16h | Validate all incoming P2P messages |
+| **API parameters** | High | 8h | Prevent injection attacks via API |
+| **Configuration files** | Medium | 4h | Validate keys.dat and settings |
+| **User input** | Medium | 4h | Sanitize all user-provided data |
 
 ### Migration Progress
 
@@ -45,7 +80,7 @@ Phase 5 (FIXMEs):         ░░░░░░░░░░░░░░░░░░
 | Type Safety (type: ignore) | 7 violations | 0 | ✅ Complete |
 | Pathlib Migration (os.path) | 150 occurrences | 0 | ✅ Complete |
 | F-string Conversion (.format()) | 96 occurrences | 86 | 🟡 P1 |
-| Type Hints (partial coverage) | ~100 files | ~90 | 🟢 P2 |
+| Type Hints + Pydantic | ~100 files | ~90 | 🟢 P2 |
 
 ---
 
@@ -98,12 +133,71 @@ Phase 5 (FIXMEs):         ░░░░░░░░░░░░░░░░░░
 
 ---
 
-## Phase 4: Type Hints Systematic Adoption (Weeks 5-8) - PENDING
+## Phase 4: Type Hints + Pydantic + Thread Safety (Weeks 5-10) - PENDING
 
-### Goal: Full type coverage across all modules
+### Goal: Full type coverage, runtime validation with Pydantic, and free-threading readiness
+
+#### 4.1 Systematic Type Hints Adoption
+
+| Priority | Modules | Current Coverage | Target | Effort |
+|----------|---------|------------------|--------|--------|
+| P0 | `network/*.py` | 40% | 100% | 20h |
+| P0 | `storage/*.py` | 60% | 100% | 10h |
+| P1 | `addresses.py` | 50% | 100% | 6h |
+| P1 | `helper_*.py` | 30% | 100% | 16h |
+| P1 | `messagetypes/*.py` | 20% | 100% | 8h |
+| P2 | `bitmessageqt/*.py` | 20% | 80% | 32h |
+| P2 | `bitmessagekivy/*.py` | 15% | 80% | 24h |
+
+#### 4.2 Pydantic Runtime Validation (Critical for P2P Security)
+
+| Area | Models Needed | Effort | Priority |
+|------|---------------|--------|----------|
+| Network protocol messages | `message.py`, `broadcast.py`, `pubkey.py` | 16h | High |
+| API parameters | All API command handlers | 8h | High |
+| Configuration | keys.dat validation | 4h | Medium |
+| User input | Address input, message composition | 4h | Medium |
+
+#### 4.3 Thread Safety for Free-Threading (Python 3.13+)
+
+| Component | Change Required | Effort |
+|-----------|-----------------|--------|
+| Global state | Convert to `threading.local()` | 8h |
+| Shared resources | Add explicit locks | 12h |
+| Queue implementations | Verify thread-safety | 4h |
 
 **Status:** Not yet started
-**Effort:** ~84 hours estimated
+**Total Effort:** ~148 hours (5 weeks)
+
+#### 4.4 Pydantic Migration Example
+
+```python
+# Before: Manual validation
+def process_message(data: dict) -> None:
+    if not isinstance(data.get('payload'), bytes):
+        raise ValueError("payload must be bytes")
+    if not isinstance(data.get('signature'), bytes):
+        raise ValueError("signature must be bytes")
+    # ... more manual checks
+
+# After: Pydantic validation
+from pydantic import BaseModel, ValidationError
+
+class NetworkMessage(BaseModel):
+    payload: bytes
+    signature: bytes
+    sender: str
+    stream: int
+    version: int
+
+def process_message(data: dict) -> None:
+    try:
+        msg = NetworkMessage.model_validate(data)
+    except ValidationError as e:
+        logger.error("Invalid message: %s", e)
+        return
+    # Process validated message
+```
 
 ---
 

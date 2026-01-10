@@ -1,6 +1,6 @@
 # PyBitmessage Test Suite Agents
 
-**Branch:** `(based on working dir)` | **Generated:** 2026-01-10
+**Branch:** `(based on working dir)` | **Generated:** 2026-01-10 | **Updated:** 2026-01-10
 
 ## Overview
 
@@ -24,10 +24,17 @@ src/tests/
 ## Commands
 
 ```bash
-PYTHONPATH=src python3.13 tests.py                    # All tests
-python3.13 -m unittest pybitmessage.tests.test_addresses  # Specific module
-python3.13 tests_runner.py                            # Custom runner with random order
-python3.13 -m unittest discover -s pybitmessage/tests -v  # Standard discovery
+# Run all tests
+uv run pytest src/tests/
+
+# Run specific module
+uv run pytest src/tests/test_addresses.py
+
+# Run with unittest
+python3.13 -m unittest pybitmessage.tests.test_addresses
+
+# Custom runner with random order
+python3.13 tests_runner.py
 ```
 
 ## Conventions
@@ -38,11 +45,52 @@ python3.13 -m unittest discover -s pybitmessage/tests -v  # Standard discovery
 - **Pytest config**: setup.cfg ignores bitmessagekivy/tests, testpaths = [src/tests]
 - **Mock isolation**: `mockbm/` provides standalone components without full PyBitmessage setup
 
+## Defensive Coding in Tests
+
+### Pathlib Migration Status
+- ✅ **common.py**: 4/4 os.path usages migrated
+- ✅ **core.py**: 1/1 os.path usage migrated
+- ✅ **test_process.py**: 2/2 os.path usages migrated
+- ✅ **test_config_process.py**: 1/1 os.path usage migrated
+- ✅ **test_inventory.py**: 2/2 os.path usages migrated
+- ✅ **test_logger.py**: 2/2 os.path usages migrated
+- ✅ **partial.py**: 1/1 os.path usage migrated
+
+### Test Best Practices
+
+| Practice | Implementation | Notes |
+|----------|----------------|-------|
+| **Assert messages** | Always provide descriptive assert messages | Helps debugging CI failures |
+| **Exception testing** | Use `assertRaises` with context | Don't use try/except in tests |
+| **Temporary files** | Use `tempfile` module + cleanup | Pathlib for path operations |
+| **Isolation** | Each test independent | No shared state between tests |
+
+### Pydantic for Test Fixtures (Recommended)
+
+```python
+# Example: Validated test fixture with Pydantic
+from pydantic import BaseModel
+from datetime import datetime
+
+class TestAddress(BaseModel):
+    address: str
+    label: str
+    stream: int
+
+    @field_validator('address')
+    @classmethod
+    def valid_bm_address(cls, v: str) -> str:
+        assert v.startswith('BM-'), f"Invalid test address: {v}"
+        return v
+
+# In test:
+fixture = TestAddress(address="BM-xxxx", label="Test", stream=1)
+```
+
 ## Anti-Patterns (This Module)
 
 - **TODO**: uncovered API commands in test_api.py (lines 45-47)
-- **type: ignore** on mockbm/kivy_main.py import (line 15)
-- **Hardcoded paths**: Some tests assume specific directory structure
+- **Hardcoded paths**: Some tests assume specific directory structure (migrated to pathlib)
 - **Integration leaks**: core.py tests require full PyBitmessage initialization
 
 ## Where to Look
