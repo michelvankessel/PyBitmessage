@@ -194,6 +194,11 @@ def checkSensitiveFilePermissions(filename):
         present_permissions = os.stat(filename)[0]
         disallowed_permissions = stat.S_IRWXG | stat.S_IRWXO
         return present_permissions & disallowed_permissions == 0
+    elif sys.platform == "darwin":
+        # macOS supports POSIX permissions, so we can skip the specific
+        # 'fuseblk' check used for Linux, which fails on macOS `stat`.
+        pass
+
     try:
         # Skip known problems for non-Win32 filesystems
         # without POSIX permissions.
