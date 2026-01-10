@@ -186,7 +186,8 @@ def try_import(module, log_extra=False):
 def check_cryptography():
     """Check availability of the cryptography library"""
     try:
-        from cryptography.hazmat.backends import default_backend  # type: ignore
+        from cryptography.hazmat.backends import default_backend
+
         return default_backend() is not None
     except ImportError:
         return False
@@ -258,14 +259,19 @@ def check_openssl():
     internal OpenSSL management.
     """
     try:
-        from cryptography.hazmat.backends.openssl.backend import backend  # type: ignore
-        logger.info("OpenSSL Version (via cryptography): %s", backend.openssl_version_text())
+        from cryptography.hazmat.backends.openssl.backend import backend
+
+        logger.info(
+            "OpenSSL Version (via cryptography): %s", backend.openssl_version_text()
+        )
         return True
     except ImportError:
         # If cryptography is missing, check_cryptography will catch it
         return True
     except Exception:
-        logger.exception("An exception occurred while checking OpenSSL via cryptography.")
+        logger.exception(
+            "An exception occurred while checking OpenSSL via cryptography."
+        )
         return False
 
 

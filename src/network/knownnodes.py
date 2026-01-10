@@ -16,7 +16,7 @@ import state
 from bmconfigparser import config
 from .node import Peer
 
-state.Peer = Peer  # type: ignore
+state.Peer = Peer
 
 knownNodesLock = threading.RLock()
 """Thread lock for knownnodes modification"""
@@ -90,7 +90,9 @@ def saveKnownNodes(dirName=None):
     if dirName is None:
         dirName = state.appdata
     with knownNodesLock:
-        with open(os.path.join(dirName, "knownnodes.dat"), "w", encoding='utf-8') as output:
+        with open(
+            os.path.join(dirName, "knownnodes.dat"), "w", encoding="utf-8"
+        ) as output:
             json_serialize_knownnodes(output)
 
 

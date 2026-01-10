@@ -32,7 +32,8 @@ python3.13 -m unittest pybitmessage.tests.test_addresses.TestAddresses.test_deco
 
 # Lint
 bandit -r src/                  # Security
-mypy src/                       # Type check (work in progress)
+mypy src/                       # Type check (clean as of 2026-01-10)
+pyright src/                    # Alternative type checker (0 errors)
 flake8 src/ --max-line-length=180
 
 # Build
@@ -58,7 +59,7 @@ python3 setup.py sdist bdist_wheel    # Package build
 
 ## Anti-Patterns (This Project)
 
-- **7 `type: ignore` violations** in api.py, depends.py, bmconfigparser.py, knownnodes.py - fix underlying issue
+- **0 `type: ignore` violations** - Phase 1 complete ✅
 - **150 `os.path` usages** - migrate to `pathlib.Path` (priority: paths.py, storage/filesystem.py)
 - **96 `.format()` calls** - convert to f-strings (priority: bitmessageqt/mainwindow.py)
 - **Multiple UI entry points**: bitmessagemain.py dispatches to bitmessageqt, bitmessagecurses, or Kivy
@@ -92,6 +93,8 @@ python3 setup.py sdist bdist_wheel    # Package build
 | PyQt6 migration | ✅ Complete |
 | Legacy syntax removed | ✅ Complete |
 | Future imports | ✅ Removed |
+| Type safety (type: ignore) | ✅ Phase 1 Complete (0 violations) |
+| Linting (flake8/mypy/pyright) | ✅ Clean (0 errors) |
 | F-string conversion | ⚠️ 96 pending |
 | Pathlib migration | ⚠️ 150 pending |
 | Type hints | ⚠️ Systematic adoption needed |

@@ -4,6 +4,8 @@ import logging
 import os
 import re
 import time
+from types import ModuleType
+from typing import Union
 
 from bmconfigparser import config
 
@@ -13,20 +15,20 @@ DEFAULT_ENCODING = "ISO8859-1"
 DEFAULT_LANGUAGE = "en_US"
 DEFAULT_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-try:
-    import locale
+# Declare locale upfront to avoid mypy issues with try/except reassignment
+locale: Union[ModuleType, None] = None
 
-    encoding = locale.getpreferredencoding(True) or DEFAULT_ENCODING
-    # Use getlocale() with fallback, avoid deprecated getdefaultlocale()
+try:
+    import locale as _locale_impl
+
+    encoding = _locale_impl.getpreferredencoding(True) or DEFAULT_ENCODING
     try:
-        language = locale.getlocale()[0] or DEFAULT_LANGUAGE
+        language = _locale_impl.getlocale()[0] or DEFAULT_LANGUAGE
     except (AttributeError, ValueError):
-        # getlocale() might fail on some systems
         language = DEFAULT_LANGUAGE
+    locale = _locale_impl
 except (ImportError, AttributeError):  # FIXME: it never happens
     logger.exception("Could not determine language or encoding")
-    # Mark as None for later checks, but avoid module redefinition error
-    locale = None  # type: ignore
     encoding = DEFAULT_ENCODING
     language = DEFAULT_LANGUAGE
 

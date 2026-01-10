@@ -198,7 +198,4 @@ class BMConfigParser(SafeConfigParser):
         self.save()
 
 
-if not hasattr(BMConfigParser, "readfp"):
-    BMConfigParser.readfp = BMConfigParser.read_file  # type: ignore
-
 config = BMConfigParser()  # TODO: remove this crutch
