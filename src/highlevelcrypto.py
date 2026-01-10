@@ -248,6 +248,12 @@ class CryptographyECC:
         return payload + mac
 
     def decrypt(self, data, hmac_prefix=b""):
+        # Fix for cryptography library which requires bytes, not memoryview
+        if isinstance(data, memoryview):
+            data = bytes(data)
+        if isinstance(hmac_prefix, memoryview):
+            hmac_prefix = bytes(hmac_prefix)
+
         if not self.private_key:
             raise ValueError("Private key required for decryption")
 
@@ -336,18 +342,16 @@ class CryptographyECC:
                 try:
                     h.verify(mac)
                     verified = True
-                    print("DEBUG_DECRYPT: HMAC Verified via FALLBACK (Object Header inclusive).")
                 except Exception:
                     pass
             # Attempt 3: Object Header Only (First 20 bytes)
-            if hmac_prefix and len(hmac_prefix) > 20:
+            if not verified and hmac_prefix and len(hmac_prefix) > 20:
                 h = hmac.HMAC(key_m, hashes.SHA256(), backend=default_backend())
                 h.update(hmac_prefix[:20])  # Nonce, Time, Type only
                 h.update(h_data)
                 try:
                     h.verify(mac)
                     verified = True
-                    print("DEBUG_DECRYPT: HMAC Verified via SECOND FALLBACK (Object Header only).")
                 except Exception:
                     pass
 
