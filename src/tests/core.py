@@ -4,8 +4,8 @@ Tests for core and those that do not work outside
 """
 
 import atexit
-import os
 import pickle
+from pathlib import Path
 import random
 import shutil
 import socket
@@ -41,7 +41,7 @@ except (OSError, socket.error):
     tor_port_free = False
 
 frozen = getattr(sys, "frozen", None)
-knownnodes_file = os.path.join(state.appdata, "knownnodes.dat")
+knownnodes_file = str(Path(state.appdata) / "knownnodes.dat")
 
 
 def pickle_knownnodes():
@@ -368,13 +368,7 @@ class TestCore(unittest.TestCase):
     def test_old_knownnodes_pickle(self):
         """Testing old (v0.6.2) version knownnodes.dat file"""
         try:
-            self._load_knownnodes(
-                os.path.join(
-                    os.path.abspath(os.path.dirname(__file__)),
-                    "test_pattern",
-                    "knownnodes.dat",
-                )
-            )
+            self._load_knownnodes(str(Path(__file__).resolve().parent / "test_pattern" / "knownnodes.dat"))
         except self.failureException:
             raise
         finally:

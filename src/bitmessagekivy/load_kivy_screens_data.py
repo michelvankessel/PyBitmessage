@@ -1,8 +1,8 @@
 """
     Load kivy screens data from json
 """
-import os
 import json
+from pathlib import Path
 import importlib
 
 
@@ -12,7 +12,7 @@ data_screen_dict = {}
 def load_screen_json(data_file="screens_data.json"):
     """Load screens data from json"""
 
-    with open(os.path.join(os.path.dirname(__file__), data_file)) as read_file:
+    with open(Path(__file__).parent / data_file) as read_file:
         all_data = json.load(read_file)
         data_screens = list(all_data.keys())
 

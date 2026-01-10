@@ -2,6 +2,7 @@
 
 import os
 import sys
+from pathlib import Path
 import time
 import unittest
 
@@ -17,7 +18,7 @@ class TestPartialRun(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        cls.dirs = (os.path.abspath(os.curdir), pathmagic.setup())
+        cls.dirs = (Path.cwd(), pathmagic.setup())
 
         import bmconfigparser
         import state

@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 import sys
 import time
 import unittest
@@ -17,17 +17,16 @@ def cleanup(home=None, files=_files):
         home = state.appdata
     for pfile in files:
         try:
-            os.remove(os.path.join(home, pfile))
+            Path(home).joinpath(pfile).unlink()
         except OSError:
             pass
 
 
 def checkup():
     """Checkup files in the src dir"""
-    src_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), os.pardir))
+    src_dir = Path(__file__).resolve().parent.parent
     for f in _files:
-        if os.path.isfile(os.path.join(src_dir, f)):
+        if (src_dir / f).is_file():
             return 'Found application file %s in src dir' % f
 
 
@@ -39,5 +38,5 @@ def skip_python3():
 
 def put_signal_file(path, filename):
     """Creates file, presence of which is a signal about some event."""
-    with open(os.path.join(path, filename), 'wb') as outfile:
+    with open(Path(path) / filename, 'wb') as outfile:
         outfile.write(b'%i' % time.time())

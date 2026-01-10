@@ -3,8 +3,8 @@ Utility functions to check the availability of dependencies
 and suggest how it may be installed
 """
 
-import os
 import sys
+from pathlib import Path
 from typing import Optional
 
 # Only really old versions of Python don't have sys.hexversion. We don't
@@ -136,9 +136,9 @@ def detectOS():
         _os_result = "FreeBSD"
     elif sys.platform.startswith("win"):
         _os_result = "Windows"
-    elif os.path.isfile("/etc/os-release"):
+    elif Path("/etc/os-release").is_file():
         detectOSRelease()
-    elif os.path.isfile("/etc/config.scm"):
+    elif Path("/etc/config.scm").is_file():
         _os_result = "Guix"
     return _os_result
 

@@ -1,9 +1,10 @@
+import os
 """
 BMConfigParser class definition and default configuration settings
 """
 
-import os
 import shutil
+from pathlib import Path
 from datetime import datetime
 from threading import Event
 
@@ -126,7 +127,7 @@ class BMConfigParser(SafeConfigParser):
     def read(self, filenames=None):
         self._reset()
         SafeConfigParser.read(
-            self, os.path.join(os.path.dirname(__file__), "default.ini")
+            self, Path(__file__).parent / "default.ini"
         )
         if filenames:
             SafeConfigParser.read(self, filenames)
@@ -140,7 +141,7 @@ class BMConfigParser(SafeConfigParser):
 
     def save(self):
         """Save the runtime config onto the filesystem"""
-        fileName = os.path.join(state.appdata, "keys.dat")
+        fileName = str(Path(state.appdata) / "keys.dat")
         fileNameBak = ".".join(
             [fileName, datetime.now().strftime("%Y%j%H%M%S%f"), "bak"]
         )

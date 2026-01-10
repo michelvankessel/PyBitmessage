@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+from pathlib import Path
 
 from xdg import BaseDirectory, Menu, Exceptions
 
@@ -19,8 +20,7 @@ class DesktopXDG(object):
 
     def adjust_startonlogon(self, autostart=False):
         """Configure autostart according to settings"""
-        autostart_path = os.path.join(
-            BaseDirectory.xdg_config_home, 'autostart', 'pybitmessage.desktop')
+        autostart_path = str(Path(BaseDirectory.xdg_config_home) / 'autostart' / 'pybitmessage.desktop')
         if autostart:
             self.desktop.write(autostart_path)
         else:

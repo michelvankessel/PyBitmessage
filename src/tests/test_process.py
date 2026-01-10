@@ -4,6 +4,7 @@ Common reusable code for tests and tests for pybitmessage process.
 
 import os
 import signal
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
@@ -63,7 +64,7 @@ class TestProcessProto(unittest.TestCase):
         cls.process = psutil.Popen(
             cls._process_cmd, stderr=subprocess.STDOUT)
 
-        pidfile = os.path.join(cls.home, 'singleton.lock')
+        pidfile = str(Path(cls.home) / 'singleton.lock')
         for _ in range(10):
             time.sleep(1)
             try:
@@ -88,7 +89,7 @@ class TestProcessProto(unittest.TestCase):
     def _get_readline(cls, pfile):
         if not cls.home:
             return b""
-        pfile_path = os.path.join(cls.home, pfile)
+        pfile_path = str(Path(cls.home) / pfile)
         try:
             with open(pfile_path, 'rb') as p:
                 return p.readline().strip()

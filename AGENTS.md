@@ -26,18 +26,18 @@ PyBitmessage: P2P encrypted messaging protocol client (Python 3.13, PyQt6). Mult
 
 ```bash
 # Tests
-PYTHONPATH=src python3.13 tests.py                        # All tests
-python3.13 -m unittest pybitmessage.tests.test_addresses # Specific module
-python3.13 -m unittest pybitmessage.tests.test_addresses.TestAddresses.test_decode  # Single test
+uv run pytest src/tests/                       # All tests
+uv run pytest src/tests/test_addresses.py     # Specific module
+uv run python3.13 -m unittest pybitmessage.tests.test_addresses.TestAddresses.test_decode  # Single test
 
 # Lint
-bandit -r src/                  # Security
-mypy src/                       # Type check (clean as of 2026-01-10)
-pyright src/                    # Alternative type checker (0 errors)
-flake8 src/ --max-line-length=180
+uv run bandit -r src/              # Security
+uv run mypy src/                   # Type check
+uv run pyright src/                # Alternative type checker
+uv run flake8 src/ --max-line-length=180
 
 # Build
-pip install -e .                # Dev install
+pip install -e .                   # Dev install
 python3 setup.py build_ext --inplace  # C extension (bitmsghash)
 python3 setup.py sdist bdist_wheel    # Package build
 ```
@@ -57,11 +57,41 @@ python3 setup.py sdist bdist_wheel    # Package build
 | **Forbidden** | `type: ignore`, empty `except:`, `.format()` in new code | |
 | **Architecture** | No impl in `__init__.py`, UI/core separation | |
 
+## Defensive Coding Strategy
+
+PyBitmessage follows a **defensive coding** approach to ensure security, reliability, and maintainability in a P2P encrypted messaging system where security is paramount.
+
+### Core Principles
+
+| Principle | Implementation | Benefit |
+|-----------|----------------|---------|
+| **Type Safety** | Zero `type: ignore` violations | Catches bugs at compile-time, prevents runtime type errors in critical paths |
+| **Modern Path Handling** | `pathlib.Path` over `os.path` | Cross-platform path handling, better error messages, safer file operations |
+| **String Safety** | f-strings over `.format()` | Compile-time validation, prevents injection vulnerabilities |
+| **Explicit Error Handling** | No empty `except:` blocks | Prevents silent failures in encryption, network, and storage code |
+| **Input Validation** | Type hints + runtime checks | Validates untrusted P2P messages before processing |
+
+### Why Defensive Coding Matters for PyBitmessage
+
+1. **P2P Security**: Nodes receive untrusted data from unknown peers - type safety prevents exploitation
+2. **Cryptographic Operations**: Filesystem bugs can leak private keys or corrupt wallets
+3. **Network Protocol**: Malformed messages should fail safely, not crash the node
+4. **Long-Running Process**: Memory safety and type correctness prevent daemon crashes
+5. **Multi-Platform**: Path handling must work on Windows, macOS, Linux, and Android
+
+### Defensive Coding Checklist
+
+- [x] **Phase 1**: Eliminate `type: ignore` (0 violations)
+- [x] **Phase 2**: Migrate to `pathlib.Path` (0 `os.path` usages)
+- [ ] **Phase 3**: Convert `.format()` to f-strings (86 remaining)
+- [ ] **Phase 4**: Systematic type hints adoption
+- [ ] **Phase 5**: Address FIXME security issues
+
 ## Anti-Patterns (This Project)
 
-- **0 `type: ignore` violations** - Phase 1 complete ✅
-- **109 `os.path` usages** - migrate to `pathlib.Path` (41/150 migrated in Phase 2 Prio 1)
-- **96 `.format()` calls** - convert to f-strings (priority: bitmessageqt/mainwindow.py)
+- **0 `type: ignore` violations** - Phase 1 Complete ✅
+- **0 `os.path` usages** - Phase 2 Complete ✅
+- **86 `.format()` calls** - convert to f-strings (Phase 3 pending)
 - **Multiple UI entry points**: bitmessagemain.py dispatches to bitmessageqt, bitmessagecurses, or Kivy
 - **Non-standard layout**: Tests in `src/tests/`, not root; source in `src/` (flat), not `src/pybitmessage/`
 
@@ -95,6 +125,6 @@ python3 setup.py sdist bdist_wheel    # Package build
 | Future imports | ✅ Removed |
 | Type safety (type: ignore) | ✅ Phase 1 Complete (0 violations) |
 | Linting (flake8/mypy/pyright) | ✅ Clean (0 errors) |
-| F-string conversion | ⚠️ 96 pending |
-| Pathlib migration | ⚠️ 73 remaining (77/150 done in Phase 2 Prio 1 & 2) |
-| Type hints | ⚠️ Systematic adoption needed |
+| F-string conversion | ⚠️ 86 pending (Phase 3) |
+| Pathlib migration | ✅ Phase 2 Complete (150/150 done) |
+| Type hints | ⚠️ Systematic adoption needed (Phase 4) |

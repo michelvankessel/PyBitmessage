@@ -2,7 +2,7 @@
 Module for Proof of Work using OpenCL
 """
 import logging
-import os
+from pathlib import Path
 from typing import Any
 from struct import pack
 
@@ -53,7 +53,7 @@ def initCL():
         if enabledGpus:
             ctx = cl.Context(devices=enabledGpus)
             queue = cl.CommandQueue(ctx)
-            f = open(os.path.join(paths.codePath(), "bitmsghash", 'bitmsghash.cl'), 'r')
+            f = open(Path(paths.codePath()) / "bitmsghash" / 'bitmsghash.cl', 'r')
             fstr = ''.join(f.readlines())
             program = cl.Program(ctx, fstr).build(options="")
             logger.info("Loaded OpenCL kernel")

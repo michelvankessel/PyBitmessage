@@ -3,8 +3,8 @@ SSL/TLS negotiation.
 """
 
 import logging
-import os
 import socket
+from pathlib import Path
 import ssl
 import sys
 
@@ -64,10 +64,8 @@ class TLSDispatcher(AdvancedDispatcher):
     ):
         AdvancedDispatcher.__init__(self, sock)
         self.want_read = self.want_write = True
-        self.certfile = certfile or os.path.join(
-            paths.codePath(), "sslkeys", "cert.pem"
-        )
-        self.keyfile = keyfile or os.path.join(paths.codePath(), "sslkeys", "key.pem")
+        self.certfile = certfile or str(Path(paths.codePath()) / "sslkeys" / "cert.pem")
+        self.keyfile = keyfile or str(Path(paths.codePath()) / "sslkeys" / "key.pem")
         self.server_side = server_side
         self.ciphers = ciphers
         self.tlsStarted = False

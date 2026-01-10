@@ -3,9 +3,9 @@ QR code Scan Screen used in message composer to get recipient address
 
 """
 
-import os
 import logging
 import cv2
+from pathlib import Path
 
 from kivy.clock import Clock
 from kivy.lang import Builder
@@ -61,10 +61,7 @@ class ScanScreen(Screen):
        It affects screen transition on linux
        """
         if not self.children:
-            tmp = Builder.load_file(
-                os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)), "kv", "{}.kv").format("scanner")
-            )
+            tmp = Builder.load_file(str(Path(__file__).resolve().parent.parent / "kv" / "scanner.kv"))
             self.add_widget(tmp)
             self.zbarcam = self.children[0].ids.zbarcam
         if platform == "android":

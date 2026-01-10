@@ -1,5 +1,5 @@
+from pathlib import Path
 from PyQt6 import uic
-import os.path
 import paths
 
 
@@ -8,9 +8,9 @@ def resource_path(resFile):
     if baseDir is None:
         return None
     for subDir in ["ui", "bitmessageqt"]:
-        sub_path = os.path.join(baseDir, subDir)
-        if os.path.isdir(sub_path) and os.path.isfile(os.path.join(sub_path, resFile)):
-            return os.path.join(sub_path, resFile)
+        sub_path = Path(baseDir) / subDir
+        if sub_path.is_dir() and (sub_path / resFile).is_file():
+            return str(sub_path / resFile)
     return None
 
 

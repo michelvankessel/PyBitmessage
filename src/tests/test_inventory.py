@@ -2,6 +2,7 @@
 
 import os
 import shutil
+from pathlib import Path
 import struct
 import tempfile
 import time
@@ -27,7 +28,7 @@ class TestFilesystemInventory(TestPartialRun):
 
     def test_consistency(self):
         """Ensure the inventory is of proper class"""
-        if os.path.isfile(os.path.join(self.home, "messages.dat")):
+        if (Path(self.home) / "messages.dat").is_file():
             # this will likely never happen
             self.fail("Failed to configure filesystem inventory!")
 
@@ -43,7 +44,7 @@ class TestFilesystemInventory(TestPartialRun):
     def tearDownClass(cls):
         super(TestFilesystemInventory, cls).tearDownClass()
         cls.inventory.flush()
-        shutil.rmtree(os.path.join(cls.home, cls.inventory.topDir))
+        shutil.rmtree(Path(cls.home) / cls.inventory.topDir)
 
 
 class TestStorageAbstract(unittest.TestCase):

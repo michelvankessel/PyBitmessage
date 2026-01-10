@@ -12,8 +12,8 @@ Configure tor proxy and hidden service with
     section using *onionhostname* as name for future use.
 """
 import logging
-import os
 import random
+from pathlib import Path
 import sys
 import tempfile
 
@@ -72,7 +72,7 @@ def connect_plugin(config):
         # no ControlSocket on windows because there is no Unix sockets
         tor_config['DataDirectory'] = datadir
     else:
-        control_socket = os.path.join(datadir, 'control')
+        control_socket = str(Path(datadir) / 'control')
         tor_config['ControlSocket'] = control_socket
 
     port = config.safeGetInt('bitmessagesettings', 'socksport', 9050)

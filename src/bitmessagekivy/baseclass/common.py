@@ -2,8 +2,8 @@
     All Common widgets of kivy are managed here.
 """
 
-import os
 from datetime import datetime
+from pathlib import Path
 
 from kivy.app import App
 from kivy.core.window import Window
@@ -63,7 +63,7 @@ DELETE_DELAY = 4
 
 def load_image_path():
     """Return the path of kivy images"""
-    image_path = os.path.abspath(os.path.join('pybitmessage', 'images', 'kivy'))
+    image_path = str(Path('pybitmessage', 'images', 'kivy').resolve())
     return image_path
 
 

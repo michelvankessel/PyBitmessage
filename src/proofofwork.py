@@ -7,6 +7,7 @@ import ctypes
 import hashlib
 import os
 import subprocess
+from pathlib import Path
 import sys
 import tempfile
 import time
@@ -272,15 +273,13 @@ def buildCPoW():
 
     try:
         # GNU make
-        make_cmd = ['make', '-C', os.path.join(paths.codePath(), 'bitmsghash')]
+        make_cmd = ['make', '-C', str(Path(paths.codePath()) / 'bitmsghash')]
         if "bsd" in sys.platform:
             # BSD make
             make_cmd += ['-f', 'Makefile.bsd']
 
         subprocess.check_call(make_cmd)
-        if os.path.exists(
-            os.path.join(paths.codePath(), 'bitmsghash', 'bitmsghash.so')
-        ):
+        if (Path(paths.codePath()) / 'bitmsghash' / 'bitmsghash.so').exists():
             init()
     except (OSError, subprocess.CalledProcessError):
         pass
@@ -351,11 +350,11 @@ def init():
         bitmsglib = (
             'bitmsghash32.dll' if ctypes.sizeof(ctypes.c_voidp) == 4 else
             'bitmsghash64.dll')
-        libfile = os.path.join(paths.codePath(), 'bitmsghash', bitmsglib)
+        libfile = str(Path(paths.codePath()) / 'bitmsghash' / bitmsglib)
         try:
             # MSVS
             bso = ctypes.WinDLL(
-                os.path.join(paths.codePath(), 'bitmsghash', bitmsglib))
+                str(Path(paths.codePath()) / 'bitmsghash' / bitmsglib))
             logger.info('Loaded C PoW DLL (stdcall) %s', bitmsglib)
             bmpow = bso.BitmessagePOW
             bmpow.restype = ctypes.c_ulonglong
@@ -379,13 +378,11 @@ def init():
     else:
         try:
             bso = ctypes.CDLL(
-                os.path.join(paths.codePath(), 'bitmsghash', bitmsglib))
+                str(Path(paths.codePath()) / 'bitmsghash' / bitmsglib))
         except OSError:
             import glob
             try:
-                bso = ctypes.CDLL(glob.glob(os.path.join(
-                    paths.codePath(), 'bitmsghash', 'bitmsghash*.so'
-                ))[0])
+                bso = ctypes.CDLL(glob.glob(str(Path(paths.codePath()) / 'bitmsghash' / 'bitmsghash*.so'))[0])
             except (OSError, IndexError):
                 bso = None
         except Exception:

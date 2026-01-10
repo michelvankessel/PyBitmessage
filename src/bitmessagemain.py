@@ -11,6 +11,7 @@ The PyBitmessage startup script
 # yet contain logic to expand into further streams.
 import os
 import sys
+from pathlib import Path
 
 
 import getopt
@@ -109,8 +110,7 @@ class Main(object):
                 state.curses = True
             elif opt in ("-t", "--test"):
                 state.testmode = True
-                if os.path.isfile(os.path.join(
-                        state.appdata, 'unittest.lock')):
+                if (Path(state.appdata) / 'unittest.lock').is_file():
                     daemon = True
                 state.enableGUI = False  # run without a UI
                 # Fallback: in case when no api command was issued
@@ -126,7 +126,7 @@ class Main(object):
                     'bitmessagesettings', 'apivariant', 'legacy')
                 config.set(
                     'bitmessagesettings', 'apinotifypath',
-                    os.path.join(app_dir, 'tests', 'apinotify_handler.py')
+                    str(Path(app_dir) / 'tests' / 'apinotify_handler.py')
                 )
 
         if daemon:

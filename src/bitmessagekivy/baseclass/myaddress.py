@@ -4,8 +4,8 @@ myaddress.py
 All generated addresses are managed in MyAddress
 """
 
-import os
 from functools import partial
+from pathlib import Path
 
 from kivy.clock import Clock
 from kivy.properties import (
@@ -116,9 +116,7 @@ class MyAddress(Screen, HelperMyAddress):
         meny.canvas.children[3].rgba = \
             self.canvas_color_black if is_enable else self.canvas_color
         meny.add_widget(AvatarSampleWidget(
-            source=os.path.join(
-                self.image_dir, "text_images", "{}.png".format(avatar_image_first_letter(
-                    item["text"].strip())))
+            source=str(Path(self.image_dir) / "text_images" / f"{avatar_image_first_letter(item['text'].strip())}.png")
         ))
         meny.bind(on_press=partial(
             self.myadd_detail, item['secondary_text'], item['text']))

@@ -1,6 +1,5 @@
-"""
-This module setting file is for settings
-"""
+"""This module setting file is for settings"""
+from pathlib import Path
 
 import configparser
 import os
@@ -888,8 +887,7 @@ class SettingsDialog(QtWidgets.QDialog):
             # If we ARE using portable mode now but the user selected
             # that we shouldn't...
             state.appdata = paths.lookupAppdataFolder()
-            if not os.path.exists(state.appdata):
-                os.makedirs(state.appdata)
+            Path(state.appdata).mkdir(parents=True, exist_ok=True)
             sqlStoredProcedure("movemessagstoappdata")
             # Write the keys.dat file to disk in the new location
             self.config.save()

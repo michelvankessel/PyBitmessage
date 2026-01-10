@@ -6,8 +6,8 @@ from .tls import TLSDispatcher as TLSHandshake
 """
 self.sslSock = ssl.wrap_socket(
     self.sock,
-    keyfile=os.path.join(paths.codePath(), 'sslkeys', 'key.pem'),
-    certfile=os.path.join(paths.codePath(), 'sslkeys', 'cert.pem'),
+    keyfile=str(Path(paths.codePath()) / 'sslkeys' / 'key.pem'),
+    certfile=str(Path(paths.codePath()) / 'sslkeys' / 'cert.pem'),
     server_side=not self.initiatedConnection,
     ssl_version=ssl.PROTOCOL_TLSv1,
     do_handshake_on_connect=False,

@@ -10,6 +10,7 @@ Some shared functions
 import hashlib
 import os
 import stat
+from pathlib import Path
 import subprocess
 import sys
 from binascii import hexlify
@@ -83,7 +84,7 @@ def reloadMyAddressHashes():
     # myPrivateKeys.clear()
 
     keyfileSecure = checkSensitiveFilePermissions(
-        os.path.join(state.appdata, "keys.dat")
+        str(Path(state.appdata) / "keys.dat")
     )
     hasEnabledKeys = False
     for addressInKeysFile in config.addresses():
@@ -136,7 +137,7 @@ def reloadMyAddressHashes():
 
     if not keyfileSecure:
         fixSensitiveFilePermissions(
-            os.path.join(state.appdata, "keys.dat"), hasEnabledKeys
+            str(Path(state.appdata) / "keys.dat"), hasEnabledKeys
         )
 
 

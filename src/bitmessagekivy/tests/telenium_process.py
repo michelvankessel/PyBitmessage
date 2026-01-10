@@ -5,6 +5,7 @@ Maintains API compatibility while removing Python 2 dependencies
 
 import os
 import shutil
+from pathlib import Path
 import tempfile
 from time import time, sleep
 
@@ -30,7 +31,7 @@ def cleanup(files=_files):
     """Cleanup application files"""
     for pfile in files:
         try:
-            os.remove(os.path.join(tempfile.gettempdir(), pfile))
+            Path(tempfile.gettempdir()).joinpath(pfile).unlink()
         except OSError:
             pass
 
@@ -39,10 +40,8 @@ class TeleniumTestProcess(TestCase):
     """Python 3 compatible test process - replaces legacy telenium"""
 
     # Use __file__ for consistent path resolution regardless of cwd
-    _base_dir = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
-    cmd_entrypoint = [os.path.join(_base_dir, "mockbm", "kivy_main.py")]
+    _base_dir = Path(__file__).resolve().parent.parent.parent
+    cmd_entrypoint = [str(_base_dir / "mockbm" / "kivy_main.py")]
 
     @classmethod
     def setUpClass(cls):
@@ -56,12 +55,8 @@ class TeleniumTestProcess(TestCase):
     def populate_test_data():
         """Set temp data in tmp directory"""
         for file_name in tmp_db_file:
-            old_source_file = os.path.join(
-                os.path.abspath(os.path.dirname(__file__)), "sampleData", file_name
-            )
-            new_destination_file = os.path.join(
-                os.environ["BITMESSAGE_HOME"], file_name
-            )
+            old_source_file = str(Path(__file__).resolve().parent / "sampleData" / file_name)
+            new_destination_file = str(Path(os.environ["BITMESSAGE_HOME"]) / file_name)
             shutil.copyfile(old_source_file, new_destination_file)
 
     @classmethod

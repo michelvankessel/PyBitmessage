@@ -1,5 +1,5 @@
 import hashlib
-import os
+from pathlib import Path
 
 from PyQt6 import QtGui
 
@@ -101,21 +101,21 @@ def avatarize(address):
     for ext in extensions:
         lower_hash = state.appdata + 'avatars/' + icon_hash + '.' + ext.lower()
         upper_hash = state.appdata + 'avatars/' + icon_hash + '.' + ext.upper()
-        if os.path.isfile(lower_hash):
+        if Path(lower_hash).is_file():
             idcon.addFile(lower_hash)
             return idcon
-        elif os.path.isfile(upper_hash):
+        elif Path(upper_hash).is_file():
             idcon.addFile(upper_hash)
             return idcon
     # if we haven't found any, try to find a default avatar
     for ext in extensions:
         lower_default = state.appdata + 'avatars/' + 'default.' + ext.lower()
         upper_default = state.appdata + 'avatars/' + 'default.' + ext.upper()
-        if os.path.isfile(lower_default):
+        if Path(lower_default).is_file():
             # default = lower_default
             idcon.addFile(lower_default)
             return idcon
-        elif os.path.isfile(upper_default):
+        elif Path(upper_default).is_file():
             # default = upper_default
             idcon.addFile(upper_default)
             return idcon

@@ -1,9 +1,9 @@
 import logging
-import os
 from importlib import import_module
+from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger('default')
+logger = logging.getLogger("default")
 
 
 paths: Any
@@ -19,12 +19,18 @@ def constructObject(data):
     if data[""] not in whitelist:
         return None
     try:
-        classBase = getattr(import_module(".{}".format(data[""]), __name__), data[""].title())
+        classBase = getattr(
+            import_module(".{}".format(data[""]), __name__), data[""].title()
+        )
     except (NameError, AttributeError, ValueError, ImportError):
-        logger.error("Don't know how to handle message type: \"%s\"", data[""], exc_info=True)
+        logger.error(
+            'Don\'t know how to handle message type: "%s"', data[""], exc_info=True
+        )
         return None
     except Exception:
-        logger.error("Don't know how to handle message type: \"%s\"", data[""], exc_info=True)
+        logger.error(
+            'Don\'t know how to handle message type: "%s"', data[""], exc_info=True
+        )
         return None
 
     try:
@@ -44,14 +50,14 @@ if paths and paths.frozen is not None:
     import_module(".message", __name__)
     import_module(".vote", __name__)
 else:
-    for mod in os.listdir(os.path.dirname(__file__)):
-        if mod == "__init__.py":
+    for mod_path in Path(__file__).parent.iterdir():
+        if mod_path.name == "__init__.py":
             continue
-        splitted = os.path.splitext(mod)
-        if splitted[1] != ".py":
+        if mod_path.suffix != ".py":
             continue
+        mod = mod_path.name
         try:
-            import_module(".{}".format(splitted[0]), __name__)
+            import_module(".{}".format(mod_path.stem), __name__)
         except ImportError:
             logger.error("Error importing %s", mod, exc_info=True)
         else:

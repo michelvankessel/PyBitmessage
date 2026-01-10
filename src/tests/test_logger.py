@@ -2,8 +2,8 @@
 Testing the logger configuration
 """
 
-import os
 import tempfile
+from pathlib import Path
 
 from .test_process import TestProcessProto
 
@@ -40,9 +40,9 @@ handlers=default
     def setUpClass(cls):
         cls.home = tempfile.mkdtemp()
         cls._files = cls._files[2:] + ("logging.dat",)
-        cls.log_file = os.path.join(cls.home, "debug.log")
+        cls.log_file = str(Path(cls.home) / "debug.log")
 
-        with open(os.path.join(cls.home, "logging.dat"), "wb") as dst:
+        with open(Path(cls.home) / "logging.dat", "wb") as dst:
             dst.write(cls.conf_template.format(cls.log_file, cls.pattern))
 
         super(TestLogger, cls).setUpClass()

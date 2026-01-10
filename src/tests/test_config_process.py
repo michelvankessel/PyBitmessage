@@ -2,8 +2,8 @@
 Various tests for config
 """
 
-import os
 import tempfile
+from pathlib import Path
 from pybitmessage.bmconfigparser import config
 from .test_process import TestProcessProto
 from .common import skip_python3
@@ -19,7 +19,7 @@ class TestProcessConfig(TestProcessProto):
         """Test settings in the generated config"""
         self._stop_process()
         self._kill_process()
-        config.read(os.path.join(self.home, 'keys.dat'))
+        config.read(str(Path(self.home) / 'keys.dat'))
 
         self.assertEqual(config.safeGetInt(
             'bitmessagesettings', 'settingsversion'), 10)

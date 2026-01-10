@@ -1,7 +1,6 @@
 """Language Box Module for Locale Settings"""
 
-import glob
-import os
+from pathlib import Path
 
 from PyQt6 import QtCore, QtWidgets
 
@@ -26,16 +25,16 @@ class LanguageBox(QtWidgets.QComboBox):
         code_path = paths.codePath()
         if code_path is None:
             return
-        localesPath = os.path.join(code_path, 'translations')
+        localesPath = str(Path(code_path) / 'translations')
         self.addItem(QtWidgets.QApplication.translate(
             "settingsDialog", "System Settings", "system"), "system")
         self.setCurrentIndex(0)
         self.setInsertPolicy(QtWidgets.QComboBox.InsertPolicy.InsertAlphabetically)
         for translationFile in sorted(
-            glob.glob(os.path.join(localesPath, "bitmessage_*.qm"))
+            list((Path(localesPath)).glob("bitmessage_*.qm"))
         ):
             localeShort = \
-                os.path.split(translationFile)[1].split("_", 1)[1][:-3]
+                Path(translationFile).stem.split("_", 1)[1]
             if localeShort in LanguageBox.languageName:
                 self.addItem(
                     LanguageBox.languageName[localeShort], localeShort)

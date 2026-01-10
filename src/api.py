@@ -235,7 +235,7 @@ class singleAPI(StoppableThread):
         ct = "text/xml"
         if config.safeGet("bitmessagesettings", "apivariant") == "json":
             try:
-                from jsonrpclib.SimpleJSONRPCServer import (  # type: ignore
+                from jsonrpclib.SimpleJSONRPCServer import (
                     SimpleJSONRPCServer as RPCServerBase,
                 )
             except ImportError:
@@ -1396,7 +1396,7 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
             status = queryreturn[0][0]
             # Ensure status is string, not bytes (Python 3 compatibility)
             if isinstance(status, bytes):
-                status = status.decode('utf-8', 'replace')
+                status = status.decode("utf-8", "replace")
             return status
         except IndexError:
             return "notfound"

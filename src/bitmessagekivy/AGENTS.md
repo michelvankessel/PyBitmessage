@@ -1,6 +1,6 @@
 # PyBitmessage Kivy Mobile UI Agent Guidelines
 
-**Branch:** `(based on working dir)` | **Generated:** 2026-01-10
+**Branch:** `(based on working dir)` | **Generated:** 2026-01-10 | **Updated:** 2026-01-10
 
 ## Overview
 
@@ -14,34 +14,37 @@ src/bitmessagekivy/
 │   ├── inbox.py       # Inbox screen logic
 │   ├── sent.py        # Sent messages screen
 │   ├── draft.py       # Draft messages screen
-│   ├── addressbook.py # Address book management
-│   ├── maildetail.py  # Message detail view
-│   ├── msg_composer.py # Message composition
-│   └── common.py      # Shared widgets and utilities
+│   ├── addressbook.py # Address book management (pathlib migrated)
+│   ├── maildetail.py  # Message detail view (pathlib migrated)
+│   ├── myaddress.py   # My addresses screen (pathlib migrated)
+│   ├── scan_screen.py # QR code scanner (pathlib migrated)
+│   └── common.py      # Shared widgets and utilities (pathlib migrated)
 ├── tests/             # Kivy-specific tests (16 files)
 │   ├── test_*.py      # Screen-specific test modules
-│   └── telenium_process.py # Telenium test runner
-├── mpybit.py          # Main Kivy app class (20 os.path usages)
+│   └── telenium_process.py # Telenium test runner (pathlib migrated)
+├── mpybit.py          # Main Kivy app class (pathlib migrated - 20 os.path → 0)
 ├── kivy_helper_search.py # Search utilities
-├── kivy_state.py      # Kivy app state management
+├── kivy_state.py      # Kivy app state management (pathlib migrated)
 ├── base_navigation.py # Navigation drawer logic
 ├── uikivysignaler.py  # UI signal handling
 ├── kv/                # Kivy template files (.kv)
 ├── main.kv            # Main app layout
-└── screens_data.json  # Screen configuration
+└── screens_data.json  # Screen configuration (pathlib migrated)
+
+Pathlib Migration Status: ✅ Complete (all 8 files migrated)
 ```
 
 ## Commands
 
 ```bash
 # Run Kivy tests
-PYTHONPATH=src python3.13 -m pytest src/bitmessagekivy/tests/
+uv run pytest src/bitmessagekivy/tests/
 
 # Run specific Kivy screen test
-PYTHONPATH=src python3.13 -m pytest src/bitmessagekivy/tests/test_inbox.py
+uv run pytest src/bitmessagekivy/tests/test_inbox.py
 
 # Mobile app entry point
-PYTHONPATH=src python3.13 src/mockbm/kivy_main.py
+uv run python3.13 src/mockbm/kivy_main.py
 ```
 
 ## Conventions
@@ -52,28 +55,28 @@ PYTHONPATH=src python3.13 src/mockbm/kivy_main.py
 - **Telenium** for UI testing framework
 - **Screen-based navigation** with JSON configuration
 - **Mobile-first** touch interface patterns
+- **Pathlib** for all path operations (migrated)
 
 ## Anti-Patterns (This Module)
 
-- **18 .format() calls** in tests - convert to f-strings
+- **18 .format() calls** in tests - convert to f-strings (Phase 3)
 - **TODO: get_free_credits, sc18 screen** (payment.py)
 - **TODO: checkLabel_valid, checkAddress_valid** (popup.kv)
-- **type: ignore** on kivy_main.py import (src/mockbm/)
 
 ## Where to Look
 
 | Task | Location |
 |------|----------|
-| Main app | `mpybit.py` - NavigateApp class (pathlib migrated) |
-| Screen logic | `baseclass/` - individual screen files |
+| Main app | `mpybit.py` - NavigateApp class ✅ pathlib complete |
+| Screen logic | `baseclass/` - individual screen files (8/8 migrated) |
 | UI layouts | `kv/` - Kivy template files |
 | Navigation | `base_navigation.py` - drawer and routing |
-| State management | `kivy_state.py` - app state variables |
-| Tests | `bitmessagekivy/tests/` - Telenium-based UI tests |
+| State management | `kivy_state.py` - app state variables ✅ pathlib complete |
+| Tests | `bitmessagekivy/tests/` - Telenium-based UI tests ✅ pathlib complete |
 | Mock testing | `src/mockbm/kivy_main.py` - test entry point |
 
 ## Known Issues (FIXME)
 
-- Test files: 18 .format() calls need f-string conversion
+- Test files: 18 .format() calls need f-string conversion (Phase 3)
 - Payment screen: incomplete get_free_credits implementation
 - Address validation: TODO in popup.kv templates

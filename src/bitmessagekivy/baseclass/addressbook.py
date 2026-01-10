@@ -6,9 +6,9 @@ All saved addresses are managed in Addressbook
 
 """
 
-import os
 import logging
 from functools import partial
+from pathlib import Path
 
 from kivy.properties import ListProperty, StringProperty
 from kivy.uix.screenmanager import Screen
@@ -80,10 +80,7 @@ class AddressBook(Screen, HelperAddressBook):
             listItem.secondary_text = item[1]
             listItem.theme_text_color = "Custom"
             listItem.text_color = ThemeClsColor
-            image = os.path.join(
-                self.kivy_state.image_dir, "text_images",
-                f"{avatar_image_first_letter(item[0].strip())}.png"
-            )
+            image = str(Path(self.kivy_state.image_dir) / "text_images" / f"{avatar_image_first_letter(item[0].strip())}.png")
             message_row.ids.avater_img.source = image
             listItem.bind(on_release=partial(self.addBook_detail, item[1], item[0], message_row))
             message_row.ids.delete_msg.bind(on_press=partial(self.delete_address, item[1]))

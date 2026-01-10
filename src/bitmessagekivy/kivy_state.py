@@ -3,8 +3,8 @@ Kivy State variables are assigned here, they are separated from state.py
 =================================
 """
 
-import os
 import threading
+from pathlib import Path
 
 
 class KivyStateVariables(object):
@@ -34,7 +34,7 @@ class KivyStateVariables(object):
         self.available_credit = 0
         self.in_sent_method = False
         self.in_search_mode = False
-        self.image_dir = os.path.abspath(os.path.join('images', 'kivy'))
+        self.image_dir = str(Path('images', 'kivy').resolve())
         self.kivyui_ready = threading.Event()
         self.file_manager = None
         self.manager_open = False

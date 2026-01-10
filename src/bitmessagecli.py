@@ -109,12 +109,7 @@ def lookupAppdataFolder():
     APPNAME = "PyBitmessage"
     if sys.platform == "darwin":
         if "HOME" in os.environ:
-            dataFolder = (
-                os.path.join(
-                    os.environ["HOME"], "Library/Application support/", APPNAME
-                )
-                + "/"
-            )
+            dataFolder = str(Path(os.environ["HOME"]) / "Library/Application support" / APPNAME) + "/"
         else:
             print(
                 "     Could not find home folder, please report "
