@@ -141,11 +141,10 @@ if __name__ == "__main__":
         license="MIT",
         url="https://bitmessage.org",
         install_requires=installRequires,
-        tests_require=requirements,
-        test_suite="tests_runner.unittest_discover",
+
         extras_require=EXTRAS_REQUIRE,
         classifiers=[
-            "License :: OSI Approved :: MIT License",
+
             "Operating System :: OS Independent",
             "Programming Language :: Python :: 3 :: Only",
             "Programming Language :: Python :: 3.13 :: Only",
