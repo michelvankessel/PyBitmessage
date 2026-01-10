@@ -73,7 +73,7 @@ class objectProcessor(threading.Thread):
     def run(self):
         """Process the objects from `.queues.objectProcessorQueue`"""
         print(
-            f"DEBUG_KEYS: Loaded keys: {[hexlify(k) for k in shared.myECCryptorObjects.keys()]}"
+            f"DEBUG_KEYS: Loaded keys: {[hexlify(k).decode() for k in shared.myECCryptorObjects.keys()]}"
         )
         while True:
             objectType, data = queues.objectProcessorQueue.get()
@@ -242,7 +242,7 @@ class objectProcessor(threading.Thread):
                 )
             logger.info(
                 "the hash requested in this getpubkey request is: %s",
-                hexlify(requestedHash),
+                hexlify(requestedHash).decode(),
             )
             # if this address hash is one of mine
             if requestedHash in shared.myAddressesByHash:
@@ -256,7 +256,7 @@ class objectProcessor(threading.Thread):
                 )
             logger.debug(
                 "the tag requested in this getpubkey request is: %s",
-                hexlify(requestedTag),
+                hexlify(requestedTag).decode(),
             )
             if requestedTag in shared.myAddressesByTag:
                 myAddress = shared.myAddressesByTag[requestedTag]
@@ -360,9 +360,9 @@ class objectProcessor(threading.Thread):
                     "\npublicEncryptionKey in hex: %s",
                     addressVersion,
                     streamNumber,
-                    hexlify(ripe),
-                    hexlify(pubSigningKey),
-                    hexlify(pubEncryptionKey),
+                    hexlify(ripe).decode(),
+                    hexlify(pubSigningKey).decode(),
+                    hexlify(pubEncryptionKey).decode(),
                 )
 
             address = encodeAddress(addressVersion, streamNumber, ripe)
@@ -429,9 +429,9 @@ class objectProcessor(threading.Thread):
                     "\npublicEncryptionKey in hex: %s",
                     addressVersion,
                     streamNumber,
-                    hexlify(ripe),
-                    hexlify(pubSigningKey),
-                    hexlify(pubEncryptionKey),
+                    hexlify(ripe).decode(),
+                    hexlify(pubSigningKey).decode(),
+                    hexlify(pubEncryptionKey).decode(),
                 )
 
             address = encodeAddress(addressVersion, streamNumber, ripe)
@@ -485,7 +485,7 @@ class objectProcessor(threading.Thread):
         print(f"DEBUG_OBJPROC: Processing MSG Type 2. Data len {len(data)}")
         from binascii import hexlify
 
-        print(f"DEBUG_PAYLOAD: {hexlify(data[:100])}")
+        print(f"DEBUG_PAYLOAD: {hexlify(data[:100]).decode()}")
         messageProcessingStartTime = time.time()
         state.numberOfMessagesProcessed += 1
         queues.UISignalQueue.put(("updateNumberOfMessagesProcessed", "no data"))
@@ -531,10 +531,10 @@ class objectProcessor(threading.Thread):
                         logger.info(
                             "EC decryption successful using key associated"
                             " with ripe hash: %s.",
-                            hexlify(key),
+                            hexlify(key).decode(),
                         )
             except Exception as e:
-                print(f"DEBUG_DECRYPT: Error processing key {hexlify(key)}: {e}")
+                print(f"DEBUG_DECRYPT: Error processing key {hexlify(key).decode()}: {e}")
                 # pass
         if not initialDecryptionSuccessful:
             # This is not a message bound for me.
@@ -557,8 +557,8 @@ class objectProcessor(threading.Thread):
         readPosition += sendersAddressVersionNumberLength
         if sendersAddressVersionNumber == 0:
             print(
-                f"DEBUG_MSG: Unsupported version 0 in msg {hexlify(inventoryHash)}. "
-                f"Target RIPE: {hexlify(toRipe)}. Time: {int.from_bytes(data[8:16], 'big')}"
+                f"DEBUG_MSG: Unsupported version 0 in msg {hexlify(inventoryHash).decode()}. "
+                f"Target RIPE: {hexlify(toRipe).decode()}. Time: {int.from_bytes(data[8:16], 'big')}"
             )
             return logger.info(
                 "Cannot understand sendersAddressVersionNumber = 0. Ignoring message."
@@ -566,7 +566,7 @@ class objectProcessor(threading.Thread):
         if sendersAddressVersionNumber > 4:
             print(
                 f"DEBUG_MSG: Unsupported version {sendersAddressVersionNumber} in msg "
-                f"{hexlify(inventoryHash)}. Target RIPE: {hexlify(toRipe)}. "
+                f"{hexlify(inventoryHash).decode()}. Target RIPE: {hexlify(toRipe).decode()}. "
                 f"Time: {int.from_bytes(data[8:16], 'big')}"
             )
             return logger.info(
@@ -618,8 +618,8 @@ class objectProcessor(threading.Thread):
                 " Attack.\nSee: "
                 "http://world.std.com/~dtd/sign_encrypt/sign_encrypt7.html"
                 "\nyour toRipe: %s\nembedded destination toRipe: %s",
-                hexlify(toRipe),
-                hexlify(decryptedData[readPosition:readPosition + 20]),
+                hexlify(toRipe).decode(),
+                hexlify(decryptedData[readPosition:readPosition + 20]).decode(),
             )
         readPosition += 20
         messageEncodingType, messageEncodingTypeLength = decodeVarint(
@@ -653,7 +653,7 @@ class objectProcessor(threading.Thread):
         )
 
         pubKeyHex = hexlify(pubSigningKey)
-        print(f"DEBUG_VERIFY: pubKeyHex={pubKeyHex}")
+        print(f"DEBUG_VERIFY: pubKeyHex={pubKeyHex.decode()}")
         print(f"DEBUG_VERIFY: signature_len={len(signature)}")
         is_valid = highlevelcrypto.verify(signedData, signature, pubKeyHex)
         print(f"DEBUG_VERIFY: is_valid={is_valid}")
@@ -939,7 +939,7 @@ class objectProcessor(threading.Thread):
                             logger.info(
                                 "EC decryption successful using key associated"
                                 " with ripe hash: %s",
-                                hexlify(key),
+                                hexlify(key).decode(),
                             )
                 except Exception:
                     logger.debug("cryptorObject.decrypt Exception:", exc_info=True)

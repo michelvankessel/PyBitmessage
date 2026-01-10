@@ -3,7 +3,7 @@
 import os
 import shutil
 import sys
-from importlib import import_module
+
 
 from setuptools import Extension, setup
 from setuptools.command.install import install

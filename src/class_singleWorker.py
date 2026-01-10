@@ -100,7 +100,7 @@ class singleWorker(StoppableThread):
             '''SELECT ackdata FROM sent WHERE status = 'msgsent' AND folder = 'sent' ''')
         for row in queryreturn:
             ackdata, = row
-            self.logger.info('Watching for ackdata %s', hexlify(ackdata))
+            self.logger.info('Watching for ackdata %s', hexlify(ackdata).decode())
             state.ackdataForWhichImWatching[ackdata] = 0
 
         # Fix legacy (headerless) watched ackdata to include header
@@ -1424,7 +1424,7 @@ class singleWorker(StoppableThread):
             privEncryptionKey = doubleHashOfAddressData[:32]
             # Note that this is the second half of the sha512 hash.
             tag = doubleHashOfAddressData[32:]
-            print(f"DEBUG_PUBKEY: Version 4 Address Setup. Tag: {hexlify(tag)} Key: {hexlify(privEncryptionKey)}")
+            print(f"DEBUG_PUBKEY: Version 4 Address Setup. Tag: {hexlify(tag).decode()} Key: {hexlify(privEncryptionKey).decode()}")
             if tag not in state.neededPubkeys:
                 # We'll need this for when we receive a pubkey reply:
                 # it will be encrypted and we'll need to decrypt it.
@@ -1433,7 +1433,7 @@ class singleWorker(StoppableThread):
                         toAddress,
                         highlevelcrypto.makeSymCryptor(hexlify(privEncryptionKey))
                     )
-                    print(f"DEBUG_PUBKEY: Successfully added {hexlify(tag)} to neededPubkeys.")
+                    print(f"DEBUG_PUBKEY: Successfully added {hexlify(tag).decode()} to neededPubkeys.")
                 except Exception as e:
                     print(f"DEBUG_PUBKEY: CRITICAL ERROR adding to neededPubkeys: {e}")
                     raise

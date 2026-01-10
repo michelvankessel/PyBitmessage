@@ -7,6 +7,7 @@ import hashlib
 import random
 import socket
 import sys
+import logging
 import time
 from binascii import hexlify
 from struct import Struct, pack, unpack
@@ -548,10 +549,11 @@ def decryptAndCheckPubkeyPayload(data, address):
         logger.info("ECDSA verify passed (within decryptAndCheckPubkeyPayload)")
 
         embeddedRipe = highlevelcrypto.to_ripe(pubSigningKey, pubEncryptionKey)
-        logger.debug("Checking RIPE: embedded=%s expected=%s", hexlify(embeddedRipe), hexlify(ripe))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Checking RIPE: embedded=%s expected=%s", hexlify(embeddedRipe).decode(), hexlify(ripe).decode())
 
         if embeddedRipe != ripe:
-            logger.critical("Pubkey decryption was UNsuccessful due to RIPE mismatch. Embedded: %s Expected: %s", hexlify(embeddedRipe), hexlify(ripe))
+            logger.critical("Pubkey decryption was UNsuccessful due to RIPE mismatch. Embedded: %s Expected: %s", hexlify(embeddedRipe).decode(), hexlify(ripe).decode())
             return "failed"
 
         # Everything checked out. Insert it into the pubkeys table.
@@ -562,9 +564,9 @@ def decryptAndCheckPubkeyPayload(data, address):
             "publicSigningKey in hex: %s\npublicEncryptionKey in hex: %s",
             addressVersion,
             streamNumber,
-            hexlify(ripe),
-            hexlify(pubSigningKey),
-            hexlify(pubEncryptionKey),
+            hexlify(ripe).decode(),
+            hexlify(pubSigningKey).decode(),
+            hexlify(pubEncryptionKey).decode(),
         )
 
         t = (address, addressVersion, storedData, int(time.time()), "yes")

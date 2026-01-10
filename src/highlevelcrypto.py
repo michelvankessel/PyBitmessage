@@ -510,7 +510,7 @@ class SymmetricCryptor:
                     pass
 
         if not verified:
-            print(f"DEBUG_DECRYPT: HMAC Verification FAILED (Symmetric). Prefix: {hexlify(hmac_prefix) if hmac_prefix else 'None'}")
+            print(f"DEBUG_DECRYPT: HMAC Verification FAILED (Symmetric). Prefix: {hexlify(hmac_prefix).decode() if hmac_prefix else 'None'}")
             print("DEBUG_DECRYPT: Strict HMAC Enforcement: Aborting (Bypass Inactive).")
             raise RuntimeError("Fail to verify data (Symmetric)")
 
