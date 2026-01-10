@@ -1,20 +1,22 @@
 """
 Module for using filesystem (directory with files) for inventory storage
 """
+
 import logging
-import os
 import time
 from binascii import hexlify, unhexlify
+from pathlib import Path
 from threading import RLock
 
 from paths import lookupAppdataFolder
 from .storage import InventoryItem, InventoryStorage
 
-logger = logging.getLogger('default')
+logger = logging.getLogger("default")
 
 
 class FilesystemInventory(InventoryStorage):
     """Filesystem for inventory storage"""
+
     topDir = "inventory"
     objectDir = "objects"
     metadataFilename = "metadata"
@@ -22,15 +24,13 @@ class FilesystemInventory(InventoryStorage):
 
     def __init__(self):
         super(FilesystemInventory, self).__init__()
-        self.baseDir = os.path.join(
-            lookupAppdataFolder(), FilesystemInventory.topDir)
-        for createDir in [self.baseDir, os.path.join(self.baseDir, "objects")]:
-            if os.path.exists(createDir):
-                if not os.path.isdir(createDir):
-                    raise IOError(
-                        "%s exists but it's not a directory" % createDir)
+        self.baseDir = Path(lookupAppdataFolder()) / FilesystemInventory.topDir
+        for createDir in [self.baseDir, self.baseDir / FilesystemInventory.objectDir]:
+            if createDir.exists():
+                if not createDir.is_dir():
+                    raise IOError(f"{createDir} exists but it's not a directory")
             else:
-                os.makedirs(createDir)
+                createDir.mkdir(parents=True, exist_ok=True)
         # Guarantees that two receiveDataThreads
         # don't receive and process the same message
         # concurrently (probably sent by a malicious individual)
@@ -59,44 +59,29 @@ class FilesystemInventory(InventoryStorage):
                     retval.stream,
                     self.getData(hashval),
                     retval.expires,
-                    retval.tag)
+                    retval.tag,
+                )
             return retval
         raise KeyError(hashval)
 
     def __setitem__(self, hashval, value):
         with self.lock:
             value = InventoryItem(*value)
+            objectPath = (
+                self.baseDir / FilesystemInventory.objectDir / hexlify(hashval).decode()
+            )
             try:
-                os.makedirs(os.path.join(
-                    self.baseDir,
-                    FilesystemInventory.objectDir,
-                    hexlify(hashval).decode()))
+                objectPath.mkdir(parents=True, exist_ok=True)
             except OSError:
                 pass
             try:
-                with open(
-                    os.path.join(
-                        self.baseDir,
-                        FilesystemInventory.objectDir,
-                        hexlify(hashval).decode(),
-                        FilesystemInventory.metadataFilename,
-                    ),
-                    "w",
-                ) as f:
-                    f.write("%s,%s,%s,%s," % (
-                        value.type,
-                        value.stream,
-                        value.expires,
-                        hexlify(value.tag).decode()))
-                with open(
-                    os.path.join(
-                        self.baseDir,
-                        FilesystemInventory.objectDir,
-                        hexlify(hashval).decode(),
-                        FilesystemInventory.dataFilename,
-                    ),
-                    "wb",
-                ) as f:
+                metadataFile = objectPath / FilesystemInventory.metadataFilename
+                with open(metadataFile, "w") as f:
+                    f.write(
+                        f"{value.type},{value.stream},{value.expires},{hexlify(value.tag).decode()},"
+                    )
+                dataFile = objectPath / FilesystemInventory.dataFilename
+                with open(dataFile, "wb") as f:
                     f.write(value.payload)
             except IOError:
                 raise KeyError
@@ -114,29 +99,21 @@ class FilesystemInventory(InventoryStorage):
             except KeyError:
                 pass
         with self.lock:
+            objectPath = (
+                self.baseDir / FilesystemInventory.objectDir / hexlify(hashval).decode()
+            )
             try:
-                os.remove(
-                    os.path.join(
-                        self.baseDir,
-                        FilesystemInventory.objectDir,
-                        hexlify(hashval).decode(),
-                        FilesystemInventory.metadataFilename))
+                metadataFile = objectPath / FilesystemInventory.metadataFilename
+                metadataFile.unlink()
             except IOError:
                 pass
             try:
-                os.remove(
-                    os.path.join(
-                        self.baseDir,
-                        FilesystemInventory.objectDir,
-                        hexlify(hashval).decode(),
-                        FilesystemInventory.dataFilename))
+                dataFile = objectPath / FilesystemInventory.dataFilename
+                dataFile.unlink()
             except IOError:
                 pass
             try:
-                os.rmdir(os.path.join(
-                    self.baseDir,
-                    FilesystemInventory.objectDir,
-                    hexlify(hashval).decode()))
+                objectPath.rmdir()
             except IOError:
                 pass
 
@@ -156,18 +133,18 @@ class FilesystemInventory(InventoryStorage):
         newInventory = {}
         for hashId in self.object_list():
             try:
-                objectType, streamNumber, expiresTime, tag = self.getMetadata(
-                    hashId)
+                objectType, streamNumber, expiresTime, tag = self.getMetadata(hashId)
                 try:
                     newInventory[streamNumber][hashId] = InventoryItem(
-                        objectType, streamNumber, None, expiresTime, tag)
+                        objectType, streamNumber, None, expiresTime, tag
+                    )
                 except KeyError:
                     newInventory[streamNumber] = {}
                     newInventory[streamNumber][hashId] = InventoryItem(
-                        objectType, streamNumber, None, expiresTime, tag)
+                        objectType, streamNumber, None, expiresTime, tag
+                    )
             except KeyError:
-                logger.debug(
-                    'error loading %s', hexlify(hashId), exc_info=True)
+                logger.debug("error loading %s", hexlify(hashId), exc_info=True)
         self._inventory = newInventory
 
     def stream_list(self):
@@ -176,44 +153,36 @@ class FilesystemInventory(InventoryStorage):
 
     def object_list(self):
         """Return inventory vectors (hashes) from a directory"""
-        return [unhexlify(x) for x in os.listdir(os.path.join(
-            self.baseDir, FilesystemInventory.objectDir))]
+        objectDir = self.baseDir / FilesystemInventory.objectDir
+        return [unhexlify(x.name) for x in objectDir.iterdir() if x.is_dir()]
 
     def getData(self, hashId):
         """Get object data"""
+        objectPath = (
+            self.baseDir / FilesystemInventory.objectDir / hexlify(hashId).decode()
+        )
+        dataFile = objectPath / FilesystemInventory.dataFilename
         try:
-            with open(
-                os.path.join(
-                    self.baseDir,
-                    FilesystemInventory.objectDir,
-                    hexlify(hashId).decode(),
-                    FilesystemInventory.dataFilename,
-                ),
-                "r",
-            ) as f:
+            with open(dataFile, "r") as f:
                 return f.read()
         except IOError:
             raise AttributeError
 
     def getMetadata(self, hashId):
         """Get object metadata"""
+        objectPath = (
+            self.baseDir / FilesystemInventory.objectDir / hexlify(hashId).decode()
+        )
+        metadataFile = objectPath / FilesystemInventory.metadataFilename
         try:
-            with open(
-                os.path.join(
-                    self.baseDir,
-                    FilesystemInventory.objectDir,
-                    hexlify(hashId).decode(),
-                    FilesystemInventory.metadataFilename,
-                ),
-                "r",
-            ) as f:
-                objectType, streamNumber, expiresTime, tag = f.read().split(
-                    ",", 4)[:4]
+            with open(metadataFile, "r") as f:
+                objectType, streamNumber, expiresTime, tag = f.read().split(",", 4)[:4]
                 return [
                     int(objectType),
                     int(streamNumber),
                     int(expiresTime),
-                    unhexlify(tag)]
+                    unhexlify(tag),
+                ]
         except IOError:
             raise KeyError
 
@@ -228,12 +197,11 @@ class FilesystemInventory(InventoryStorage):
                             item.payload = self.getData(hashId)
                     except IOError:
                         continue
-                    retval.append(InventoryItem(
-                        item.type,
-                        item.stream,
-                        item.payload,
-                        item.expires,
-                        item.tag))
+                    retval.append(
+                        InventoryItem(
+                            item.type, item.stream, item.payload, item.expires, item.tag
+                        )
+                    )
         return retval
 
     def hashes_by_stream(self, stream):
@@ -247,8 +215,10 @@ class FilesystemInventory(InventoryStorage):
         """Return unexpired hashes in the inventory for a particular stream"""
         try:
             return [
-                x for x, value in self._inventory[stream].items()
-                if value.expires > int(time.time())]
+                x
+                for x, value in self._inventory[stream].items()
+                if value.expires > int(time.time())
+            ]
         except KeyError:
             return []
 

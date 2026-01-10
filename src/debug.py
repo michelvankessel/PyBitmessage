@@ -37,8 +37,8 @@ just import and log.
 
 import logging
 import logging.config
-import os
 import sys
+from pathlib import Path
 
 import configparser
 
@@ -69,11 +69,11 @@ def configureLogging():
     sys.excepthook = log_uncaught_exceptions
     fail_msg = ""
     try:
-        logging_config = os.path.join(state.appdata, "logging.dat")
-        logging.config.fileConfig(logging_config, disable_existing_loggers=False)
+        logging_config = Path(state.appdata) / "logging.dat"
+        logging.config.fileConfig(str(logging_config), disable_existing_loggers=False)
         return (False, "Loaded logger configuration from %s" % logging_config)
     except (OSError, configparser.NoSectionError, KeyError):
-        if os.path.isfile(logging_config):
+        if logging_config.is_file():
             fail_msg = (
                 "Failed to load logger configuration from %s, using default"
                 " logging config\n%s" % (logging_config, sys.exc_info())
@@ -101,7 +101,7 @@ def configureLogging():
                 "class": "logging.handlers.RotatingFileHandler",
                 "formatter": "default",
                 "level": log_level,
-                "filename": os.path.join(state.appdata, "debug.log"),
+                "filename": str(Path(state.appdata) / "debug.log"),
                 "maxBytes": 2097152,  # 2 MiB
                 "backupCount": 1,
                 "encoding": "UTF-8",

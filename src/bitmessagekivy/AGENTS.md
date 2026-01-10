@@ -55,7 +55,6 @@ PYTHONPATH=src python3.13 src/mockbm/kivy_main.py
 
 ## Anti-Patterns (This Module)
 
-- **20 os.path usages** (mpybit.py) - migrate to pathlib
 - **18 .format() calls** in tests - convert to f-strings
 - **TODO: get_free_credits, sc18 screen** (payment.py)
 - **TODO: checkLabel_valid, checkAddress_valid** (popup.kv)
@@ -65,7 +64,7 @@ PYTHONPATH=src python3.13 src/mockbm/kivy_main.py
 
 | Task | Location |
 |------|----------|
-| Main app | `mpybit.py` - NavigateApp class |
+| Main app | `mpybit.py` - NavigateApp class (pathlib migrated) |
 | Screen logic | `baseclass/` - individual screen files |
 | UI layouts | `kv/` - Kivy template files |
 | Navigation | `base_navigation.py` - drawer and routing |
@@ -75,7 +74,6 @@ PYTHONPATH=src python3.13 src/mockbm/kivy_main.py
 
 ## Known Issues (FIXME)
 
-- `mpybit.py`: 20 os.path.join() calls need pathlib migration
 - Test files: 18 .format() calls need f-string conversion
 - Payment screen: incomplete get_free_credits implementation
 - Address validation: TODO in popup.kv templates

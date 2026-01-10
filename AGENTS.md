@@ -60,7 +60,7 @@ python3 setup.py sdist bdist_wheel    # Package build
 ## Anti-Patterns (This Project)
 
 - **0 `type: ignore` violations** - Phase 1 complete ✅
-- **150 `os.path` usages** - migrate to `pathlib.Path` (priority: paths.py, storage/filesystem.py)
+- **109 `os.path` usages** - migrate to `pathlib.Path` (41/150 migrated in Phase 2 Prio 1)
 - **96 `.format()` calls** - convert to f-strings (priority: bitmessageqt/mainwindow.py)
 - **Multiple UI entry points**: bitmessagemain.py dispatches to bitmessageqt, bitmessagecurses, or Kivy
 - **Non-standard layout**: Tests in `src/tests/`, not root; source in `src/` (flat), not `src/pybitmessage/`
@@ -96,5 +96,5 @@ python3 setup.py sdist bdist_wheel    # Package build
 | Type safety (type: ignore) | ✅ Phase 1 Complete (0 violations) |
 | Linting (flake8/mypy/pyright) | ✅ Clean (0 errors) |
 | F-string conversion | ⚠️ 96 pending |
-| Pathlib migration | ⚠️ 150 pending |
+| Pathlib migration | ⚠️ 80 remaining (70/150 done in Phase 2 Prio 1 & 2) |
 | Type hints | ⚠️ Systematic adoption needed |
