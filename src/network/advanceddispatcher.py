@@ -5,9 +5,9 @@ import socket
 import threading
 import time
 
-import network.asyncore_pollchoose as asyncore
+from network import asyncore_pollchoose as asyncore
 import state
-from threads import BusyError, nonBlocking
+from .threads import BusyError, nonBlocking
 
 
 class ProcessingError(Exception):
@@ -24,12 +24,13 @@ class UnknownStateError(ProcessingError):
 class AdvancedDispatcher(asyncore.dispatcher):
     """Improved version of asyncore dispatcher,
     with buffers and protocol state."""
-    # pylint: disable=too-many-instance-attributes
+
     _buf_len = 131072  # 128kB
 
     def __init__(self, sock=None):
         if not hasattr(self, '_map'):
             asyncore.dispatcher.__init__(self, sock)
+        # print(f"DEBUG: AdvancedDispatcher {id(self)} using map {id(self._map if hasattr(self, '_map') else asyncore.socket_map)}")
         self.connectedAt = 0
         self.close_reason = None
         self.read_buf = bytearray()
@@ -81,6 +82,10 @@ class AdvancedDispatcher(asyncore.dispatcher):
                 with nonBlocking(self.processingLock):
                     if not self.connected or state.shutdown:
                         break
+
+                    # print(f">>> PROCESS: state={self.state}, buf={len(self.read_buf)}, expect={self.expectBytes}")
+                    # if self.read_buf:
+                        # print(f">>> PROCESS BUFFER ({len(self.read_buf)}): {binascii.hexlify(self.read_buf)}")
                     if len(self.read_buf) < self.expectBytes:
                         return False
                     try:
@@ -149,8 +154,9 @@ class AdvancedDispatcher(asyncore.dispatcher):
         """Callback for connection established event."""
         try:
             asyncore.dispatcher.handle_connect_event(self)
+            # print(f"DEBUG: handle_connect_event SUCCESS for {type(self).__name__} id={id(self)}")
         except socket.error as e:
-            # pylint: disable=protected-access
+            # print(f"DEBUG: handle_connect_event FAILED for {type(self).__name__} id={id(self)}: {e}")
             if e.args[0] not in asyncore._DISCONNECTED:
                 raise
 
@@ -158,7 +164,7 @@ class AdvancedDispatcher(asyncore.dispatcher):
         """Method for handling connection established implementations."""
         self.lastTx = time.time()
 
-    def state_close(self):  # pylint: disable=no-self-use
+    def state_close(self):
         """Signal to the processing loop to end."""
         return False
 

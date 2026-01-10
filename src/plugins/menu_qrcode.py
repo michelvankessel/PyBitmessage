@@ -6,17 +6,17 @@ A menu plugin showing QR-Code for bitmessage address in modal dialog.
 import urllib
 
 import qrcode
-from PyQt4 import QtCore, QtGui
+from PyQt6 import QtCore, QtGui, QtWidgets
 
 from pybitmessage.tr import _translate
 
 
 # http://stackoverflow.com/questions/20452486
-class Image(qrcode.image.base.BaseImage):  # pylint: disable=abstract-method
+class Image(qrcode.image.base.BaseImage):
     """Image output class for qrcode using QPainter"""
 
     def __init__(self, border, width, box_size):
-        # pylint: disable=super-init-not-called
+
         self.border = border
         self.width = width
         self.box_size = box_size
@@ -39,23 +39,23 @@ class Image(qrcode.image.base.BaseImage):  # pylint: disable=abstract-method
             QtCore.Qt.black)
 
 
-class QRCodeDialog(QtGui.QDialog):
+class QRCodeDialog(QtWidgets.QDialog):
     """The dialog"""
     def __init__(self, parent):
         super(QRCodeDialog, self).__init__(parent)
-        self.image = QtGui.QLabel(self)
-        self.label = QtGui.QLabel(self)
+        self.image = QtWidgets.QLabel(self)
+        self.label = QtWidgets.QLabel(self)
         font = QtGui.QFont()
         font.setBold(True)
         font.setWeight(75)
         self.label.setFont(font)
         self.label.setAlignment(
             QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-        buttonBox = QtGui.QDialogButtonBox(self)
+        buttonBox = QtWidgets.QDialogButtonBox(self)
         buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        buttonBox.setStandardButtons(QtGui.QDialogButtonBox.Ok)
+        buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Ok)
         buttonBox.accepted.connect(self.accept)
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.image)
         layout.addWidget(self.label)
         layout.addWidget(buttonBox)
@@ -72,7 +72,7 @@ class QRCodeDialog(QtGui.QDialog):
         self.label.setText(text)
         self.label.setToolTip(text)
         self.label.setFixedWidth(pixmap.width())
-        self.setFixedSize(QtGui.QWidget.sizeHint(self))
+        self.setFixedSize(QtWidgets.QWidget.sizeHint(self))
 
 
 def connect_plugin(form):
@@ -85,7 +85,7 @@ def connect_plugin(form):
             form.qrcode_dialog = dialog = QRCodeDialog(form)
         account = form.getContactSelected()
         try:
-            label = account._getLabel()  # pylint: disable=protected-access
+            label = account._getLabel()
         except AttributeError:
             try:
                 label = account.getLabel()
@@ -96,6 +96,6 @@ def connect_plugin(form):
                 '?' + urllib.urlencode({'label': label.encode('utf-8')})
                 if label != account.address else '')
         )
-        dialog.exec_()
+        dialog.exec()
 
     return on_action_ShowQR, _translate("MainWindow", "Show QR-code")

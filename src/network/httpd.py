@@ -2,14 +2,16 @@
 src/network/httpd.py
 =======================
 """
+
 import asyncore
 import socket
 
-from tls import TLSHandshake
+from .tls import TLSDispatcher as TLSHandshake
 
 
 class HTTPRequestHandler(asyncore.dispatcher):
     """Handling HTTP request"""
+
     response = """HTTP/1.0 200 OK\r
     Date: Sun, 23 Oct 2016 18:02:00 GMT\r
     Content-Type: text/html; charset=UTF-8\r
@@ -31,7 +33,7 @@ class HTTPRequestHandler(asyncore.dispatcher):
     </html>"""
 
     def __init__(self, sock):
-        if not hasattr(self, '_map'):
+        if not hasattr(self, "_map"):
             asyncore.dispatcher.__init__(self, sock)
         self.inbuf = ""
         self.ready = True
@@ -69,16 +71,18 @@ class HTTPRequestHandler(asyncore.dispatcher):
 
 class HTTPSRequestHandler(HTTPRequestHandler, TLSHandshake):
     """Handling HTTPS request"""
+
     def __init__(self, sock):
-        if not hasattr(self, '_map'):
-            asyncore.dispatcher.__init__(self, sock)        # pylint: disable=non-parent-init-called
+        if not hasattr(self, "_map"):
+            asyncore.dispatcher.__init__(self, sock)
         # self.tlsDone = False
         TLSHandshake.__init__(
             self,
             sock=sock,
-            certfile='/home/shurdeek/src/PyBitmessage/src/sslkeys/cert.pem',
-            keyfile='/home/shurdeek/src/PyBitmessage/src/sslkeys/key.pem',
-            server_side=True)
+            certfile="/home/shurdeek/src/PyBitmessage/src/sslkeys/cert.pem",
+            keyfile="/home/shurdeek/src/PyBitmessage/src/sslkeys/key.pem",
+            server_side=True,
+        )
         HTTPRequestHandler.__init__(self, sock)
 
     def handle_connect(self):
@@ -115,14 +119,15 @@ class HTTPSRequestHandler(HTTPRequestHandler, TLSHandshake):
 
 class HTTPServer(asyncore.dispatcher):
     """Handling HTTP Server"""
+
     port = 12345
 
     def __init__(self):
-        if not hasattr(self, '_map'):
+        if not hasattr(self, "_map"):
             asyncore.dispatcher.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
-        self.bind(('127.0.0.1', HTTPServer.port))
+        self.bind(("127.0.0.1", HTTPServer.port))
         self.connections = 0
         self.listen(5)
 
@@ -130,29 +135,24 @@ class HTTPServer(asyncore.dispatcher):
         pair = self.accept()
         if pair is not None:
             sock, addr = pair
-            # print 'Incoming connection from %s' % repr(addr)
             self.connections += 1
-            # if self.connections % 1000 == 0:
-            #       print "Processed %i connections, active %i" % (self.connections, len(asyncore.socket_map))
             HTTPRequestHandler(sock)
 
 
 class HTTPSServer(HTTPServer):
     """Handling HTTPS Server"""
+
     port = 12345
 
     def __init__(self):
-        if not hasattr(self, '_map'):
+        if not hasattr(self, "_map"):
             HTTPServer.__init__(self)
 
     def handle_accept(self):
         pair = self.accept()
         if pair is not None:
             sock, addr = pair
-            # print 'Incoming connection from %s' % repr(addr)
             self.connections += 1
-            # if self.connections % 1000 == 0:
-            #       print "Processed %i connections, active %i" % (self.connections, len(asyncore.socket_map))
             HTTPSRequestHandler(sock)
 
 

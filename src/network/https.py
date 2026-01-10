@@ -1,7 +1,7 @@
 import asyncore
 
-from http import HTTPClient
-from tls import TLSHandshake
+from .http import HttpConnection as HTTPClient
+from .tls import TLSDispatcher as TLSHandshake
 
 """
 self.sslSock = ssl.wrap_socket(

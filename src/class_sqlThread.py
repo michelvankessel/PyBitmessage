@@ -9,24 +9,16 @@ import sys
 import threading
 import time
 
-from six.moves.reprlib import repr
 
-try:
-    import helper_sql
-    import helper_startup
-    import paths
-    import queues
-    import state
-    from addresses import encodeAddress
-    from bmconfigparser import config, config_ready
-    from debug import logger
-    from tr import _translate
-except ImportError:
-    from . import helper_sql, helper_startup, paths, queues, state
-    from .addresses import encodeAddress
-    from .bmconfigparser import config, config_ready
-    from .debug import logger
-    from .tr import _translate
+import helper_sql
+import helper_startup
+import paths
+import queues
+import state
+from addresses import encodeAddress
+from bmconfigparser import config, config_ready
+from debug import logger
+from tr import _translate
 
 
 class sqlThread(threading.Thread):
@@ -35,12 +27,12 @@ class sqlThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self, name="SQL")
 
-    def run(self):  # pylint: disable=too-many-locals, too-many-branches, too-many-statements
+    def run(self):
         """Process SQL queries from `.helper_sql.sqlSubmitQueue`"""
         helper_sql.sql_available = True
         config_ready.wait()
         self.conn = sqlite3.connect(state.appdata + 'messages.dat')
-        self.conn.text_factory = str
+        self.conn.text_factory = bytes
         self.cur = self.conn.cursor()
 
         self.cur.execute('PRAGMA secure_delete = true')
@@ -423,7 +415,7 @@ class sqlThread(threading.Thread):
         # above this line!
 
         try:
-            testpayload = '\x00\x00'
+            testpayload = b'\x00\x00'
             t = ('1234', 1, testpayload, '12345678', 'no')
             self.cur.execute('''INSERT INTO pubkeys VALUES(?,?,?,?,?)''', t)
             self.conn.commit()
@@ -517,8 +509,8 @@ class sqlThread(threading.Thread):
                         os._exit(0)
             elif item == 'exit':
                 self.conn.close()
+                helper_sql.sql_available = False
                 logger.info('sqlThread exiting gracefully.')
-
                 return
             elif item == 'movemessagstoprog':
                 logger.debug('the sqlThread is moving the messages.dat file to the local program directory.')
@@ -544,7 +536,7 @@ class sqlThread(threading.Thread):
                 shutil.move(
                     paths.lookupAppdataFolder() + 'messages.dat', paths.lookupExeFolder() + 'messages.dat')
                 self.conn = sqlite3.connect(paths.lookupExeFolder() + 'messages.dat')
-                self.conn.text_factory = str
+                self.conn.text_factory = bytes
                 self.cur = self.conn.cursor()
             elif item == 'movemessagstoappdata':
                 logger.debug('the sqlThread is moving the messages.dat file to the Appdata folder.')
@@ -570,7 +562,7 @@ class sqlThread(threading.Thread):
                 shutil.move(
                     paths.lookupExeFolder() + 'messages.dat', paths.lookupAppdataFolder() + 'messages.dat')
                 self.conn = sqlite3.connect(paths.lookupAppdataFolder() + 'messages.dat')
-                self.conn.text_factory = str
+                self.conn.text_factory = bytes
                 self.cur = self.conn.cursor()
             elif item == 'deleteandvacuume':
                 self.cur.execute('''delete from inbox where folder='trash' ''')

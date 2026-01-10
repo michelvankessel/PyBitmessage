@@ -4,17 +4,23 @@ import atexit
 import unittest
 
 try:
-    from PyQt5 import QtGui, QtWidgets
-    from xvfbwrapper import Xvfb
+    import importlib
+    from PyQt6 import QtGui, QtWidgets
+    xvfbwrapper = importlib.import_module('xvfbwrapper')
+    Xvfb = xvfbwrapper.Xvfb
     from pybitmessage import qidenticon
 except ImportError:
     Xvfb = None
     # raise unittest.SkipTest(
     #     'Skipping graphical test, because of no PyQt or xvfbwrapper')
 else:
-    vdisplay = Xvfb(width=1024, height=768)
-    vdisplay.start()
-    atexit.register(vdisplay.stop)
+    try:
+        vdisplay = Xvfb(width=1024, height=768)
+        vdisplay.start()
+        atexit.register(vdisplay.stop)
+    except OSError:
+        # Xvfb not available on this platform (e.g., macOS)
+        Xvfb = None
 
 
 sample_code = 0x3fd4bf901b9d4ea1394f0fb358725b28

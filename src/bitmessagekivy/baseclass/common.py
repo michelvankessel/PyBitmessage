@@ -1,6 +1,3 @@
-# pylint: disable=no-name-in-module, attribute-defined-outside-init, import-error, unused-argument
-# pylint: disable=no-init, too-few-public-methods, useless-object-inheritance
-
 """
     All Common widgets of kivy are managed here.
 """
@@ -125,7 +122,7 @@ def avatar_image_first_letter(letter_string):
         return '!'
 
 
-def add_time_widget(time):  # pylint: disable=redefined-outer-name, W0201
+def add_time_widget(time):
     """This method is used to create TimeWidget"""
     action_time = TimeTagRightSampleWidget(
         text=str(show_time_history(time)),
@@ -148,7 +145,6 @@ def show_time_history(act_time):
     return action_time.strftime("%d/%m/%Y")
 
 
-# pylint: disable=too-few-public-methods
 class AvatarSampleWidget(ILeftBody, Image):
     """AvatarSampleWidget class for kivy Ui"""
 
@@ -196,7 +192,7 @@ def retrieve_secondary_text(mail):
     third_text = mail[3].replace('\n', ' ')
 
     if len(third_text) > third_txt_len:
-        if len(mail[2]) > secondary_txt_len:  # pylint: disable=no-else-return
+        if len(mail[2]) > secondary_txt_len:
             return mail[2][:secondary_txt_len] + dot_str
         else:
             return mail[2] + '\n' + " " + (third_text[:third_txt_len] + dot_str2)

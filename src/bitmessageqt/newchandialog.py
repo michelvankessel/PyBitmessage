@@ -4,23 +4,29 @@ src/bitmessageqt/newchandialog.py
 
 """
 
-from PyQt4 import QtCore, QtGui
+from PyQt6 import QtCore, QtWidgets
 
-import widgets
 from addresses import addBMIfNotPresent
-from addressvalidator import AddressValidator, PassPhraseValidator
 from queues import (
     addressGeneratorQueue, apiAddressGeneratorReturnQueue, UISignalQueue)
 from tr import _translate
-from utils import str_chan
+from . import widgets
+from .addressvalidator import AddressValidator, PassPhraseValidator
+from .utils import str_chan
 
 
-class NewChanDialog(QtGui.QDialog):
+class NewChanDialog(QtWidgets.QDialog):
     """The `New Chan` dialog"""
+    # UI widgets loaded from newchandialog.ui - type hints for pyright
+    chanAddress: QtWidgets.QLineEdit
+    chanPassPhrase: QtWidgets.QLineEdit
+    validatorFeedback: QtWidgets.QLabel
+    buttonBox: QtWidgets.QDialogButtonBox
+
     def __init__(self, parent=None):
         super(NewChanDialog, self).__init__(parent)
         widgets.load('newchandialog.ui', self)
-        self.parent = parent
+        self._parent = parent  # Avoid shadowing QObject.parent()
         self.chanAddress.setValidator(
             AddressValidator(
                 self.chanAddress,
@@ -37,10 +43,9 @@ class NewChanDialog(QtGui.QDialog):
                 False))
 
         self.timer = QtCore.QTimer()
-        QtCore.QObject.connect(  # pylint: disable=no-member
-            self.timer, QtCore.SIGNAL("timeout()"), self.delayedUpdateStatus)
+        self.timer.timeout.connect(self.delayedUpdateStatus)
         self.timer.start(500)  # milliseconds
-        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_DeleteOnClose)
         self.show()
 
     def delayedUpdateStatus(self):
@@ -52,32 +57,33 @@ class NewChanDialog(QtGui.QDialog):
         self.timer.stop()
         self.hide()
         apiAddressGeneratorReturnQueue.queue.clear()
-        if self.chanAddress.text().toUtf8() == "":
+        if self.chanAddress.text() == "":
             addressGeneratorQueue.put(
-                ('createChan', 4, 1, str_chan + ' ' + str(self.chanPassPhrase.text().toUtf8()),
-                 self.chanPassPhrase.text().toUtf8(),
+                ('createChan', 4, 1, str_chan + ' ' + str(self.chanPassPhrase.text()),
+                 self.chanPassPhrase.text(),
                  True))
         else:
             addressGeneratorQueue.put(
-                ('joinChan', addBMIfNotPresent(self.chanAddress.text().toUtf8()),
-                 str_chan + ' ' + str(self.chanPassPhrase.text().toUtf8()),
-                 self.chanPassPhrase.text().toUtf8(),
+                ('joinChan', addBMIfNotPresent(self.chanAddress.text()),
+                 str_chan + ' ' + str(self.chanPassPhrase.text()),
+                 self.chanPassPhrase.text(),
                  True))
         addressGeneratorReturnValue = apiAddressGeneratorReturnQueue.get(True)
         if addressGeneratorReturnValue and addressGeneratorReturnValue[0] != 'chan name does not match address':
             UISignalQueue.put(('updateStatusBar', _translate(
-                "newchandialog", "Successfully created / joined chan %1").arg(unicode(self.chanPassPhrase.text()))))
-            self.parent.ui.tabWidget.setCurrentIndex(
-                self.parent.ui.tabWidget.indexOf(self.parent.ui.chans)
-            )
-            self.done(QtGui.QDialog.Accepted)
+                "newchandialog", "Successfully created / joined chan {}").format(str(self.chanPassPhrase.text()))))
+            if self._parent is not None and hasattr(self._parent, 'ui'):
+                self._parent.ui.tabWidget.setCurrentIndex(
+                    self._parent.ui.tabWidget.indexOf(self._parent.ui.chans)
+                )
+            self.done(QtWidgets.QDialog.DialogCode.Accepted)
         else:
             UISignalQueue.put(('updateStatusBar', _translate("newchandialog", "Chan creation / joining failed")))
-            self.done(QtGui.QDialog.Rejected)
+            self.done(QtWidgets.QDialog.DialogCode.Rejected)
 
     def reject(self):
         """Cancel joining the chan"""
         self.timer.stop()
         self.hide()
         UISignalQueue.put(('updateStatusBar', _translate("newchandialog", "Chan creation / joining cancelled")))
-        self.done(QtGui.QDialog.Rejected)
+        self.done(QtWidgets.QDialog.DialogCode.Rejected)

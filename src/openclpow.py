@@ -3,6 +3,7 @@ Module for Proof of Work using OpenCL
 """
 import logging
 import os
+from typing import Any
 from struct import pack
 
 import paths
@@ -22,15 +23,15 @@ logger = logging.getLogger('default')
 ctx = False
 queue = False
 program = False
-gpus = []
-enabledGpus = []
-vendors = []
+gpus: list[Any] = []
+enabledGpus: list[Any] = []
+vendors: list[Any] = []
 hash_dt = None
 
 
 def initCL():
     """Initlialise OpenCL engine"""
-    global ctx, queue, program, hash_dt  # pylint: disable=global-statement
+    global ctx, queue, program, hash_dt
     if libAvailable is False:
         return
     del enabledGpus[:]
@@ -47,7 +48,7 @@ def initCL():
                         device_type=cl.device_type.GPU))
                 if platform.vendor not in vendors:
                     vendors.append(platform.vendor)
-        except:  # nosec B110 # noqa:E722 # pylint:disable=bare-except
+        except Exception:
             pass
         if enabledGpus:
             ctx = cl.Context(devices=enabledGpus)

@@ -1,12 +1,12 @@
 """
 SOCKS4a proxy module
 """
-# pylint: disable=attribute-defined-outside-init
+
 import logging
 import socket
 import struct
 
-from proxy import GeneralProxyError, Proxy, ProxyError
+from .proxy import GeneralProxyError, Proxy, ProxyError
 
 logger = logging.getLogger('default')
 

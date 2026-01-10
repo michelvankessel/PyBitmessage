@@ -1,4 +1,3 @@
-# pylint: disable=no-name-in-module, attribute-defined-outside-init, import-error
 """
     All Common widgets of kivy are managed here.
 """
@@ -7,7 +6,7 @@ from pybitmessage.bitmessagekivy.baseclass.maildetail import MailDetail
 from pybitmessage.bitmessagekivy.baseclass.common import kivy_state_variables
 
 
-def mail_detail_screen(screen_name, msg_id, instance, folder, *args):  # pylint: disable=unused-argument
+def mail_detail_screen(screen_name, msg_id, instance, folder, *args):
     """Common function for all screens to open Mail detail."""
     kivy_state = kivy_state_variables()
     if instance.open_progress == 0.0:

@@ -3,11 +3,14 @@
 import sys
 import unittest
 
-from PyQt4 import QtCore, QtGui
-from six.moves import queue
+from PyQt6 import QtCore, QtWidgets
+import queue
 
 import bitmessageqt
-from bitmessageqt import _translate, config, queues
+import queues
+from bmconfigparser import config
+
+_translate = QtCore.QCoreApplication.translate
 
 
 class TestBase(unittest.TestCase):
@@ -20,9 +23,10 @@ class TestBase(unittest.TestCase):
 
     def setUp(self):
         self.app = (
-            QtGui.QApplication.instance()
-            or bitmessageqt.BitmessageQtApplication(sys.argv))
-        self.window = self.app.activeWindow()
+            QtWidgets.QApplication.instance()
+            or bitmessageqt.BitmessageQtApplication(sys.argv)
+        )
+        self.window = QtWidgets.QApplication.activeWindow()
         if not self.window:
             self.window = bitmessageqt.MyForm()
             self.window.appIndicatorInit(self.app)
@@ -36,13 +40,13 @@ class TestBase(unittest.TestCase):
                 thread, exc = queues.excQueue.get(block=False)
             except queue.Empty:
                 break
-            if thread == 'tests':
+            if thread == "tests":
                 concerning.append(exc)
         if concerning:
             self.fail(
-                'Exceptions found in the main thread:\n%s' % '\n'.join((
-                    str(e) for e in concerning
-                )))
+                "Exceptions found in the main thread:\n%s"
+                % "\n".join((str(e) for e in concerning))
+            )
 
 
 class TestMain(unittest.TestCase):
@@ -51,8 +55,8 @@ class TestMain(unittest.TestCase):
     def test_translate(self):
         """Check the results of _translate() with various args"""
         self.assertIsInstance(
-            _translate("MainWindow", "Test"),
-            QtCore.QString
+            _translate("MainWindow", "Test", None),
+            str,  # PyQt6 returns Python strings, not QString
         )
 
 
@@ -61,11 +65,13 @@ class TestUISignaler(TestBase):
 
     def test_updateStatusBar(self):
         """Check arguments order of updateStatusBar command"""
-        queues.UISignalQueue.put((
-            'updateStatusBar', (
-                _translate("test", "Testing updateStatusBar..."), 1)
-        ))
+        queues.UISignalQueue.put(
+            (
+                "updateStatusBar",
+                (_translate("test", "Testing updateStatusBar...", None), 1),
+            )
+        )
 
         QtCore.QTimer.singleShot(60, self.app.quit)
-        self.app.exec_()
+        self.app.exec()
         # self.app.processEvents(QtCore.QEventLoop.AllEvents, 60)

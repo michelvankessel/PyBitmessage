@@ -1,19 +1,17 @@
 """
 Thread for performing PoW
 """
-# pylint: disable=protected-access,too-many-branches,too-many-statements
-# pylint: disable=no-self-use,too-many-lines,too-many-locals
 
-from __future__ import division
 
 import hashlib
 import time
 from binascii import hexlify, unhexlify
 from struct import pack
-from subprocess import call  # nosec
+from subprocess import call
 
-from six.moves import configparser, queue
-from six.moves.reprlib import repr
+import configparser
+import queue
+
 
 import defaults
 import helper_inbox
@@ -63,7 +61,6 @@ class singleWorker(StoppableThread):
         super(singleWorker, self).stopThread()
 
     def run(self):
-        # pylint: disable=attribute-defined-outside-init
 
         while not helper_sql.sql_ready.wait(1.0) and state.shutdown == 0:
             self.stop.wait(1.0)
@@ -75,6 +72,9 @@ class singleWorker(StoppableThread):
             '''SELECT DISTINCT toaddress FROM sent'''
             ''' WHERE (status='awaitingpubkey' AND folder='sent')''')
         for toAddress, in queryreturn:
+            # Ensure address is string, not bytes
+            if isinstance(toAddress, bytes):
+                toAddress = toAddress.decode('utf-8', 'replace')
             toAddressVersionNumber, toStreamNumber, toRipe = \
                 decodeAddress(toAddress)[1:]
             if toAddressVersionNumber <= 3:
@@ -107,7 +107,7 @@ class singleWorker(StoppableThread):
         for oldack in state.ackdataForWhichImWatching:
             if len(oldack) == 32:
                 # attach legacy header, always constant (msg/1/1)
-                newack = '\x00\x00\x00\x02\x01\x01' + oldack
+                newack = b'\x00\x00\x00\x02\x01\x01' + oldack
                 state.ackdataForWhichImWatching[newack] = 0
                 sqlExecute(
                     '''UPDATE sent SET ackdata=? WHERE ackdata=? AND folder = 'sent' ''',
@@ -148,37 +148,37 @@ class singleWorker(StoppableThread):
             if command == 'sendmessage':
                 try:
                     self.sendMsg()
-                except:  # noqa:E722
-                    self.logger.warning("sendMsg didn't work")
+                except Exception:
+                    self.logger.error("sendMsg didn't work", exc_info=True)
             elif command == 'sendbroadcast':
                 try:
                     self.sendBroadcast()
-                except:  # noqa:E722
-                    self.logger.warning("sendBroadcast didn't work")
+                except Exception:
+                    self.logger.error("sendBroadcast didn't work", exc_info=True)
             elif command == 'doPOWForMyV2Pubkey':
                 try:
                     self.doPOWForMyV2Pubkey(data)
-                except:  # noqa:E722
-                    self.logger.warning("doPOWForMyV2Pubkey didn't work")
+                except Exception:
+                    self.logger.error("doPOWForMyV2Pubkey didn't work", exc_info=True)
             elif command == 'sendOutOrStoreMyV3Pubkey':
                 try:
                     self.sendOutOrStoreMyV3Pubkey(data)
-                except:  # noqa:E722
+                except Exception:
                     self.logger.warning("sendOutOrStoreMyV3Pubkey didn't work")
             elif command == 'sendOutOrStoreMyV4Pubkey':
                 try:
                     self.sendOutOrStoreMyV4Pubkey(data)
-                except:  # noqa:E722
-                    self.logger.warning("sendOutOrStoreMyV4Pubkey didn't work")
+                except Exception:
+                    self.logger.error("sendOutOrStoreMyV4Pubkey didn't work", exc_info=True)
             elif command == 'sendOnionPeerObj':
                 try:
                     self.sendOnionPeerObj(data)
-                except:  # noqa:E722
+                except Exception:
                     self.logger.warning("sendOnionPeerObj didn't work")
             elif command == 'resetPoW':
                 try:
                     proofofwork.resetPoW()
-                except:  # noqa:E722
+                except Exception:
                     self.logger.warning("proofofwork.resetPoW didn't work")
             elif command == 'stopThread':
                 self.busy = 0
@@ -263,7 +263,7 @@ class singleWorker(StoppableThread):
         TTL = int(28 * 24 * 60 * 60 + helper_random.randomrandrange(-300, 300))
         embeddedTime = int(time.time() + TTL)
         payload = pack('>Q', (embeddedTime))
-        payload += '\x00\x00\x00\x01'  # object type: pubkey
+        payload += b'\x00\x00\x00\x01'  # object type: pubkey
         payload += encodeVarint(addressVersionNumber)  # Address version number
         payload += encodeVarint(streamNumber)
         # bitfield of features supported by me (see the wiki).
@@ -274,7 +274,7 @@ class singleWorker(StoppableThread):
                 myAddress)[2:]
         except ValueError:
             return
-        except Exception:  # pylint:disable=broad-exception-caught
+        except Exception:
             self.logger.error(
                 'Error within doPOWForMyV2Pubkey. Could not read'
                 ' the keys from the keys.dat file for a requested'
@@ -305,7 +305,7 @@ class singleWorker(StoppableThread):
             # The user deleted the address out of the keys.dat file
             # before this finished.
             pass
-        except:  # noqa:E722
+        except Exception:
             self.logger.warning("config.set didn't work")
 
     def sendOutOrStoreMyV3Pubkey(self, adressHash):
@@ -340,7 +340,7 @@ class singleWorker(StoppableThread):
         # expiresTime time.
 
         payload = pack('>Q', (embeddedTime))
-        payload += '\x00\x00\x00\x01'  # object type: pubkey
+        payload += b'\x00\x00\x00\x01'  # object type: pubkey
         payload += encodeVarint(addressVersionNumber)  # Address version number
         payload += encodeVarint(streamNumber)
         # bitfield of features supported by me (see the wiki).
@@ -352,7 +352,7 @@ class singleWorker(StoppableThread):
                 self._getKeysForAddress(myAddress)
         except ValueError:
             return
-        except Exception:  # pylint:disable=broad-exception-caught
+        except Exception:
             self.logger.error(
                 'Error within sendOutOrStoreMyV3Pubkey. Could not read'
                 ' the keys from the keys.dat file for a requested'
@@ -393,7 +393,7 @@ class singleWorker(StoppableThread):
             # The user deleted the address out of the keys.dat file
             # before this finished.
             pass
-        except:  # noqa:E722
+        except Exception:
             self.logger.warning("BMConfigParser().set didn't work")
 
     def sendOutOrStoreMyV4Pubkey(self, myAddress):
@@ -415,7 +415,7 @@ class singleWorker(StoppableThread):
         TTL = int(28 * 24 * 60 * 60 + helper_random.randomrandrange(-300, 300))
         embeddedTime = int(time.time() + TTL)
         payload = pack('>Q', (embeddedTime))
-        payload += '\x00\x00\x00\x01'  # object type: pubkey
+        payload += b'\x00\x00\x00\x01'  # object type: pubkey
         payload += encodeVarint(addressVersionNumber)  # Address version number
         payload += encodeVarint(streamNumber)
         dataToEncrypt = protocol.getBitfield(myAddress)
@@ -426,7 +426,7 @@ class singleWorker(StoppableThread):
                 self._getKeysForAddress(myAddress)
         except ValueError:
             return
-        except Exception:  # pylint:disable=broad-exception-caught
+        except Exception:
             self.logger.error(
                 'Error within sendOutOrStoreMyV4Pubkey. Could not read'
                 ' the keys from the keys.dat file for a requested'
@@ -518,8 +518,8 @@ class singleWorker(StoppableThread):
 
         inventoryHash = highlevelcrypto.calculateInventoryHash(payload)
         state.Inventory[inventoryHash] = (
-            objectType, streamNumber, buffer(payload),  # noqa: F821
-            embeddedTime, buffer(tag)  # noqa: F821
+            objectType, streamNumber, memoryview(payload),
+            embeddedTime, memoryview(tag)
         )
         self.logger.info(
             'sending inv (within sendOnionPeerObj function) for object: %s',
@@ -540,6 +540,9 @@ class singleWorker(StoppableThread):
 
         for row in queryreturn:
             fromaddress, subject, body, ackdata, TTL, encoding = row
+            # Ensure addresses are strings, not bytes
+            if isinstance(fromaddress, bytes):
+                fromaddress = fromaddress.decode('utf-8', 'replace')
             # status
             _, addressVersionNumber, streamNumber, ripe = \
                 decodeAddress(fromaddress)
@@ -601,7 +604,7 @@ class singleWorker(StoppableThread):
             TTL = int(TTL + helper_random.randomrandrange(-300, 300))
             embeddedTime = int(time.time() + TTL)
             payload = pack('>Q', embeddedTime)
-            payload += '\x00\x00\x00\x03'  # object type: broadcast
+            payload += b'\x00\x00\x00\x03'  # object type: broadcast
 
             if addressVersionNumber <= 3:
                 payload += encodeVarint(4)  # broadcast version
@@ -713,7 +716,7 @@ class singleWorker(StoppableThread):
 
     def sendMsg(self):
         """Send a message-type object (assemble the object, perform PoW and put it to the inv announcement queue)"""
-        # pylint: disable=too-many-nested-blocks
+
         # Reset just in case
         sqlExecute(
             '''UPDATE sent SET status='msgqueued' '''
@@ -728,6 +731,20 @@ class singleWorker(StoppableThread):
         for row in queryreturn:
             toaddress, fromaddress, subject, message, \
                 ackdata, status, TTL, retryNumber, encoding = row
+            # Ensure addresses are strings, not bytes
+            if isinstance(toaddress, bytes):
+                toaddress = toaddress.decode('utf-8', 'replace')
+            if isinstance(fromaddress, bytes):
+                fromaddress = fromaddress.decode('utf-8', 'replace')
+            if isinstance(status, bytes):
+                status = status.decode('utf-8', 'replace')
+            if isinstance(subject, bytes):
+                subject = subject.decode('utf-8', 'replace')
+            if isinstance(message, bytes):
+                message = message.decode('utf-8', 'replace')
+
+            print(f"DEBUG_TRACE: Processing {toaddress} with status '{status}'", flush=True)
+
             # toStatus
             _, toAddressVersionNumber, toStreamNumber, toRipe = \
                 decodeAddress(toaddress)
@@ -764,11 +781,13 @@ class singleWorker(StoppableThread):
             elif status == 'msgqueued':
                 # Let's see if we already have the pubkey in our pubkeys table
                 queryreturn = sqlQuery(
-                    '''SELECT address FROM pubkeys WHERE address=?''',
+                    '''SELECT transmitdata FROM pubkeys WHERE address=?''',
                     toaddress
                 )
+                print(f"DEBUG_TRACE: First Loop Check for {toaddress} returned {len(queryreturn)} rows.", flush=True)
                 # If we have the needed pubkey in the pubkey table already,
-                if queryreturn != []:
+                # AND it has actual data (not None or empty)
+                if queryreturn != [] and queryreturn[0][0]:
                     # set the status of this msg to doingmsgpow
                     if not sqlExecute(
                         '''UPDATE sent SET status='doingmsgpow' '''
@@ -816,6 +835,7 @@ class singleWorker(StoppableThread):
                         # on with the next msg on which we can do some work
                         continue
                     else:
+                        print(f"DEBUG_TRACE: Missing pubkey for {toaddress}. Preparing to request.")
                         # We have not yet sent a request for the pubkey
                         needToRequestPubkey = True
                         # If we are trying to send to address
@@ -873,12 +893,13 @@ class singleWorker(StoppableThread):
                                 # with the correct tag then we'll try
                                 # to decrypt those.
                         if needToRequestPubkey:
-                            sqlExecute(
+                            rowcount = sqlExecute(
                                 '''UPDATE sent SET '''
                                 ''' status='doingpubkeypow' WHERE '''
                                 ''' toaddress=? AND status='msgqueued' AND folder='sent' ''',
                                 toaddress
                             )
+                            print(f"DEBUG_TRACE: UPDATE to doingpubkeypow returned {rowcount} rows for {toaddress}", flush=True)
                             queues.UISignalQueue.put((
                                 'updateSentItemStatusByToAddress', (
                                     toaddress,
@@ -902,6 +923,9 @@ class singleWorker(StoppableThread):
             embeddedTime = int(time.time() + TTL)
 
             # if we aren't sending this to ourselves or a chan
+            self.logger.debug(f"DEBUG: Checking ownership of {toaddress}")
+            self.logger.debug(f"DEBUG: has_section({toaddress}) = {config.has_section(toaddress)}")
+            self.logger.debug(f"DEBUG: Sections: {config.sections()}")
             if not config.has_section(toaddress):
                 state.ackdataForWhichImWatching[ackdata] = 0
                 queues.UISignalQueue.put((
@@ -923,7 +947,20 @@ class singleWorker(StoppableThread):
                 queryreturn = sqlQuery(
                     'SELECT transmitdata FROM pubkeys WHERE address=?',
                     toaddress)
-                for row in queryreturn:  # pylint: disable=redefined-outer-name
+                print(f"DEBUG_TRACE: Loop check for {toaddress} returned {len(queryreturn)} rows.", flush=True)
+                if not queryreturn:
+                    self.logger.error(
+                        'Could not find pubkey for %s in our database'
+                        ' even though we thought we had it. Deleting broken entry and resetting status.',
+                        toaddress)
+                    # Delete the broken pubkey entry so we don't think we have it next time
+                    sqlExecute("DELETE FROM pubkeys WHERE address=?", toaddress)
+                    # Reset status so we can try to request the pubkey again
+                    sqlExecute(
+                        "UPDATE sent SET status='msgqueued' WHERE folder='sent' AND ackdata=?",
+                        ackdata)
+                    continue
+                for row in queryreturn:
                     pubkeyPayload, = row
 
                 # The pubkey message is stored with the following items
@@ -1203,14 +1240,14 @@ class singleWorker(StoppableThread):
                     'Not bothering to include ackdata because we are'
                     ' sending to ourselves or a chan.'
                 )
-                fullAckPayload = ''
+                fullAckPayload = b''
             elif not protocol.checkBitfield(
                     behaviorBitfield, protocol.BITFIELD_DOESACK):
                 self.logger.info(
                     'Not bothering to include ackdata because'
                     ' the receiver said that they won\'t relay it anyway.'
                 )
-                fullAckPayload = ''
+                fullAckPayload = b''
             else:
                 # The fullAckPayload is a normal msg protocol message
                 # with the proof of work already completed that the
@@ -1219,7 +1256,7 @@ class singleWorker(StoppableThread):
                     ackdata, toStreamNumber, TTL)
             payload += encodeVarint(len(fullAckPayload))
             payload += fullAckPayload
-            dataToSign = pack('>Q', embeddedTime) + '\x00\x00\x00\x02' + \
+            dataToSign = pack('>Q', embeddedTime) + b'\x00\x00\x00\x02' + \
                 encodeVarint(1) + encodeVarint(toStreamNumber) + payload
             signature = highlevelcrypto.sign(
                 dataToSign, privSigningKeyHex, self.digestAlg)
@@ -1229,9 +1266,9 @@ class singleWorker(StoppableThread):
             # We have assembled the data that will be encrypted.
             try:
                 encrypted = highlevelcrypto.encrypt(
-                    payload, "04" + hexlify(pubEncryptionKeyBase256)
+                    payload, b"04" + hexlify(pubEncryptionKeyBase256)
                 )
-            except:  # noqa:E722
+            except Exception:
                 self.logger.warning("highlevelcrypto.encrypt didn't work")
                 sqlExecute(
                     '''UPDATE sent SET status='badkey' WHERE ackdata=? AND folder='sent' ''',
@@ -1249,7 +1286,7 @@ class singleWorker(StoppableThread):
                 continue
 
             encryptedPayload = pack('>Q', embeddedTime)
-            encryptedPayload += '\x00\x00\x00\x02'  # object type: msg
+            encryptedPayload += b'\x00\x00\x00\x02'  # object type: msg
             encryptedPayload += encodeVarint(1)  # msg version
             encryptedPayload += encodeVarint(toStreamNumber) + encrypted
 
@@ -1342,7 +1379,7 @@ class singleWorker(StoppableThread):
                     if apiNotifyPath:
                         # There is no additional risk of remote exploitation or
                         # privilege escalation
-                        call([apiNotifyPath, "newMessage"])  # nosec B603
+                        call([apiNotifyPath, "newMessage"])
 
     def requestPubKey(self, toAddress):
         """Send a getpubkey object"""
@@ -1356,6 +1393,7 @@ class singleWorker(StoppableThread):
             )
             return
 
+        print(f"DEBUG_TRACE: check_requestPubKey called for {toAddress}")
         queryReturn = sqlQuery(
             '''SELECT retrynumber FROM sent WHERE toaddress=? '''
             ''' AND (status='doingpubkeypow' OR status='awaitingpubkey') '''
@@ -1386,13 +1424,19 @@ class singleWorker(StoppableThread):
             privEncryptionKey = doubleHashOfAddressData[:32]
             # Note that this is the second half of the sha512 hash.
             tag = doubleHashOfAddressData[32:]
+            print(f"DEBUG_PUBKEY: Version 4 Address Setup. Tag: {hexlify(tag)} Key: {hexlify(privEncryptionKey)}")
             if tag not in state.neededPubkeys:
                 # We'll need this for when we receive a pubkey reply:
                 # it will be encrypted and we'll need to decrypt it.
-                state.neededPubkeys[tag] = (
-                    toAddress,
-                    highlevelcrypto.makeCryptor(hexlify(privEncryptionKey))
-                )
+                try:
+                    state.neededPubkeys[tag] = (
+                        toAddress,
+                        highlevelcrypto.makeSymCryptor(hexlify(privEncryptionKey))
+                    )
+                    print(f"DEBUG_PUBKEY: Successfully added {hexlify(tag)} to neededPubkeys.")
+                except Exception as e:
+                    print(f"DEBUG_PUBKEY: CRITICAL ERROR adding to neededPubkeys: {e}")
+                    raise
 
         # 2.5 days. This was chosen fairly arbitrarily.
         TTL = 2.5 * 24 * 60 * 60
@@ -1403,7 +1447,7 @@ class singleWorker(StoppableThread):
         TTL = TTL + helper_random.randomrandrange(-300, 300)
         embeddedTime = int(time.time() + TTL)
         payload = pack('>Q', embeddedTime)
-        payload += '\x00\x00\x00\x00'  # object type: getpubkey
+        payload += b'\x00\x00\x00\x00'  # object type: getpubkey
         payload += encodeVarint(addressVersionNumber)
         payload += encodeVarint(streamNumber)
         if addressVersionNumber <= 3:
@@ -1426,14 +1470,18 @@ class singleWorker(StoppableThread):
                     "Doing work necessary to request encryption key."))
         ))
 
+        print(f"DEBUG_TRACE: requestPubKey starting POW for {toAddress}", flush=True)
         payload = self._doPOWDefaults(payload, TTL)
+        print(f"DEBUG_TRACE: requestPubKey POW complete, payload length={len(payload)}", flush=True)
 
         inventoryHash = highlevelcrypto.calculateInventoryHash(payload)
         objectType = 1
         state.Inventory[inventoryHash] = (
             objectType, streamNumber, payload, embeddedTime, '')
+        print(f"DEBUG_TRACE: requestPubKey added to inventory, hash={inventoryHash.hex()}", flush=True)
         self.logger.info('sending inv (for the getpubkey message)')
         invQueue.put((streamNumber, inventoryHash))
+        print(f"DEBUG_TRACE: requestPubKey queued inv for stream {streamNumber}", flush=True)
 
         # wait 10% past expiration
         sleeptill = int(time.time() + TTL * 1.1)

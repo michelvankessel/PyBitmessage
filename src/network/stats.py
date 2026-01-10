@@ -1,11 +1,12 @@
 """
 Network statistics
 """
+
 import time
 
-import asyncore_pollchoose as asyncore
-import connectionpool
-from objectracker import missingObjects
+from . import asyncore_pollchoose as asyncore
+from . import connectionpool
+from .objectracker import missingObjects
 
 
 lastReceivedTimestamp = time.time()
@@ -28,14 +29,14 @@ def sentBytes():
 
 def uploadSpeed():
     """Getting upload speed"""
-    # pylint: disable=global-statement
+
     global lastSentTimestamp, lastSentBytes, currentSentSpeed
     currentTimestamp = time.time()
     if int(lastSentTimestamp) < int(currentTimestamp):
         currentSentBytes = asyncore.sentBytes
         currentSentSpeed = int(
-            (currentSentBytes - lastSentBytes) / (
-                currentTimestamp - lastSentTimestamp))
+            (currentSentBytes - lastSentBytes) / (currentTimestamp - lastSentTimestamp)
+        )
         lastSentBytes = currentSentBytes
         lastSentTimestamp = currentTimestamp
     return currentSentSpeed
@@ -48,14 +49,15 @@ def receivedBytes():
 
 def downloadSpeed():
     """Getting download speed"""
-    # pylint: disable=global-statement
+
     global lastReceivedTimestamp, lastReceivedBytes, currentReceivedSpeed
     currentTimestamp = time.time()
     if int(lastReceivedTimestamp) < int(currentTimestamp):
         currentReceivedBytes = asyncore.receivedBytes
         currentReceivedSpeed = int(
-            (currentReceivedBytes - lastReceivedBytes) / (
-                currentTimestamp - lastReceivedTimestamp))
+            (currentReceivedBytes - lastReceivedBytes)
+            / (currentTimestamp - lastReceivedTimestamp)
+        )
         lastReceivedBytes = currentReceivedBytes
         lastReceivedTimestamp = currentTimestamp
     return currentReceivedSpeed

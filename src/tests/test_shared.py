@@ -25,12 +25,7 @@ from .samples import (
     sample_subscription_addresses, sample_subscription_tag
 )
 
-try:
-    # Python 3
-    from unittest.mock import patch, PropertyMock
-except ImportError:
-    # Python 2
-    from mock import patch, PropertyMock
+from unittest.mock import patch, PropertyMock
 
 # mock os.stat data for file
 PERMISSION_MODE1 = stat.S_IRUSR  # allow Read permission for the file owner.
@@ -50,6 +45,13 @@ CTIME = 1709449603
 
 class TestShared(unittest.TestCase):
     """Test class for shared.py"""
+
+    def setUp(self):
+        """Clear global state before each test"""
+        myAddressesByHash.clear()
+        myAddressesByTag.clear()
+        myECCryptorObjects.clear()
+        MyECSubscriptionCryptorObjects.clear()
 
     @patch("pybitmessage.shared.sqlQuery")
     def test_isaddress_in_myaddressbook(self, mock_sql_query):
@@ -108,37 +110,48 @@ class TestShared(unittest.TestCase):
         self.assertEqual(len(myAddressesByHash), 0)
         self.assertEqual(len(myAddressesByTag), 0)
 
-        config.add_section(sample_address)
-        config.set(sample_address, 'enabled', 'false')
-        config.set(sample_address, 'privencryptionkey', 'malformed')
-        config.save()
+        # Clean up any existing section from previous runs
+        if config.has_section(sample_address):
+            config.remove_section(sample_address)
+            config.save()
 
-        reloadMyAddressHashes()
-        self.assertEqual(len(myAddressesByHash), 0)
+        try:
+            config.add_section(sample_address)
+            config.set(sample_address, 'enabled', 'false')
+            config.set(sample_address, 'privencryptionkey', 'malformed')
+            config.save()
 
-        config.set(sample_address, 'enabled', 'true')
-        config.save()
+            reloadMyAddressHashes()
+            self.assertEqual(len(myAddressesByHash), 0)
 
-        reloadMyAddressHashes()
-        self.assertEqual(len(myAddressesByHash), 0)
+            config.set(sample_address, 'enabled', 'true')
+            config.save()
 
-        config.set(
-            sample_address, 'privencryptionkey',
-            encodeWalletImportFormat(
-                unhexlify(sample_privencryptionkey)).decode()
-        )  # the key is not for the sample_address, but it doesn't matter
-        config.save()
+            reloadMyAddressHashes()
+            self.assertEqual(len(myAddressesByHash), 0)
 
-        reloadMyAddressHashes()
-        ripe = unhexlify(sample_ripe)
-        self.assertEqual(len(myAddressesByTag), 1)
-        self.assertTrue(myECCryptorObjects.get(ripe))
-        self.assertEqual(myAddressesByHash[ripe], sample_address)
+            config.set(
+                sample_address, 'privencryptionkey',
+                encodeWalletImportFormat(
+                    unhexlify(sample_privencryptionkey)).decode()
+            )  # the key is not for the sample_address, but it doesn't matter
+            config.save()
+
+            reloadMyAddressHashes()
+            ripe = unhexlify(sample_ripe)
+            self.assertEqual(len(myAddressesByTag), 1)
+            self.assertTrue(myECCryptorObjects.get(ripe))
+            self.assertEqual(myAddressesByHash[ripe], sample_address)
+        finally:
+            # Clean up the config section
+            if config.has_section(sample_address):
+                config.remove_section(sample_address)
+                config.save()
 
     @patch("pybitmessage.shared.os.stat")
     @patch(
         "pybitmessage.shared.sys",
-        new_callable=PropertyMock,  # pylint: disable=used-before-assignment
+        new_callable=PropertyMock,
     )
     def test_check_sensitive_file_permissions(self, mock_sys, mock_os_stat):
         """Test to check file permissions"""
@@ -152,49 +165,43 @@ class TestShared(unittest.TestCase):
         # test for freebsd system
         mock_sys.platform = "freebsd7"
         # returning file permission mode stat.S_IRUSR
-        MOCK_OS_STAT_RETURN = os.stat_result(
-            sequence=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-            dict={
-                "st_mode": PERMISSION_MODE1,
-                "st_ino": INODE,
-                "st_dev": DEV,
-                "st_nlink": NLINK,
-                "st_uid": UID,
-                "st_gid": GID,
-                "st_size": SIZE,
-                "st_atime": ATIME,
-                "st_mtime": MTIME,
-                "st_ctime": CTIME,
-            },
-        )
+        MOCK_OS_STAT_RETURN = os.stat_result((
+            PERMISSION_MODE1,  # st_mode
+            INODE,             # st_ino
+            DEV,               # st_dev
+            NLINK,             # st_nlink
+            UID,               # st_uid
+            GID,               # st_gid
+            SIZE,              # st_size
+            ATIME,             # st_atime
+            MTIME,             # st_mtime
+            CTIME,             # st_ctime
+        ))
         mock_os_stat.return_value = MOCK_OS_STAT_RETURN
         result = checkSensitiveFilePermissions(fake_filename)
         self.assertTrue(result)
 
     @patch("pybitmessage.shared.os.chmod")
     @patch("pybitmessage.shared.os.stat")
-    def test_fix_sensitive_file_permissions(  # pylint: disable=no-self-use
+    def test_fix_sensitive_file_permissions(
         self, mock_os_stat, mock_chmod
     ):
         """Test to fix file permissions"""
         fake_filename = "path/to/file"
 
         # returning file permission mode stat.S_IRWXO
-        MOCK_OS_STAT_RETURN = os.stat_result(
-            sequence=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-            dict={
-                "st_mode": PERMISSION_MODE2,
-                "st_ino": INODE,
-                "st_dev": DEV,
-                "st_nlink": NLINK,
-                "st_uid": UID,
-                "st_gid": GID,
-                "st_size": SIZE,
-                "st_atime": ATIME,
-                "st_mtime": MTIME,
-                "st_ctime": CTIME,
-            },
-        )
+        MOCK_OS_STAT_RETURN = os.stat_result((
+            PERMISSION_MODE2,  # st_mode
+            INODE,             # st_ino
+            DEV,               # st_dev
+            NLINK,             # st_nlink
+            UID,               # st_uid
+            GID,               # st_gid
+            SIZE,              # st_size
+            ATIME,             # st_atime
+            MTIME,             # st_mtime
+            CTIME,             # st_ctime
+        ))
         mock_os_stat.return_value = MOCK_OS_STAT_RETURN
         fixSensitiveFilePermissions(fake_filename, False)
         mock_chmod.assert_called_once()

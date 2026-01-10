@@ -1,4 +1,3 @@
-
 import unittest
 from pybitmessage.bitmessagekivy.load_kivy_screens_data import load_screen_json
 from .common import ordered

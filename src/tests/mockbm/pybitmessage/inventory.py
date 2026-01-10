@@ -4,7 +4,6 @@
 from pybitmessage.singleton import Singleton
 
 
-# pylint: disable=old-style-class,too-few-public-methods
 @Singleton
 class Inventory():
     """

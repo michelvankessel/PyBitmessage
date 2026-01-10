@@ -4,20 +4,22 @@ Module for tracking objects
 import time
 from threading import RLock
 
-import connectionpool
-from network import dandelion_ins
+from . import connectionpool
+from . import dandelion_ins
 from randomtrackingdict import RandomTrackingDict
 
 haveBloom = False
 
 try:
     # pybloomfiltermmap
-    from pybloomfilter import BloomFilter
+    import pybloomfilter
+    BloomFilter = pybloomfilter.BloomFilter
     haveBloom = True
 except ImportError:
     try:
         # pybloom
-        from pybloom import BloomFilter
+        import pybloom
+        BloomFilter = pybloom.BloomFilter
         haveBloom = True
     except ImportError:
         pass
@@ -26,7 +28,7 @@ except ImportError:
 haveBloom = False
 
 # tracking pending downloads globally, for stats
-missingObjects = {}
+missingObjects: dict[bytes, float] = {}
 
 
 class ObjectTracker(object):
@@ -75,31 +77,34 @@ class ObjectTracker(object):
                 with self.objectsNewToThemLock:
                     self.objectsNewToThem = {
                         k: v
-                        for k, v in self.objectsNewToThem.iteritems()
+                        for k, v in self.objectsNewToThem.items()
                         if v >= deadline}
             self.lastCleaned = time.time()
 
     def hasObj(self, hashid):
         """Do we already have object?"""
+        hashid_bytes = bytes(hashid)
         if haveBloom:
-            return hashid in self.invBloom
-        return hashid in self.objectsNewToMe
+            return hashid_bytes in self.invBloom
+        return hashid_bytes in self.objectsNewToMe
 
     def handleReceivedInventory(self, hashId):
         """Handling received inventory"""
+        hashId_bytes = bytes(hashId)
         if haveBloom:
-            self.invBloom.add(hashId)
+            self.invBloom.add(hashId_bytes)
         try:
             with self.objectsNewToThemLock:
-                del self.objectsNewToThem[hashId]
+                del self.objectsNewToThem[hashId_bytes]
         except KeyError:
             pass
-        if hashId not in missingObjects:
-            missingObjects[hashId] = time.time()
+        if hashId_bytes not in missingObjects:
+            missingObjects[hashId_bytes] = time.time()
         self.objectsNewToMe[hashId] = True
 
     def handleReceivedObject(self, streamNumber, hashid):
         """Handling received object"""
+        hashid_bytes = bytes(hashid)
         for i in connectionpool.pool.connections():
             if not i.fullyEstablished:
                 continue
@@ -110,7 +115,7 @@ class ObjectTracker(object):
                         not dandelion_ins.hasHash(hashid)
                         or dandelion_ins.objectChildStem(hashid) == i):
                     with i.objectsNewToThemLock:
-                        i.objectsNewToThem[hashid] = time.time()
+                        i.objectsNewToThem[hashid_bytes] = time.time()
                     # update stream number,
                     # which we didn't have when we just received the dinv
                     # also resets expiration of the stem mode
@@ -119,7 +124,7 @@ class ObjectTracker(object):
             if i == self:
                 try:
                     with i.objectsNewToThemLock:
-                        del i.objectsNewToThem[hashid]
+                        del i.objectsNewToThem[hashid_bytes]
                 except KeyError:
                     pass
         self.objectsNewToMe.setLastObject()

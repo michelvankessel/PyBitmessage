@@ -1,4 +1,3 @@
-# pylint: disable=invalid-name
 """shutdown function"""
 
 from pybitmessage import state

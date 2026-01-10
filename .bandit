@@ -1,0 +1,4 @@
+[bandit]
+targets: .
+recursive: true
+exclude: umsgpack,.venv,.git,.tox,build,dist,pybitmessage,docs,tests

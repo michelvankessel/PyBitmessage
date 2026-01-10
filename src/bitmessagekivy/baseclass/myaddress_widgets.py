@@ -1,6 +1,3 @@
-# pylint: disable=too-many-arguments, no-name-in-module, import-error, no-init
-# pylint: disable=too-few-public-methods, no-member, too-many-ancestors, useless-object-inheritance
-
 """
 Widgets for the MyAddress module.
 """

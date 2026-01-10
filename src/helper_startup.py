@@ -1,7 +1,7 @@
 """
 Startup operations.
 """
-# pylint: disable=too-many-branches,too-many-statements
+
 
 import ctypes
 import logging
@@ -10,24 +10,23 @@ import platform
 import socket
 import sys
 import time
-from distutils.version import StrictVersion
+from packaging.version import Version as StrictVersion
 from struct import pack
-from six.moves import configparser
+import configparser
 
-try:
-    import defaults
-    import helper_random
-    import paths
-    import state
-    from bmconfigparser import config, config_ready
-except ImportError:
-    from . import defaults, helper_random, paths, state
-    from .bmconfigparser import config, config_ready
+import defaults
+import helper_random
+import paths
+import state
+from bmconfigparser import config, config_ready
 
 try:
     from plugins.plugin import get_plugin
+    _plugins_available = True
 except ImportError:
-    get_plugin = None
+    def get_plugin(*args, **kwargs):
+        return None
+    _plugins_available = False
 
 
 logger = logging.getLogger('default')
@@ -352,7 +351,7 @@ def fixSocket():
 
 def start_proxyconfig():
     """Check socksproxytype and start any proxy configuration plugin"""
-    if not get_plugin:
+    if not _plugins_available:
         return
     config_ready.wait()
     proxy_type = config.safeGet('bitmessagesettings', 'socksproxytype')

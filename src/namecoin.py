@@ -1,7 +1,7 @@
 """
 Namecoin queries
 """
-# pylint: disable=too-many-branches,protected-access
+
 
 import base64
 import json
@@ -9,7 +9,7 @@ import os
 import socket
 import sys
 
-from six.moves import http_client as httplib
+import http.client as httplib
 
 import defaults
 from addresses import decodeAddress
@@ -246,7 +246,7 @@ class namecoinConnection(object):
                 "Authorization", "Basic %s" % base64.b64encode(authstr))
             self.con.endheaders()
             self.con.send(data)
-        except:  # noqa:E722
+        except Exception:
             logger.info("HTTP connection error")
             return None
 
@@ -257,7 +257,7 @@ class namecoinConnection(object):
                 raise Exception(
                     "Namecoin returned status"
                     " %i: %s" % (resp.status, resp.reason))
-        except:  # noqa:E722
+        except Exception:
             logger.info("HTTP receive error")
             return None
 

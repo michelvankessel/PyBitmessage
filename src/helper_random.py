@@ -35,7 +35,7 @@ def randomsample(population, k):
     without replacement, its called
     partial shuffle.
     """
-    return random.sample(population, k)  # nosec B311
+    return random.sample(population, k)
 
 
 def randomrandrange(x, y=None):
@@ -47,8 +47,8 @@ def randomrandrange(x, y=None):
     but doesnt actually build a range object.
     """
     if isinstance(y, NoneType):
-        return random.randrange(x)  # nosec
-    return random.randrange(x, y)  # nosec
+        return random.randrange(x)
+    return random.randrange(x, y)
 
 
 def randomchoice(population):
@@ -58,4 +58,4 @@ def randomchoice(population):
     sequence seq. If seq is empty, raises
     IndexError.
     """
-    return random.choice(population)  # nosec
+    return random.choice(population)

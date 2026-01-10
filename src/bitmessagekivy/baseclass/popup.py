@@ -1,6 +1,3 @@
-# pylint: disable=import-error, attribute-defined-outside-init
-# pylint: disable=no-member, no-name-in-module, unused-argument, too-few-public-methods
-
 """
 All the popups are managed here.
 """
@@ -33,7 +30,7 @@ class AddressChangingLoader(Popup):
     """Run a Screen Loader when changing the Identity for Kivy UI"""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(**kwargs)
         Clock.schedule_once(self.dismiss_popup, 0.5)
 
     def dismiss_popup(self, dt):
@@ -59,7 +56,7 @@ class AddAddressPopup(BoxLayout):
     valid = False
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(**kwargs)
 
     def checkAddress_valid(self, instance):
         """Check if the address is valid or not"""
@@ -125,7 +122,7 @@ class SavedAddressDetailPopup(BoxLayout):
 
     def __init__(self, **kwargs):
         """Set screen of address detail page"""
-        super().__init__(**kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(**kwargs)
 
     def checkLabel_valid(self, instance):
         """Check if the address label is unique or not"""
@@ -152,7 +149,7 @@ class MyaddDetailPopup(BoxLayout):
 
     def __init__(self, **kwargs):
         """Set screen of my address details"""
-        super().__init__(**kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(**kwargs)
 
     def send_message_from(self):
         """Fill from address of composer autofield"""
@@ -176,7 +173,7 @@ class AppClosingPopup(Popup):
     """Popup for closing the application for Kivy UI"""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(**kwargs)
 
     def closingAction(self, text):
         """Action on closing window"""
@@ -199,7 +196,7 @@ class SenderDetailPopup(Popup):
 
     def __init__(self, **kwargs):
         """Initialize the send message detail popup"""
-        super().__init__(**kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(**kwargs)
 
     def assignDetail(self, to_addr, from_addr, timeinseconds):
         """Assign details to the popup"""

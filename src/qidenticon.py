@@ -28,7 +28,7 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ###
 
-# pylint: disable=too-many-locals,too-many-arguments,too-many-function-args
+
 """
 Usage
 -----
@@ -40,18 +40,17 @@ Returns an instance of :class:`QPixmap` which have generated identicon image.
 ``size`` specifies `patch size`. Generated image size is 3 * ``size``.
 """
 
-from six.moves import range
+from typing import List, Tuple, Any
+from PyQt6 import QtCore, QtGui, QtWidgets
 
-try:
-    from PyQt5 import QtCore, QtGui
-except (ImportError, RuntimeError):
-    from PyQt4 import QtCore, QtGui
+# Silence unused import warning
+_ = QtWidgets
 
 
 class IdenticonRendererBase(object):
     """Encapsulate methods around rendering identicons"""
 
-    PATH_SET = []
+    PATH_SET: List[Any] = []
 
     def __init__(self, code):
         """
@@ -70,38 +69,38 @@ class IdenticonRendererBase(object):
         """
 
         # decode the code
-        middle, corner, side, foreColor, secondColor, swap_cross = \
-            self.decode(self.code, twoColor)
+        middle, corner, side, foreColor, secondColor, swap_cross = self.decode(
+            self.code, twoColor
+        )
 
         # make image
-        image = QtGui.QPixmap(
-            QtCore.QSize(size * 3 + penwidth, size * 3 + penwidth))
+        image = QtGui.QPixmap(QtCore.QSize(size * 3 + penwidth, size * 3 + penwidth))
 
         # fill background
         backColor = QtGui.QColor(255, 255, 255, opacity)
         image.fill(backColor)
 
         kwds = {
-            'image': image,
-            'size': size,
-            'foreColor': foreColor if swap_cross else secondColor,
-            'penwidth': penwidth,
-            'backColor': backColor}
+            "image": image,
+            "size": size,
+            "foreColor": foreColor if swap_cross else secondColor,
+            "penwidth": penwidth,
+            "backColor": backColor,
+        }
 
         # middle patch
-        image = self.drawPatchQt(
-            (1, 1), middle[2], middle[1], middle[0], **kwds)
+        image = self.drawPatchQt((1, 1), middle[2], middle[1], middle[0], **kwds)
 
         # side patch
-        kwds['foreColor'] = foreColor
-        kwds['patch_type'] = side[0]
+        kwds["foreColor"] = foreColor
+        kwds["patch_type"] = side[0]
         for i in range(4):
             pos = [(1, 0), (2, 1), (1, 2), (0, 1)][i]
             image = self.drawPatchQt(pos, side[2] + 1 + i, side[1], **kwds)
 
         # corner patch
-        kwds['foreColor'] = secondColor
-        kwds['patch_type'] = corner[0]
+        kwds["foreColor"] = secondColor
+        kwds["patch_type"] = corner[0]
         for i in range(4):
             pos = [(0, 0), (2, 0), (2, 2), (0, 2)][i]
             image = self.drawPatchQt(pos, corner[2] + 1 + i, corner[1], **kwds)
@@ -109,8 +108,8 @@ class IdenticonRendererBase(object):
         return image
 
     def drawPatchQt(
-            self, pos, turn, invert, patch_type, image, size, foreColor,
-            backColor, penwidth):  # pylint: disable=unused-argument
+        self, pos, turn, invert, patch_type, image, size, foreColor, backColor, penwidth
+    ):
         """
         :param size: patch size
         """
@@ -118,30 +117,31 @@ class IdenticonRendererBase(object):
         if not path:
             # blank patch
             invert = not invert
-            path = [(0., 0.), (1., 0.), (1., 1.), (0., 1.), (0., 0.)]
+            path = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)]
 
-        polygon = QtGui.QPolygonF([
-            QtCore.QPointF(x * size, y * size) for x, y in path])
+        polygon = QtGui.QPolygonF([QtCore.QPointF(x * size, y * size) for x, y in path])
 
         rot = turn % 4
         rect = [
-            QtCore.QPointF(0., 0.), QtCore.QPointF(size, 0.),
-            QtCore.QPointF(size, size), QtCore.QPointF(0., size)]
+            QtCore.QPointF(0.0, 0.0),
+            QtCore.QPointF(size, 0.0),
+            QtCore.QPointF(size, size),
+            QtCore.QPointF(0.0, size),
+        ]
         rotation = [0, 90, 180, 270]
 
-        nopen = QtGui.QPen(foreColor, QtCore.Qt.NoPen)
-        foreBrush = QtGui.QBrush(foreColor, QtCore.Qt.SolidPattern)
+        nopen = QtGui.QPen(QtCore.Qt.PenStyle.NoPen)
+        foreBrush = QtGui.QBrush(foreColor, QtCore.Qt.BrushStyle.SolidPattern)
         if penwidth > 0:
             pen_color = QtGui.QColor(255, 255, 255)
-            pen = QtGui.QPen(pen_color, QtCore.Qt.SolidPattern)
+            pen = QtGui.QPen(pen_color, 1.0, QtCore.Qt.PenStyle.SolidLine)
             pen.setWidth(penwidth)
 
         painter = QtGui.QPainter()
         painter.begin(image)
         painter.setPen(nopen)
 
-        painter.translate(
-            pos[0] * size + penwidth / 2, pos[1] * size + penwidth / 2)
+        painter.translate(pos[0] * size + penwidth / 2, pos[1] * size + penwidth / 2)
         painter.translate(rect[rot])
         painter.rotate(rotation[rot])
 
@@ -153,10 +153,10 @@ class IdenticonRendererBase(object):
         if penwidth > 0:
             # draw the borders
             painter.setPen(pen)
-            painter.drawPolygon(polygon, QtCore.Qt.WindingFill)
+            painter.drawPolygon(polygon, QtCore.Qt.FillRule.WindingFill)
         # draw the fill
         painter.setPen(nopen)
-        painter.drawPolygon(polygon, QtCore.Qt.WindingFill)
+        painter.drawPolygon(polygon, QtCore.Qt.FillRule.WindingFill)
 
         painter.end()
 
@@ -173,39 +173,40 @@ class DonRenderer(IdenticonRendererBase):
     https://blog.docuverse.com/2007/01/18/identicon-updated-and-source-released
     """
 
-    PATH_SET = [
+    PATH_SET: List[List[Tuple[float, float]]] = [
         # [0] full square:
-        [(0, 0), (4, 0), (4, 4), (0, 4)],
+        [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)],
         # [1] right-angled triangle pointing top-left:
-        [(0, 0), (4, 0), (0, 4)],
+        [(0.0, 0.0), (4.0, 0.0), (0.0, 4.0)],
         # [2] upwardy triangle:
-        [(2, 0), (4, 4), (0, 4)],
+        [(2.0, 0.0), (4.0, 4.0), (0.0, 4.0)],
         # [3] left half of square, standing rectangle:
-        [(0, 0), (2, 0), (2, 4), (0, 4)],
+        [(0.0, 0.0), (2.0, 0.0), (2.0, 4.0), (0.0, 4.0)],
         # [4] square standing on diagonale:
-        [(2, 0), (4, 2), (2, 4), (0, 2)],
+        [(2.0, 0.0), (4.0, 2.0), (2.0, 4.0), (0.0, 2.0)],
         # [5] kite pointing topleft:
-        [(0, 0), (4, 2), (4, 4), (2, 4)],
+        [(0.0, 0.0), (4.0, 2.0), (4.0, 4.0), (2.0, 4.0)],
         # [6] Sierpinski triangle, fractal triangles:
-        [(2, 0), (4, 4), (2, 4), (3, 2), (1, 2), (2, 4), (0, 4)],
+        [(2.0, 0.0), (4.0, 4.0), (2.0, 4.0), (3.0, 2.0), (1.0, 2.0), (2.0, 4.0), (0.0, 4.0)],
         # [7] sharp angled lefttop pointing triangle:
-        [(0, 0), (4, 2), (2, 4)],
+        [(0.0, 0.0), (4.0, 2.0), (2.0, 4.0)],
         # [8] small centered square:
-        [(1, 1), (3, 1), (3, 3), (1, 3)],
+        [(1.0, 1.0), (3.0, 1.0), (3.0, 3.0), (1.0, 3.0)],
         # [9] two small triangles:
-        [(2, 0), (4, 0), (0, 4), (0, 2), (2, 2)],
+        [(2.0, 0.0), (4.0, 0.0), (0.0, 4.0), (0.0, 2.0), (2.0, 2.0)],
         # [10] small topleft square:
-        [(0, 0), (2, 0), (2, 2), (0, 2)],
+        [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)],
         # [11] downpointing right-angled triangle on bottom:
-        [(0, 2), (4, 2), (2, 4)],
+        [(0.0, 2.0), (4.0, 2.0), (2.0, 4.0)],
         # [12] uppointing right-angled triangle on bottom:
-        [(2, 2), (4, 4), (0, 4)],
+        [(2.0, 2.0), (4.0, 4.0), (0.0, 4.0)],
         # [13] small rightbottom pointing right-angled triangle on topleft:
-        [(2, 0), (2, 2), (0, 2)],
+        [(2.0, 0.0), (2.0, 2.0), (0.0, 2.0)],
         # [14] small lefttop pointing right-angled triangle on topleft:
-        [(0, 0), (2, 0), (0, 2)],
+        [(0.0, 0.0), (2.0, 0.0), (0.0, 2.0)],
         # [15] empty:
-        []]
+        [],
+    ]
     # get the [0] full square, [4] square standing on diagonale,
     # [8] small centered square, or [15] empty tile:
     MIDDLE_PATCH_SET = [0, 4, 8, 15]
@@ -256,20 +257,24 @@ class DonRenderer(IdenticonRendererBase):
         foreColor = QtGui.QColor(*foreColor)
 
         if twoColor:
-            secondColor = (
-                second_blue << 3, second_green << 3, second_red << 3)
+            secondColor = (second_blue << 3, second_green << 3, second_red << 3)
             secondColor = QtGui.QColor(*secondColor)
         else:
             secondColor = foreColor
 
-        return (middleType, middleInvert, 0),\
-               (cornerType, cornerInvert, cornerTurn),\
-               (sideType, sideInvert, sideTurn),\
-            foreColor, secondColor, swap_cross
+        return (
+            (middleType, middleInvert, 0),
+            (cornerType, cornerInvert, cornerTurn),
+            (sideType, sideInvert, sideTurn),
+            foreColor,
+            secondColor,
+            swap_cross,
+        )
 
 
 def render_identicon(
-        code, size, twoColor=False, opacity=255, penwidth=0, renderer=None):
+    code, size, twoColor=False, opacity=255, penwidth=0, renderer=None
+):
     """Render an image"""
     if not renderer:
         renderer = DonRenderer

@@ -1,21 +1,30 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 """
 src/settingsmixin.py
 ====================
 
 """
 
-from PyQt4 import QtCore, QtGui
+from PyQt6 import QtCore, QtWidgets
 
 
 class SettingsMixin(object):
     """Mixin for adding geometry and state saving between restarts."""
+
+    def _getObjectName(self) -> str:
+        """Safely get objectName from mixed-in QWidget class."""
+        obj_name_func = getattr(self, 'objectName', None)
+        if obj_name_func is not None and callable(obj_name_func):
+            result = obj_name_func()
+            return str(result) if result is not None else ""
+        return ""
+
     def warnIfNoObjectName(self):
         """
         Handle objects which don't have a name. Currently it ignores them. Objects without a name can't have their
         state/geometry saved as they don't have an identifier.
         """
-        if self.objectName() == "":
+        if self._getObjectName() == "":
             # .. todo:: logger
             pass
 
@@ -23,7 +32,7 @@ class SettingsMixin(object):
         """Save object state (e.g. relative position of a splitter)"""
         self.warnIfNoObjectName()
         settings = QtCore.QSettings()
-        settings.beginGroup(self.objectName())
+        settings.beginGroup(self._getObjectName())
         settings.setValue("state", source.saveState())
         settings.endGroup()
 
@@ -31,7 +40,7 @@ class SettingsMixin(object):
         """Save object geometry (e.g. window size and position)"""
         self.warnIfNoObjectName()
         settings = QtCore.QSettings()
-        settings.beginGroup(self.objectName())
+        settings.beginGroup(self._getObjectName())
         settings.setValue("geometry", source.saveGeometry())
         settings.endGroup()
 
@@ -40,7 +49,7 @@ class SettingsMixin(object):
         self.warnIfNoObjectName()
         settings = QtCore.QSettings()
         try:
-            geom = settings.value("/".join([str(self.objectName()), "geometry"]))
+            geom = settings.value("/".join([str(self._getObjectName()), "geometry"]))
             target.restoreGeometry(geom.toByteArray() if hasattr(geom, 'toByteArray') else geom)
         except Exception:
             pass
@@ -50,13 +59,13 @@ class SettingsMixin(object):
         self.warnIfNoObjectName()
         settings = QtCore.QSettings()
         try:
-            state = settings.value("/".join([str(self.objectName()), "state"]))
+            state = settings.value("/".join([str(self._getObjectName()), "state"]))
             target.restoreState(state.toByteArray() if hasattr(state, 'toByteArray') else state)
         except Exception:
             pass
 
 
-class SMainWindow(QtGui.QMainWindow, SettingsMixin):
+class SMainWindow(QtWidgets.QMainWindow, SettingsMixin):
     """Main window with Settings functionality."""
     def loadSettings(self):
         """Load main window settings."""
@@ -69,9 +78,9 @@ class SMainWindow(QtGui.QMainWindow, SettingsMixin):
         self.writeGeometry(self)
 
 
-class STableWidget(QtGui.QTableWidget, SettingsMixin):
+class STableWidget(QtWidgets.QTableWidget, SettingsMixin):
     """Table widget with Settings functionality"""
-    # pylint: disable=too-many-ancestors
+
     def loadSettings(self):
         """Load table settings."""
         self.readState(self.horizontalHeader())
@@ -81,7 +90,7 @@ class STableWidget(QtGui.QTableWidget, SettingsMixin):
         self.writeState(self.horizontalHeader())
 
 
-class SSplitter(QtGui.QSplitter, SettingsMixin):
+class SSplitter(QtWidgets.QSplitter, SettingsMixin):
     """Splitter with Settings functionality."""
     def loadSettings(self):
         """Load splitter settings"""
@@ -92,9 +101,9 @@ class SSplitter(QtGui.QSplitter, SettingsMixin):
         self.writeState(self)
 
 
-class STreeWidget(QtGui.QTreeWidget, SettingsMixin):
+class STreeWidget(QtWidgets.QTreeWidget, SettingsMixin):
     """Tree widget with settings functionality."""
-    # pylint: disable=too-many-ancestors
+
     def loadSettings(self):
         """Load tree settings."""
         # recurse children

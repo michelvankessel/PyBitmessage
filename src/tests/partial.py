@@ -16,15 +16,15 @@ class TestPartialRun(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # pylint: disable=import-outside-toplevel,unused-import
+
         cls.dirs = (os.path.abspath(os.curdir), pathmagic.setup())
 
         import bmconfigparser
         import state
 
-        from debug import logger  # noqa:F401 pylint: disable=unused-variable
+        # from debug import logger
         if sys.hexversion >= 0x3000000:
-            # pylint: disable=no-name-in-module,relative-import
+
             from mockbm import network as network_mock
             import network
             network.stats = network_mock.stats

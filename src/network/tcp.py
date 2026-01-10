@@ -1,7 +1,7 @@
 """
 TCP protocol handler
 """
-# pylint: disable=too-many-ancestors
+
 
 import logging
 import math
@@ -14,22 +14,22 @@ import addresses
 import l10n
 import protocol
 import state
-import connectionpool
+from . import connectionpool
 from bmconfigparser import config
 from highlevelcrypto import randomBytes
 from network import dandelion_ins, invQueue, receiveDataQueue
 from queues import UISignalQueue
 from tr import _translate
 
-import asyncore_pollchoose as asyncore
-import knownnodes
-from network.advanceddispatcher import AdvancedDispatcher
-from network.bmproto import BMProto
-from network.objectracker import ObjectTracker
-from network.socks4a import Socks4aConnection
-from network.socks5 import Socks5Connection
-from network.tls import TLSDispatcher
-from node import Peer
+from . import asyncore_pollchoose as asyncore
+from . import knownnodes
+from .advanceddispatcher import AdvancedDispatcher
+from .bmproto import BMProto
+from .objectracker import ObjectTracker
+from .socks4a import Socks4aConnection
+from .socks5 import Socks5Connection
+from .tls import TLSDispatcher
+from .node import Peer
 
 
 logger = logging.getLogger('default')
@@ -40,7 +40,7 @@ maximumTimeOffsetWrongCount = 3  #: Connections with wrong time offset
 
 
 class TCPConnection(BMProto, TLSDispatcher):
-    # pylint: disable=too-many-instance-attributes
+
     """
     .. todo:: Look to understand and/or fix the non-parent-init-called
     """
@@ -89,7 +89,7 @@ class TCPConnection(BMProto, TLSDispatcher):
             # it's probably a hostname
             pass
         self.network_group = protocol.network_group(self.destination.host)
-        ObjectTracker.__init__(self)  # pylint: disable=non-parent-init-called
+        ObjectTracker.__init__(self)
         self.bm_proto_reset()
         self.set_state("bm_header", expectBytes=protocol.Header.size)
 
@@ -191,7 +191,7 @@ class TCPConnection(BMProto, TLSDispatcher):
                     # only if more recent than 3 hours
                     # and having positive or neutral rating
                     filtered = [
-                        (k, v) for k, v in nodes.iteritems()
+                        (k, v) for k, v in nodes.items()
                         if v["lastseen"] > int(time.time())
                         - maximumAgeOfNodesThatIAdvertiseToOthers
                         and v["rating"] >= 0 and not k.host.endswith('.onion')
@@ -201,7 +201,7 @@ class TCPConnection(BMProto, TLSDispatcher):
                         len(filtered),
                         maxAddrCount / 2 if n else maxAddrCount)
                     addrs[s] = random.sample(filtered,
-                                             elemCount)  # nosec B311
+                                             elemCount)
         for substream in addrs:
             for peer, params in addrs[substream]:
                 templist.append((substream, peer, params["lastseen"]))
@@ -221,7 +221,7 @@ class TCPConnection(BMProto, TLSDispatcher):
                 'Sending huge inv message with %i objects to just this'
                 ' one peer', objectCount)
             self.append_write_buf(protocol.CreatePacket(
-                'inv', addresses.encodeVarint(objectCount) + payload))
+                b'inv', addresses.encodeVarint(objectCount) + payload))
 
         # Select all hashes for objects in this stream.
         bigInvList = {}
@@ -255,21 +255,27 @@ class TCPConnection(BMProto, TLSDispatcher):
 
     def handle_connect(self):
         """Callback for TCP connection being established."""
+        # print(f">>> TCP HANDLE_CONNECT CALLED for {self.destination.host}:{self.destination.port}")
+        logger.info(
+            '%s:%i: TCP CONNECTED - sending version message',
+            self.destination.host, self.destination.port)
         try:
             AdvancedDispatcher.handle_connect(self)
         except socket.error as e:
-            # pylint: disable=protected-access
+
             if e.errno in asyncore._DISCONNECTED:
                 logger.debug(
                     '%s:%i: Connection failed: %s',
                     self.destination.host, self.destination.port, e)
                 return
         self.nodeid = randomBytes(8)
-        self.append_write_buf(
-            protocol.assembleVersionMessage(
+
+        version_msg = protocol.assembleVersionMessage(
                 self.destination.host, self.destination.port,
                 connectionpool.pool.streams, dandelion_ins.enabled,
-                False, nodeid=self.nodeid))
+                False, nodeid=self.nodeid)
+        # print(f">>> SENDING VERSION MSG (len={len(version_msg)}): {binascii.hexlify(version_msg)}")
+        self.append_write_buf(version_msg)
         self.connectedAt = time.time()
         receiveDataQueue.put(self.destination)
 
@@ -284,6 +290,10 @@ class TCPConnection(BMProto, TLSDispatcher):
 
     def handle_close(self):
         """Callback for connection being closed."""
+        logger.info(
+            '%s:%i: CONNECTION CLOSING - reason: %s, fullyEstablished: %s',
+            self.destination.host, self.destination.port,
+            getattr(self, 'close_reason', 'unknown'), self.fullyEstablished)
         host_is_global = self.isOutbound or not self.local and not state.socksIP
         if self.fullyEstablished:
             UISignalQueue.put((
@@ -371,7 +381,7 @@ def bootstrap(connection_class):
 
         def set_connection_fully_established(self):
             """Only send addr here"""
-            # pylint: disable=attribute-defined-outside-init
+
             self.fullyEstablished = True
             self.sendAddr()
 
@@ -399,7 +409,7 @@ class TCPServer(AdvancedDispatcher):
             try:
                 if attempt > 0:
                     logger.warning('Failed to bind on port %s', port)
-                    port = random.randint(32767, 65535)  # nosec B311
+                    port = random.randint(32767, 65535)
                 self.bind((host, port))
             except socket.error as e:
                 if e.errno in (asyncore.EADDRINUSE, asyncore.WSAEADDRINUSE):

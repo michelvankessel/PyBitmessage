@@ -2,6 +2,6 @@
 Mock MultiQueue (just normal Queue)
 """
 
-from six.moves import queue
+import queue
 
 MultiQueue = queue.Queue

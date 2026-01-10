@@ -1,7 +1,6 @@
 """Tests for messagetypes module"""
-import unittest
 
-from six import text_type
+import unittest
 
 from pybitmessage import messagetypes
 
@@ -29,8 +28,8 @@ class TestMessageTypes(unittest.TestCase):
     def test_invalid_data_type(self):
         """Test invalid data type"""
         msgObj = messagetypes.constructObject(invalid_data)
-        self.assertTrue(isinstance(msgObj.subject, text_type))
-        self.assertTrue(isinstance(msgObj.body, text_type))
+        self.assertTrue(isinstance(msgObj.subject, str))
+        self.assertTrue(isinstance(msgObj.body, str))
 
     def test_msg_process(self):
         """Test msg process"""

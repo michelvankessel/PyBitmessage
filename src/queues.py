@@ -3,7 +3,7 @@
 import threading
 import time
 
-from six.moves import queue
+import queue
 
 
 class ObjectProcessorQueue(queue.Queue):
@@ -33,14 +33,14 @@ class ObjectProcessorQueue(queue.Queue):
         return item
 
 
-workerQueue = queue.Queue()
-UISignalQueue = queue.Queue()
-addressGeneratorQueue = queue.Queue()
+workerQueue: queue.Queue = queue.Queue()
+UISignalQueue: queue.Queue = queue.Queue()
+addressGeneratorQueue: queue.Queue = queue.Queue()
 #: `.network.ReceiveQueueThread` instances dump objects they hear
 #: on the network into this queue to be processed.
-objectProcessorQueue = ObjectProcessorQueue()
+objectProcessorQueue: ObjectProcessorQueue = ObjectProcessorQueue()
 #: The address generator thread uses this queue to get information back
 #: to the API thread.
-apiAddressGeneratorReturnQueue = queue.Queue()
+apiAddressGeneratorReturnQueue: queue.Queue = queue.Queue()
 #: for exceptions
-excQueue = queue.Queue()
+excQueue: queue.Queue = queue.Queue()

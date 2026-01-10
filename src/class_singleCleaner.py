@@ -44,7 +44,7 @@ class singleCleaner(StoppableThread):
     cycleLength = 300
     expireDiscoveredPeers = 300
 
-    def run(self):  # pylint: disable=too-many-branches
+    def run(self):
         gc.disable()
         timeWeLastClearedInventoryAndPubkeysTables = 0
         try:
@@ -56,7 +56,7 @@ class singleCleaner(StoppableThread):
                 config.getfloat(
                     'bitmessagesettings', 'stopresendingafterxmonths')
                 * (60 * 60 * 24 * 365) / 12)
-        except:  # noqa:E722
+        except Exception:
             # Either the user hasn't set stopresendingafterxdays and
             # stopresendingafterxmonths yet or the options are missing
             # from the config file.
@@ -64,6 +64,8 @@ class singleCleaner(StoppableThread):
 
         while state.shutdown == 0:
             self.stop.wait(self.cycleLength)
+            if state.shutdown > 0:
+                break
             queues.UISignalQueue.put((
                 'updateStatusBar',
                 'Doing housekeeping (Flushing inventory in memory to disk...)'
@@ -99,6 +101,11 @@ class singleCleaner(StoppableThread):
                     tick - state.maximumLengthOfTimeToBotherResendingMessages
                 )
                 for toAddress, ackData, status in queryreturn:
+                    # Ensure values are strings, not bytes (Python 3 compatibility)
+                    if isinstance(toAddress, bytes):
+                        toAddress = toAddress.decode('utf-8', 'replace')
+                    if isinstance(status, bytes):
+                        status = status.decode('utf-8', 'replace')
                     if status == 'awaitingpubkey':
                         self.resendPubkeyRequest(toAddress)
                     elif status == 'msgsent':
@@ -126,7 +133,7 @@ class singleCleaner(StoppableThread):
                     ))
                     # FIXME redundant?
                     if state.thisapp.daemon or not state.enableGUI:
-                        os._exit(1)  # pylint: disable=protected-access
+                        os._exit(1)
 
             # inv/object tracking
             for connection in connectionpool.pool.connections():

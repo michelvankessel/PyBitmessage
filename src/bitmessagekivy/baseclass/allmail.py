@@ -1,6 +1,3 @@
-# pylint: disable=import-error, no-name-in-module
-# pylint: disable=unused-argument, no-member, attribute-defined-outside-init
-
 """
 allmail.py
 ==============
@@ -32,7 +29,7 @@ class AllMails(Screen):
 
     def __init__(self, *args, **kwargs):
         """Initialize the AllMails screen."""
-        super().__init__(*args, **kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(*args, **kwargs)
         self.kivy_state = kivy_state_variables()
         self._initialize_selected_address()
         Clock.schedule_once(self.init_ui, 0)

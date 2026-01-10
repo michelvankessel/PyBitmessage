@@ -1,8 +1,16 @@
 import logging
-
+import os
 from importlib import import_module
+from typing import Any
 
 logger = logging.getLogger('default')
+
+
+paths: Any
+try:
+    from pybitmessage import paths
+except ImportError:
+    paths = None
 
 
 def constructObject(data):
@@ -15,7 +23,7 @@ def constructObject(data):
     except (NameError, AttributeError, ValueError, ImportError):
         logger.error("Don't know how to handle message type: \"%s\"", data[""], exc_info=True)
         return None
-    except:  # noqa:E722
+    except Exception:
         logger.error("Don't know how to handle message type: \"%s\"", data[""], exc_info=True)
         return None
 
@@ -25,22 +33,17 @@ def constructObject(data):
     except KeyError as e:
         logger.error("Missing mandatory key %s", e)
         return None
-    except:  # noqa:E722
+    except Exception:
         logger.error("classBase fail", exc_info=True)
         return None
     else:
         return returnObj
 
 
-try:
-    from pybitmessage import paths
-except ImportError:
-    paths = None
-
 if paths and paths.frozen is not None:
-    from . import message, vote  # noqa: F401 flake8: disable=unused-import
+    import_module(".message", __name__)
+    import_module(".vote", __name__)
 else:
-    import os
     for mod in os.listdir(os.path.dirname(__file__)):
         if mod == "__init__.py":
             continue

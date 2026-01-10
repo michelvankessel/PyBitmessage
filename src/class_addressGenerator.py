@@ -5,8 +5,9 @@ A thread for creating addresses
 import time
 from binascii import hexlify
 
-from six.moves import configparser, queue
-# pylint: disable=import-error
+import configparser
+import queue
+
 import defaults
 import highlevelcrypto
 import queues
@@ -33,12 +34,12 @@ class addressGenerator(StoppableThread):
         super(addressGenerator, self).stopThread()
 
     def save_address(
-        # pylint: disable=too-many-arguments,too-many-positional-arguments
-        self, version, stream, ripe, label, signing_key, encryption_key,
-        nonceTrialsPerByte, payloadLengthExtraBytes
+        self, addressVersion, stream, ripe, label, privSigningKey,
+        privEncryptionKey, trials, extraBytes
     ):
-        """Write essential address config values and reload cryptors"""
-        address = encodeAddress(version, stream, ripe)
+        """Build and save an address to config"""
+        address = encodeAddress(addressVersion, stream, ripe)
+        self.logger.info("addressGenerator: Saving new address: %s (label: %s)", address, label)
         try:
             config.add_section(address)
         except configparser.DuplicateSectionError:
@@ -53,34 +54,41 @@ class addressGenerator(StoppableThread):
             return False
 
         self.logger.debug('label: %s', label)
-        signingKeyWIF = highlevelcrypto.encodeWalletImportFormat(signing_key)
-        encryptionKeyWIF = highlevelcrypto.encodeWalletImportFormat(
-            encryption_key)
         config.set(address, 'label', label)
         config.set(address, 'enabled', 'true')
         config.set(address, 'decoy', 'false')
-        config.set(address, 'privsigningkey', signingKeyWIF.decode())
-        config.set(address, 'privencryptionkey', encryptionKeyWIF.decode())
-        config.set(address, 'noncetrialsperbyte', str(nonceTrialsPerByte))
-        config.set(
-            address, 'payloadlengthextrabytes', str(payloadLengthExtraBytes))
+        privSigningWIF = highlevelcrypto.encodeWalletImportFormat(privSigningKey)
+        privEncryptionWIF = highlevelcrypto.encodeWalletImportFormat(privEncryptionKey)
+        config.set(address, 'privsigningkey', privSigningWIF)
+        config.set(address, 'privencryptionkey', privEncryptionWIF)
+        config.set(address, 'noncetrialsperbyte', str(trials))
+        config.set(address, 'payloadlengthextrabytes', str(extraBytes))
+        # pubSigningKey and pubEncryptionKey are derived from privSigningKey and privEncryptionKey
+        pubSigningKey = highlevelcrypto.pointMult(privSigningKey)
+        pubEncryptionKey = highlevelcrypto.pointMult(privEncryptionKey)
+        config.set(address, 'pubsigningkey', hexlify(pubSigningKey).decode())
+        config.set(address, 'pubencryptionkey', hexlify(pubEncryptionKey).decode())
+        config.set(address, 'version', str(addressVersion))
+        config.set(address, 'stream', str(stream))
+        config.set(address, 'lastactiontime', str(int(time.time())))
+        config.set(address, 'status', 'active')
         config.save()
 
         queues.UISignalQueue.put((
             'writeNewAddressToTable', (label, address, stream)))
 
         shared.myECCryptorObjects[ripe] = highlevelcrypto.makeCryptor(
-            hexlify(encryption_key))
+            hexlify(privEncryptionKey))  # Changed from encryption_key
         shared.myAddressesByHash[ripe] = address
         tag = highlevelcrypto.double_sha512(
-            encodeVarint(version) + encodeVarint(stream) + ripe)[32:]
+            encodeVarint(addressVersion) + encodeVarint(stream) + ripe)[32:]
         shared.myAddressesByTag[tag] = address
 
-        if version == 3:
+        if addressVersion == 3:
             # If this is a chan address, the worker thread won't send out
             # the pubkey over the network.
             queues.workerQueue.put(('sendOutOrStoreMyV3Pubkey', ripe))
-        elif version == 4:
+        elif addressVersion == 4:
             queues.workerQueue.put(('sendOutOrStoreMyV4Pubkey', address))
 
         return address
@@ -90,8 +98,6 @@ class addressGenerator(StoppableThread):
         Process the requests for addresses generation
         from `.queues.addressGeneratorQueue`
         """
-        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
-        # pylint: disable=too-many-nested-blocks
 
         while state.shutdown == 0:
             queueValue = queues.addressGeneratorQueue.get()

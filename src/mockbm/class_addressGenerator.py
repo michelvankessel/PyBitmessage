@@ -6,7 +6,7 @@ import logging
 import random
 import threading
 
-from six.moves import queue
+import queue
 
 from pybitmessage import state
 from pybitmessage import queues
@@ -42,7 +42,6 @@ fake_addresses = {
 
 class StoppableThread(threading.Thread):
     """Base class for application threads with stopThread method"""
-    name = None
     logger = logging.getLogger('default')
 
     def __init__(self, name=None):
@@ -62,8 +61,10 @@ class StoppableThread(threading.Thread):
 
 class FakeAddressGenerator(StoppableThread):
     """A thread for creating fake addresses"""
-    name = "addressGenerator"
     address_list = list(fake_addresses.keys())
+
+    def __init__(self):
+        super(FakeAddressGenerator, self).__init__(name="addressGenerator")
 
     def stopThread(self):
         try:

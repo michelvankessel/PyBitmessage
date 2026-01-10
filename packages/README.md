@@ -1,36 +1,21 @@
-The `generate.sh` script is obsolete, but is included for historical reasons.
+# PyBitmessage Packages
 
-Maintained packages can be obtained:
+For official binaries and source releases, please visit our GitHub Releases page:
+<https://github.com/Bitmessage/PyBitmessage/releases>
 
-Windows:
-========
+## Distribution Packages
 
-https://github.com/Bitmessage/PyBitmessage/releases
+### Arch Linux
 
-Works on Windows XP or higher.
+PyBitmessage is available in the AUR:
 
+- Stable: <https://aur.archlinux.org/packages/pybitmessage-git/>
+- Development: <https://aur.archlinux.org/packages/pybitmessage-dev-git/>
 
-OSX:
-====
+### Other Linux Distributions
 
-https://github.com/Bitmessage/PyBitmessage/releases
+Please check your distribution's package manager or install from source using the instructions in `INSTALL.md` in the root directory.
 
-Works on OSX 10.7.5 or higher
+### Windows & macOS
 
-
-Arch linux:
-===========
-
-Releases matching PyBitmessage releases:
-
-https://aur.archlinux.org/packages/pybitmessage-git/
-
-Development snapshot equivalent to the v0.6 git branch:
-
-https://aur.archlinux.org/packages/pybitmessage-dev-git/ 
-
-
-FreeBSD:
-========
-
-Use the FreeBSD ports.
+Pre-built binaries are available on the Releases page.

@@ -1,6 +1,3 @@
-# pylint: disable=no-member, too-many-arguments, too-few-public-methods
-# pylint: disable=no-name-in-module, unused-argument, arguments-differ
-
 """
 QR code Scan Screen used in message composer to get recipient address
 
@@ -26,7 +23,7 @@ logger = logging.getLogger('default')
 
 class ScanScreen(Screen):
     """ScanScreen is for scaning Qr code"""
-    # pylint: disable=W0212
+
     camera_available = BooleanProperty(False)
     previous_open_screen = StringProperty()
     pop_up_instance = ObjectProperty()
@@ -87,7 +84,7 @@ class ScanScreen(Screen):
 
     def start_camera(self, *args):
         """Its used for starting camera for scanning qrcode"""
-        # pylint: disable=attribute-defined-outside-init
+
         self.zbarcam.start()
         Clock.schedule_interval(self.check_symbol, 0.5)
 
@@ -100,7 +97,10 @@ class ScanScreen(Screen):
             # ZBarSymbol.QRCODE is an integer, QRCODE corresponds to 64
             if symbol.type == 'QRCODE':
                 self.stop_camera()
-                self.pop_up_instance.content_cls.address.text = symbol.data.decode("utf-8")
+                scan_data = symbol.data
+                if isinstance(scan_data, bytes):
+                    scan_data = scan_data.decode("utf-8")
+                self.pop_up_instance.content_cls.address.text = scan_data
                 self.manager.current = self.previous_open_screen
                 # changing screen closes popup, so need to open again with filled address
                 self.pop_up_instance.open()

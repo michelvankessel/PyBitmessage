@@ -1,16 +1,16 @@
 """
 Thread to send inv annoucements
 """
-import Queue
+import queue
 import random
 from time import time
 
 import addresses
 import protocol
 import state
-import connectionpool
-from network import dandelion_ins, invQueue
-from threads import StoppableThread
+from . import connectionpool
+from . import dandelion_ins, invQueue
+from .threads import StoppableThread
 
 
 def handleExpiredDandelion(expired):
@@ -46,22 +46,25 @@ class InvThread(StoppableThread):
                 continue
             connection.objectsNewToThem[hashId] = time()
 
-    def run(self):  # pylint: disable=too-many-branches
-        while not state.shutdown:  # pylint: disable=too-many-nested-blocks
+    def run(self):
+        while not state.shutdown:
             chunk = []
             while True:
                 # Dandelion fluff trigger by expiration
                 handleExpiredDandelion(dandelion_ins.expire(invQueue))
                 try:
                     data = invQueue.get(False)
+                    print(f"DEBUG_TRACE: invThread got from queue: stream={data[0]}, hash={data[1].hex()}", flush=True)
                     chunk.append((data[0], data[1]))
                     # locally generated
                     if len(data) == 2 or data[2] is None:
+                        print("DEBUG_TRACE: invThread calling handleLocallyGenerated", flush=True)
                         self.handleLocallyGenerated(data[0], data[1])
-                except Queue.Empty:
+                except queue.Empty:
                     break
 
             if chunk:
+                print(f"DEBUG_TRACE: invThread processing chunk of {len(chunk)} items", flush=True)
                 for connection in connectionpool.pool.connections():
                     fluffs = []
                     stems = []
@@ -77,7 +80,7 @@ class InvThread(StoppableThread):
                             if connection == dandelion_ins.objectChildStem(inv[1]):
                                 # Fluff trigger by RNG
                                 # auto-ignore if config set to 0, i.e. dandelion is off
-                                if random.randint(1, 100) >= dandelion_ins.enabled:  # nosec B311
+                                if random.randint(1, 100) >= dandelion_ins.enabled:
                                     fluffs.append(inv[1])
                                 # send a dinv only if the stem node supports dandelion
                                 elif connection.services & protocol.NODE_DANDELION > 0:
@@ -88,17 +91,19 @@ class InvThread(StoppableThread):
                             fluffs.append(inv[1])
 
                     if fluffs:
+                        print(f"DEBUG_TRACE: Sending {len(fluffs)} fluffs to {connection.destination}", flush=True)
                         random.shuffle(fluffs)
                         connection.append_write_buf(protocol.CreatePacket(
                             'inv',
                             addresses.encodeVarint(
-                                len(fluffs)) + ''.join(fluffs)))
+                                len(fluffs)) + b''.join(fluffs)))
                     if stems:
+                        print(f"DEBUG_TRACE: Sending {len(stems)} stems to {connection.destination}", flush=True)
                         random.shuffle(stems)
                         connection.append_write_buf(protocol.CreatePacket(
                             'dinv',
                             addresses.encodeVarint(
-                                len(stems)) + ''.join(stems)))
+                                len(stems)) + b''.join(stems)))
 
             invQueue.iterate()
             for _ in range(len(chunk)):

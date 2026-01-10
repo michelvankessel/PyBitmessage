@@ -1,6 +1,3 @@
-# pylint: disable=unused-argument, consider-using-f-string, import-error
-# pylint: disable=unnecessary-comprehension, no-member, no-name-in-module
-
 """
 addressbook.py
 ==============
@@ -50,7 +47,7 @@ class AddressBook(Screen, HelperAddressBook):
 
     def __init__(self, *args, **kwargs):
         """Getting AddressBook Details"""
-        super().__init__(*args, **kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(*args, **kwargs)
         self.addbook_popup = None
         self.kivy_state = kivy_state_variables()
 
@@ -85,7 +82,7 @@ class AddressBook(Screen, HelperAddressBook):
             listItem.text_color = ThemeClsColor
             image = os.path.join(
                 self.kivy_state.image_dir, "text_images",
-                f"{avatar_image_first_letter(item[0].strip())}.png"  # noqa: E999
+                f"{avatar_image_first_letter(item[0].strip())}.png"
             )
             message_row.ids.avater_img.source = image
             listItem.bind(on_release=partial(self.addBook_detail, item[1], item[0], message_row))

@@ -1,18 +1,24 @@
 """
 SSL/TLS negotiation.
 """
+
 import logging
 import os
 import socket
 import ssl
 import sys
 
-import network.asyncore_pollchoose as asyncore
+
+from network import asyncore_pollchoose as asyncore
 import paths
-from network.advanceddispatcher import AdvancedDispatcher
+from .advanceddispatcher import AdvancedDispatcher
 from network import receiveDataQueue
 
-logger = logging.getLogger('default')
+# ...
+
+
+logger = logging.getLogger("default")
+
 
 _DISCONNECTED_SSL = frozenset((ssl.SSL_ERROR_EOF,))
 
@@ -20,7 +26,7 @@ if sys.version_info >= (2, 7, 13):
     # this means TLSv1 or higher
     # in the future change to
     # ssl.PROTOCOL_TLS1.2
-    sslProtocolVersion = ssl.PROTOCOL_TLS  # pylint: disable=no-member
+    sslProtocolVersion = ssl.PROTOCOL_TLS
 elif sys.version_info >= (2, 7, 9):
     # this means any SSL/TLS.
     # SSLv2 and 3 are excluded with an option after context is created
@@ -32,63 +38,148 @@ else:
 
 
 # ciphers
-if (
-    ssl.OPENSSL_VERSION_NUMBER >= 0x10100000
-    and not ssl.OPENSSL_VERSION.startswith(b"LibreSSL")
+if ssl.OPENSSL_VERSION_NUMBER >= 0x10100000 and not ssl.OPENSSL_VERSION.startswith(
+    "LibreSSL"
 ):
     sslProtocolCiphers = "AECDH-AES256-SHA@SECLEVEL=0"
 else:
     sslProtocolCiphers = "AECDH-AES256-SHA"
 
 
+def haveSSL(server=False):
+    """Callback for checking if SSL is available"""
+    return True
+
+
 class TLSDispatcher(AdvancedDispatcher):
     """TLS functionality for classes derived from AdvancedDispatcher"""
-    # pylint: disable=too-many-instance-attributes,super-init-not-called
-    def __init__(self, _=None, sock=None, certfile=None, keyfile=None,
-                 server_side=False, ciphers=sslProtocolCiphers):
+
+    def __init__(
+        self,
+        sock=None,
+        server_side=False,
+        certfile=None,
+        keyfile=None,
+        ciphers=sslProtocolCiphers,
+    ):
+        AdvancedDispatcher.__init__(self, sock)
         self.want_read = self.want_write = True
         self.certfile = certfile or os.path.join(
-            paths.codePath(), 'sslkeys', 'cert.pem')
-        self.keyfile = keyfile or os.path.join(
-            paths.codePath(), 'sslkeys', 'key.pem')
+            paths.codePath(), "sslkeys", "cert.pem"
+        )
+        self.keyfile = keyfile or os.path.join(paths.codePath(), "sslkeys", "key.pem")
         self.server_side = server_side
         self.ciphers = ciphers
         self.tlsStarted = False
         self.tlsDone = False
         self.tlsVersion = "N/A"
         self.isSSL = False
+        # Reference: Initialize tlsPrepared for Python 3 / OpenSSL 3.x lazy TLS init
+        if sys.version_info >= (3, 0) or ssl.OPENSSL_VERSION_NUMBER >= 0x30000000:
+            self.tlsPrepared = False
+        # Note: self.state is set by subclass (e.g., TCPConnection) after connection, NOT here.
 
     def state_tls_init(self):
         """Prepare sockets for TLS handshake"""
         self.isSSL = True
         self.tlsStarted = True
-        # Once the connection has been established,
-        # it's safe to wrap the socket.
-        if sys.version_info >= (2, 7, 9):
-            context = ssl.create_default_context(
-                purpose=ssl.Purpose.SERVER_AUTH
-                if self.server_side else ssl.Purpose.CLIENT_AUTH)
-            context.set_ciphers(self.ciphers)
-            context.set_ecdh_curve("secp256k1")
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
-            # also exclude TLSv1 and TLSv1.1 in the future
-            context.options = ssl.OP_ALL | ssl.OP_NO_SSLv2 |\
-                ssl.OP_NO_SSLv3 | ssl.OP_SINGLE_ECDH_USE |\
-                ssl.OP_CIPHER_SERVER_PREFERENCE
-            self.sslSocket = context.wrap_socket(
-                self.socket, server_side=self.server_side,
-                do_handshake_on_connect=False)
-        else:
-            self.sslSocket = ssl.wrap_socket(
-                self.socket, server_side=self.server_side,
-                ssl_version=sslProtocolVersion,
-                certfile=self.certfile, keyfile=self.keyfile,
-                ciphers=self.ciphers, do_handshake_on_connect=False)
-        self.sslSocket.setblocking(0)
-        self.want_read = self.want_write = True
-        self.set_state("tls_handshake")
-        return False
+
+        # OpenSSL 3.x / Lazy Initialization logic from reference client
+        if sys.version_info >= (3, 0) or ssl.OPENSSL_VERSION_NUMBER >= 0x30000000:
+            self.tlsPrepared = False
+            self.want_read = self.want_write = True
+            self.set_state("tls_handshake")
+            return False
+
+        return self.do_tls_init()
+
+    def do_tls_init(self):
+        try:
+            # Once the connection has been established,
+            # it's safe to wrap the socket.
+            if sys.version_info >= (2, 7, 9):
+                # OpenSSL 3.x specific context creation (Reference Client Logic)
+                if ssl.OPENSSL_VERSION_NUMBER >= 0x30000000:
+                    # print(">>> DO_TLS_INIT: Using SSLContext constructor")
+                    context = ssl.SSLContext(
+                        ssl.PROTOCOL_TLS_SERVER
+                        if self.server_side
+                        else ssl.PROTOCOL_TLS_CLIENT
+                    )
+                    context.options = (
+                        ssl.OP_ALL
+                        | ssl.OP_NO_SSLv2
+                        | ssl.OP_NO_SSLv3
+                        | ssl.OP_SINGLE_ECDH_USE
+                        | ssl.OP_CIPHER_SERVER_PREFERENCE
+                        | getattr(ssl, "OP_NO_TLSv1_3", 0)
+                    )
+                else:
+                    # Reference implementation:
+                    # SERVER_AUTH if server_side (for accepting client connections)
+                    # CLIENT_AUTH if not server_side (for connecting to servers)
+                    context = ssl.create_default_context(
+                        purpose=ssl.Purpose.SERVER_AUTH
+                        if self.server_side
+                        else ssl.Purpose.CLIENT_AUTH
+                    )
+                    # also exclude TLSv1 and TLSv1.1 in the future
+                    context.options = (
+                        ssl.OP_ALL
+                        | ssl.OP_NO_SSLv2
+                        | ssl.OP_NO_SSLv3
+                        | ssl.OP_SINGLE_ECDH_USE
+                        | ssl.OP_CIPHER_SERVER_PREFERENCE
+                    )
+                    # OpenSSL 3.x fix check (for non-3.x openssl but recent python?)
+                    if hasattr(ssl, "OP_NO_TLSv1_3"):
+                        context.options |= ssl.OP_NO_TLSv1_3
+
+                context.set_ciphers(self.ciphers)
+                context.set_ecdh_curve("secp256k1")
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+
+                if (
+                    sys.version_info >= (3, 13)
+                    or ssl.OPENSSL_VERSION_NUMBER >= 0x30000000
+                ):
+                    logger.debug("Applying Python 3.13+/OpenSSL 3.x compatibility mode")
+                    context.verify_flags &= ~ssl.VERIFY_X509_STRICT
+                    context.verify_flags &= ~ssl.VERIFY_X509_PARTIAL_CHAIN
+                    if hasattr(context, "options") and hasattr(ssl, "OP_NO_TICKET"):
+                        context.options |= ssl.OP_NO_TICKET
+
+                self.sslSocket = context.wrap_socket(
+                    self.socket,
+                    server_side=self.server_side,
+                    do_handshake_on_connect=False,
+                )
+            else:
+                self.sslSocket = ssl.wrap_socket(
+                    self.socket,
+                    server_side=self.server_side,
+                    ssl_version=sslProtocolVersion,
+                    certfile=self.certfile,
+                    keyfile=self.keyfile,
+                    ciphers=self.ciphers,
+                    do_handshake_on_connect=False,
+                )
+            self.sslSocket.setblocking(0)
+            self.want_read = self.want_write = True
+
+            if sys.version_info >= (3, 0) or ssl.OPENSSL_VERSION_NUMBER >= 0x30000000:
+                self.tlsPrepared = True
+            else:
+                self.set_state("tls_handshake")
+            # print(">>> DO_TLS_INIT: Success")
+            return False
+        except Exception as e:
+            # print(f">>> DO_TLS_INIT ERROR: {e}")
+            import traceback
+
+            traceback.print_exc()
+            raise e
 
     @staticmethod
     def state_tls_handshake():
@@ -99,7 +190,10 @@ class TLSDispatcher(AdvancedDispatcher):
         return False
 
     def writable(self):
-        """Handle writable checks for TLS-enabled sockets"""
+        """Handle writability check for TLS-enabled sockets"""
+        # print(
+        #     f"DEBUG: TLSDispatcher.writable state={getattr(self, 'state', 'MISSING')} id={id(self)}"
+        # )
         try:
             if self.tlsStarted and not self.tlsDone and not self.write_buf:
                 return self.want_write
@@ -109,20 +203,29 @@ class TLSDispatcher(AdvancedDispatcher):
 
     def readable(self):
         """Handle readable check for TLS-enabled sockets"""
+        # print(f"DEBUG: TLSDispatcher.readable state={getattr(self, 'state', 'MISSING')}")
         try:
-            # during TLS handshake, and after flushing write buffer,
-            # return status of last handshake attempt
-            if self.tlsStarted and not self.tlsDone and not self.write_buf:
-                logger.debug('tls readable, %r', self.want_read)
-                return self.want_read
-            # prior to TLS handshake,
-            # receiveDataThread should emulate synchronous behaviour
-            if not self.fullyEstablished and (
-                    self.expectBytes == 0 or not self.write_buf_empty()):
-                return False
-        except AttributeError:
-            pass
-        return AdvancedDispatcher.readable(self)
+            try:
+                # during TLS handshake, and after flushing write buffer,
+                # return status of last handshake attempt
+                if self.tlsStarted and not self.tlsDone and not self.write_buf:
+                    logger.debug("tls readable, %r", self.want_read)
+                    return self.want_read
+                # prior to TLS handshake,
+                # receiveDataThread should emulate synchronous behaviour
+                if not self.fullyEstablished and (
+                    self.expectBytes == 0 or not self.write_buf_empty()
+                ):
+                    return False
+            except AttributeError:
+                pass
+            return AdvancedDispatcher.readable(self)
+        except Exception as e:
+            # print(f"DEBUG: READABLE CRASHED: {e}")
+            import traceback
+
+            traceback.print_exc()
+            raise e
 
     def handle_read(self):
         """
@@ -133,6 +236,14 @@ class TLSDispatcher(AdvancedDispatcher):
         try:
             # wait for write buffer flush
             if self.tlsStarted and not self.tlsDone and not self.write_buf:
+                # Reference: Lazy TLS init for Python 3 / OpenSSL 3.x
+                if (
+                    sys.version_info >= (3, 0)
+                    or ssl.OPENSSL_VERSION_NUMBER >= 0x30000000
+                ):
+                    if not self.tlsPrepared:
+                        self.do_tls_init()
+                        return
                 self.tls_handshake()
             else:
                 AdvancedDispatcher.handle_read(self)
@@ -155,6 +266,14 @@ class TLSDispatcher(AdvancedDispatcher):
         try:
             # wait for write buffer flush
             if self.tlsStarted and not self.tlsDone and not self.write_buf:
+                # Reference: Lazy TLS init for Python 3 / OpenSSL 3.x
+                if (
+                    sys.version_info >= (3, 0)
+                    or ssl.OPENSSL_VERSION_NUMBER >= 0x30000000
+                ):
+                    if not self.tlsPrepared:
+                        self.do_tls_init()
+                        return
                 self.tls_handshake()
             else:
                 AdvancedDispatcher.handle_write(self)
@@ -175,45 +294,82 @@ class TLSDispatcher(AdvancedDispatcher):
             return False
         # Perform the handshake.
         try:
-            logger.debug("handshaking (internal)")
+            # print(
+            #     f">>> TLS HANDSHAKE: {self.destination.host}:{self.destination.port} attempting..."
+            # )
+            logger.debug(
+                "%s:%i: handshaking (internal)",
+                self.destination.host,
+                self.destination.port,
+            )
             self.sslSocket.do_handshake()
         except ssl.SSLError as err:
-            self.close_reason = "SSL Error in tls_handshake"
-            logger.info("%s:%i: handshake fail", *self.destination)
+            self.close_reason = f"SSL Error in tls_handshake: {err}"
+
             self.want_read = self.want_write = False
-            if err.args[0] == ssl.SSL_ERROR_WANT_READ:
-                logger.debug("want read")
+
+            if err.errno == 2 or err.args[0] == ssl.SSL_ERROR_WANT_READ:
+                logger.debug(
+                    "%s:%i: SSL handshake wants read (errno=%s), will retry",
+                    self.destination.host,
+                    self.destination.port,
+                    err.errno,
+                )
                 self.want_read = True
-            if err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
-                logger.debug("want write")
+            elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                logger.debug(
+                    "%s:%i: TLS wants write",
+                    self.destination.host,
+                    self.destination.port,
+                )
                 self.want_write = True
+            else:
+                logger.warning(
+                    "%s:%i: TLS handshake failed - errno=%s, reason=%s, msg=%s",
+                    self.destination.host,
+                    self.destination.port,
+                    err.errno,
+                    getattr(err, "reason", "N/A"),
+                    str(err),
+                )
+
             if not (self.want_write or self.want_read):
+                logger.error(
+                    "%s:%i: TLS handshake FATAL - raising exception",
+                    self.destination.host,
+                    self.destination.port,
+                )
                 raise
         except socket.error as err:
-            # pylint: disable=protected-access
             if err.errno in asyncore._DISCONNECTED:
                 self.close_reason = "socket.error in tls_handshake"
                 self.handle_close()
             else:
                 raise
         else:
+            # print(f">>> TLS HANDSHAKE SUCCESS: {self.destination.host}:{self.destination.port} Version={self.sslSocket.version()}")
+
             if sys.version_info >= (2, 7, 9):
                 self.tlsVersion = self.sslSocket.version()
                 logger.debug(
-                    '%s:%i: TLS handshake success, TLS protocol version: %s',
-                    self.destination.host, self.destination.port,
-                    self.tlsVersion)
+                    "%s:%i: TLS handshake success, TLS protocol version: %s",
+                    self.destination.host,
+                    self.destination.port,
+                    self.tlsVersion,
+                )
             else:
                 self.tlsVersion = "TLSv1"
                 logger.debug(
-                    '%s:%i: TLS handshake success',
-                    self.destination.host, self.destination.port)
+                    "%s:%i: TLS handshake success",
+                    self.destination.host,
+                    self.destination.port,
+                )
             # The handshake has completed, so remove this channel and...
             self.del_channel()
             self.set_socket(self.sslSocket)
             self.tlsDone = True
 
             self.bm_proto_reset()
-            self.set_state("connection_fully_established")
+            self.state_connection_fully_established()
             receiveDataQueue.put(self.destination)
         return False

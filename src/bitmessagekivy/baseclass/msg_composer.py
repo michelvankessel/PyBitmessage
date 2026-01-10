@@ -1,5 +1,3 @@
-# pylint: disable=unused-argument, consider-using-f-string, too-many-ancestors
-# pylint: disable=no-member, no-name-in-module, too-few-public-methods, no-name-in-module
 """
     Message composer screen UI
 """
@@ -46,7 +44,7 @@ class Create(Screen):
         self.add_widget(self.dropdown_widget)
         self.children[0].ids.id_scroll.bind(scroll_y=self.check_scroll_y)
 
-    def check_scroll_y(self, instance, somethingelse):  # pylint: disable=unused-argument
+    def check_scroll_y(self, instance, somethingelse):
         """show data on scroll down"""
         if self.children[1].ids.composer_dropdown.is_open:
             self.children[1].ids.composer_dropdown.is_open = False
@@ -64,13 +62,10 @@ class SelectableRecycleBoxLayout(
     FocusBehavior, LayoutSelectionBehavior, RecycleBoxLayout
 ):
     """Adds selection and focus behaviour to the view"""
-    # pylint: disable = duplicate-bases
 
 
 class DropDownWidget(BoxLayout):
     """DropDownWidget class for kivy Ui"""
-
-    # pylint: disable=too-many-statements
 
     txt_input = ObjectProperty()
     rv = ObjectProperty()
@@ -81,7 +76,7 @@ class DropDownWidget(BoxLayout):
         self.kivy_state = kivy_state_variables()
 
     @staticmethod
-    def callback_for_msgsend(dt=0):  # pylint: disable=unused-argument
+    def callback_for_msgsend(dt=0):
         """Callback method for messagesend"""
         state.kivyapp.root.ids.id_create.children[0].active = False
         state.in_sent_method = True
@@ -131,7 +126,7 @@ class MyTextInput(MDTextField):
         super(MyTextInput, self).__init__(**kwargs)
         self.__lineBreak__ = 0
 
-    def on_text(self, instance, value):  # pylint: disable=unused-argument
+    def on_text(self, instance, value):
         """Find all the occurrence of the word"""
         self.parent.parent.parent.parent.parent.ids.rv.data = []
         max_recipient_len = 10
@@ -171,7 +166,7 @@ class SelectableLabel(RecycleDataViewBehavior, Label):
         self.index = index
         return super(SelectableLabel, self).refresh_view_attrs(rv, index, data)
 
-    def on_touch_down(self, touch):  # pylint: disable=inconsistent-return-statements
+    def on_touch_down(self, touch):
         """Add selection on touch down"""
         if super(SelectableLabel, self).on_touch_down(touch):
             return True

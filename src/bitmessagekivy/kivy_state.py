@@ -1,5 +1,3 @@
-# pylint: disable=too-many-instance-attributes, too-few-public-methods
-
 """
 Kivy State variables are assigned here, they are separated from state.py
 =================================

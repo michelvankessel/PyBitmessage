@@ -1,15 +1,15 @@
 """Language Box Module for Locale Settings"""
-# pylint: disable=too-few-public-methods,bad-continuation
+
 import glob
 import os
 
-from PyQt4 import QtCore, QtGui
+from PyQt6 import QtCore, QtWidgets
 
 import paths
 from bmconfigparser import config
 
 
-class LanguageBox(QtGui.QComboBox):
+class LanguageBox(QtWidgets.QComboBox):
     """LanguageBox class for Qt UI"""
     languageName = {
         "system": "System Settings", "eo": "Esperanto",
@@ -17,17 +17,20 @@ class LanguageBox(QtGui.QComboBox):
     }
 
     def __init__(self, parent=None):
-        super(QtGui.QComboBox, self).__init__(parent)
+        super(QtWidgets.QComboBox, self).__init__(parent)
         self.populate()
 
     def populate(self):
         """Populates drop down list with all available languages."""
         self.clear()
-        localesPath = os.path.join(paths.codePath(), 'translations')
-        self.addItem(QtGui.QApplication.translate(
+        code_path = paths.codePath()
+        if code_path is None:
+            return
+        localesPath = os.path.join(code_path, 'translations')
+        self.addItem(QtWidgets.QApplication.translate(
             "settingsDialog", "System Settings", "system"), "system")
         self.setCurrentIndex(0)
-        self.setInsertPolicy(QtGui.QComboBox.InsertAlphabetically)
+        self.setInsertPolicy(QtWidgets.QComboBox.InsertPolicy.InsertAlphabetically)
         for translationFile in sorted(
             glob.glob(os.path.join(localesPath, "bitmessage_*.qm"))
         ):

@@ -1,10 +1,10 @@
-# from PyQt4 import QtTest
+# from PyQt6 import QtTest
 
 import sys
 
 from shared import isAddressInMyAddressBook
 
-from main import TestBase
+from .main import TestBase
 
 
 class TestSupport(TestBase):

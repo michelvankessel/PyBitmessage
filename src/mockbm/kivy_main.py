@@ -1,11 +1,9 @@
-# pylint: disable=unused-import, wrong-import-position, ungrouped-imports
-# flake8: noqa:E401, E402
 
 """Mock kivy app with mock threads."""
 
 import os
 from kivy.config import Config
-from pybitmessage.mockbm import multiqueue
+
 from pybitmessage import state
 
 if os.environ.get("INSTALL_TESTS", False):
@@ -16,9 +14,9 @@ if os.environ.get("INSTALL_TESTS", False):
     Config.set("graphics", "left", 0)
 
 
-from pybitmessage.mockbm.class_addressGenerator import FakeAddressGenerator  # noqa:E402
-from pybitmessage.bitmessagekivy.mpybit import NavigateApp  # noqa:E402
-from pybitmessage.mockbm import network  # noqa:E402
+from pybitmessage.mockbm.class_addressGenerator import FakeAddressGenerator
+from pybitmessage.bitmessagekivy.mpybit import NavigateApp
+from pybitmessage.mockbm import network
 
 stats = network.stats
 objectracker = network.objectracker

@@ -8,20 +8,20 @@ import unittest
 from abc import ABCMeta, abstractmethod
 from binascii import hexlify
 
+from typing import Any
 from pybitmessage import highlevelcrypto
-
-
-try:
-    from Crypto.Hash import RIPEMD160
-except ImportError:
-    RIPEMD160 = None
-
 from .samples import (
     sample_bm160, sample_deterministic_ripe, sample_double_sha512,
     sample_hash_data, sample_msg, sample_pubsigningkey,
     sample_pubencryptionkey, sample_privsigningkey, sample_privencryptionkey,
     sample_ripe, sample_seed, sample_sig, sample_sig_sha1
 )
+
+RIPEMD160: Any
+try:
+    from Crypto.Hash import RIPEMD160
+except ImportError:
+    RIPEMD160 = None
 
 
 _sha = hashlib.new('sha512')
@@ -32,11 +32,12 @@ pubkey_sha = _sha.digest()
 
 class RIPEMD160TestCase(object):
     """Base class for RIPEMD160 test case"""
-    # pylint: disable=too-few-public-methods,no-member
+
     __metaclass__ = ABCMeta
 
+    @staticmethod
     @abstractmethod
-    def _hashdigest(self, data):
+    def _hashdigest(data):
         """RIPEMD160 digest implementation"""
         pass
 
@@ -75,7 +76,7 @@ class TestHighlevelcrypto(unittest.TestCase):
 
     def test_bm160(self):
         """Formally check highlevelcrypto._bm160()"""
-        # pylint: disable=protected-access
+
         self.assertEqual(
             highlevelcrypto._bm160(sample_hash_data), sample_bm160)
 

@@ -1,0 +1,56 @@
+{
+    "include": [
+        "src",
+        "dev",
+        "packages",
+        "setup.py",
+        "checkdeps.py",
+        "tests_runner.py",
+        "tests_kivy_runner.py"
+    ],
+    "exclude": [
+        "**/pybitmessage",
+        "**/docs",
+        "**/.venv",
+        "**/.tox",
+        "**/build",
+        "**/dist"
+    ],
+    "extraPaths": [
+        "./src",
+        "./stubs"
+    ],
+    "typeCheckingMode": "basic",
+    "reportAttributeAccessIssue": false,
+    "reportPossiblyUnboundVariable": false,
+    "reportOptionalMemberAccess": false,
+    "reportGeneralTypeIssues": false,
+    "reportIncompatibleMethodOverride": false,
+    "reportArgumentType": false,
+    "reportOperatorIssue": false,
+    "reportMissingImports": false,
+    "reportOptionalSubscript": false,
+    "reportIndexIssue": false,
+    "reportCallIssue": false,
+    "reportReturnType": false,
+    "reportAssignmentType": false,
+    "reportUnusedVariable": false,
+    "reportOptionalOperand": false,
+    "reportMissingModuleSource": false,
+    "reportUnusedExcept": false,
+    "reportOptionalCall": false,
+    "reportDuplicateImport": false,
+    "reportRedeclaration": false,
+    "reportUnboundVariable": false,
+    "reportOptionalIterable": false,
+    "reportSelfClsParameterName": false,
+    "executionEnvironments": [
+        {
+            "root": ".",
+            "extraPaths": [
+                "./src",
+                "./stubs"
+            ]
+        }
+    ]
+}

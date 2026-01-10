@@ -8,13 +8,10 @@ from contextlib import contextmanager
 
 class StoppableThread(threading.Thread):
     """Base class for application threads with stopThread method"""
-    name = None
     logger = logging.getLogger('default')
 
     def __init__(self, name=None):
-        if name:
-            self.name = name
-        super(StoppableThread, self).__init__(name=self.name)
+        super(StoppableThread, self).__init__(name=name)
         self.stop = threading.Event()
         self._stopped = False
         random.seed()

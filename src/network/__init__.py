@@ -1,7 +1,8 @@
 """
 Network subsystem package
 """
-from six.moves import queue
+from typing import Any
+import queue
 from .dandelion import Dandelion
 from .threads import StoppableThread
 from .multiqueue import MultiQueue
@@ -11,8 +12,8 @@ dandelion_ins = Dandelion()
 # network queues
 invQueue = MultiQueue()
 addrQueue = MultiQueue()
-portCheckerQueue = queue.Queue()
-receiveDataQueue = queue.Queue()
+portCheckerQueue: queue.Queue[Any] = queue.Queue()
+receiveDataQueue: queue.Queue[Any] = queue.Queue()
 
 __all__ = ["StoppableThread"]
 
@@ -20,7 +21,7 @@ __all__ = ["StoppableThread"]
 def start(config, state):
     """Start network threads"""
     from .announcethread import AnnounceThread
-    import connectionpool  # pylint: disable=relative-import
+    from . import connectionpool
     from .addrthread import AddrThread
     from .downloadthread import DownloadThread
     from .invthread import InvThread

@@ -5,26 +5,28 @@ import os
 import re
 import time
 
-import six
-from six.moves import range
-
 from bmconfigparser import config
 
-logger = logging.getLogger('default')
+logger = logging.getLogger("default")
 
-DEFAULT_ENCODING = 'ISO8859-1'
-DEFAULT_LANGUAGE = 'en_US'
-DEFAULT_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+DEFAULT_ENCODING = "ISO8859-1"
+DEFAULT_LANGUAGE = "en_US"
+DEFAULT_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 try:
     import locale
+
     encoding = locale.getpreferredencoding(True) or DEFAULT_ENCODING
-    language = (
-        locale.getlocale()[0] or locale.getdefaultlocale()[0]
-        or DEFAULT_LANGUAGE)
+    # Use getlocale() with fallback, avoid deprecated getdefaultlocale()
+    try:
+        language = locale.getlocale()[0] or DEFAULT_LANGUAGE
+    except (AttributeError, ValueError):
+        # getlocale() might fail on some systems
+        language = DEFAULT_LANGUAGE
 except (ImportError, AttributeError):  # FIXME: it never happens
-    logger.exception('Could not determine language or encoding')
-    locale = None
+    logger.exception("Could not determine language or encoding")
+    # Mark as None for later checks, but avoid module redefinition error
+    locale = None  # type: ignore
     encoding = DEFAULT_ENCODING
     language = DEFAULT_LANGUAGE
 
@@ -49,38 +51,32 @@ windowsLanguageMap = {
     "zh_CN": "chinese-simplified",
     "zh_HK": "chinese-traditional",
     "zh_SG": "chinese-simplified",
-    "zh_TW": "chinese-traditional"
+    "zh_TW": "chinese-traditional",
 }
 
 
-time_format = config.safeGet(
-    'bitmessagesettings', 'timeformat', DEFAULT_TIME_FORMAT)
+time_format = config.safeGet("bitmessagesettings", "timeformat", DEFAULT_TIME_FORMAT)
 
-if not re.search(r'\d', time.strftime(time_format)):
+if not re.search(r"\d", time.strftime(time_format)):
     time_format = DEFAULT_TIME_FORMAT
 
-# It seems some systems lie about the encoding they use
-# so we perform comprehensive decoding tests
-elif six.PY2:
+    # It seems some systems lie about the encoding they use
+    # so we perform comprehensive decoding tests
+    # Python 3.13 only - skip PY2 compatibility checks
     try:
         # Check day names
         for i in range(7):
-            time.strftime(
-                time_format, (0, 0, 0, 0, 0, 0, i, 0, 0)).decode(encoding)
+            time.strftime(time_format, (0, 0, 0, 0, 0, 0, i, 0, 0))
         # Check month names
         for i in range(1, 13):
-            time.strftime(
-                time_format, (0, i, 0, 0, 0, 0, 0, 0, 0)).decode(encoding)
+            time.strftime(time_format, (0, i, 0, 0, 0, 0, 0, 0, 0))
         # Check AM/PM
-        time.strftime(
-            time_format, (0, 0, 0, 11, 0, 0, 0, 0, 0)).decode(encoding)
-        time.strftime(
-            time_format, (0, 0, 0, 13, 0, 0, 0, 0, 0)).decode(encoding)
+        time.strftime(time_format, (0, 0, 0, 11, 0, 0, 0, 0, 0))
+        time.strftime(time_format, (0, 0, 0, 13, 0, 0, 0, 0, 0))
         # Check DST
-        time.strftime(
-            time_format, (0, 0, 0, 0, 0, 0, 0, 0, 1)).decode(encoding)
+        time.strftime(time_format, (0, 0, 0, 0, 0, 0, 0, 0, 1))
     except Exception:  # TODO: write tests and determine exception types
-        logger.exception('Could not decode locale formatted timestamp')
+        logger.exception("Could not decode locale formatted timestamp")
         # time_format = DEFAULT_TIME_FORMAT
         encoding = DEFAULT_ENCODING
 
@@ -118,16 +114,13 @@ def formatTimestamp(timestamp=None):
         except ValueError:
             timestring = time.strftime(time_format)
 
-    if six.PY2:
-        return timestring.decode(encoding)
     return timestring
 
 
 def getTranslationLanguage():
     """Return the user's language choice"""
-    userlocale = config.safeGet(
-        'bitmessagesettings', 'userlocale', 'system')
-    return userlocale if userlocale and userlocale != 'system' else language
+    userlocale = config.safeGet("bitmessagesettings", "userlocale", "system")
+    return userlocale if userlocale and userlocale != "system" else language
 
 
 def getWindowsLocale(posixLocale):

@@ -1,6 +1,3 @@
-# pylint: disable=import-error, attribute-defined-outside-init, too-many-arguments
-# pylint: disable=no-member, no-name-in-module, unused-argument, too-few-public-methods
-
 """
    Sent screen; All sent message managed here.
 """

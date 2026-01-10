@@ -53,7 +53,6 @@ To use the API concider such simple example:
     api = jsonrpc.ServerProxy(api_uri)
     print(api.clientStatus())
 
-
 For further examples please reference `.tests.test_api`.
 """
 
@@ -61,16 +60,19 @@ import base64
 import errno
 import hashlib
 import json
+from typing import Any
 import random
 import socket
-import subprocess  # nosec B404
+import subprocess
 import time
 from binascii import hexlify, unhexlify
 from struct import pack, unpack
 
-import six
-from six.moves import configparser, http_client, xmlrpc_server
-from six.moves.reprlib import repr
+import configparser
+import http.client as http_client
+import xmlrpc.client
+import xmlrpc.server as xmlrpc_server
+
 
 import helper_inbox
 import helper_sent
@@ -80,93 +82,103 @@ import queues
 import shared
 import shutdown
 import state
-from addresses import (addBMIfNotPresent, decodeAddress, decodeVarint,
-                       varintDecodeError)
+from addresses import addBMIfNotPresent, decodeAddress, decodeVarint, varintDecodeError
 from bmconfigparser import config
 from debug import logger
-from defaults import (networkDefaultPayloadLengthExtraBytes,
-                      networkDefaultProofOfWorkNonceTrialsPerByte)
-from helper_sql import (SqlBulkExecute, sql_ready, sqlExecute, sqlQuery,
-                        sqlStoredProcedure)
+from defaults import (
+    networkDefaultPayloadLengthExtraBytes,
+    networkDefaultProofOfWorkNonceTrialsPerByte,
+)
+from helper_sql import (
+    SqlBulkExecute,
+    sql_ready,
+    sqlExecute,
+    sqlQuery,
+    sqlStoredProcedure,
+)
 from highlevelcrypto import calculateInventoryHash
 
+from network import StoppableThread, invQueue, stats
+from version import softwareVersion
+
+connectionpool: Any
 try:
     from network import connectionpool
 except ImportError:
     connectionpool = None
 
-from network import StoppableThread, invQueue, stats
-from version import softwareVersion
-
 try:  # TODO: write tests for XML vulnerabilities
     from defusedxml.xmlrpc import monkey_patch
 except ImportError:
     logger.warning(
-        'defusedxml not available, only use API on a secure, closed network.')
+        "defusedxml not available, only use API on a secure, closed network."
+    )
 else:
     monkey_patch()
 
-
-str_chan = '[chan]'
-str_broadcast_subscribers = '[Broadcast subscribers]'
+str_chan = "[chan]"
+str_broadcast_subscribers = "[Broadcast subscribers]"
 
 
 class ErrorCodes(type):
     """Metaclass for :class:`APIError` documenting error codes."""
+
     _CODES = {
-        0: 'Invalid command parameters number',
-        1: 'The specified passphrase is blank.',
-        2: 'The address version number currently must be 3, 4, or 0'
-        ' (which means auto-select).',
-        3: 'The stream number must be 1 (or 0 which means'
-        ' auto-select). Others aren\'t supported.',
-        4: 'Why would you ask me to generate 0 addresses for you?',
-        5: 'You have (accidentally?) specified too many addresses to'
-        ' make. Maximum 999. This check only exists to prevent'
-        ' mischief; if you really want to create more addresses than'
-        ' this, contact the Bitmessage developers and we can modify'
-        ' the check or you can do it yourself by searching the source'
-        ' code for this message.',
-        6: 'The encoding type must be 2 or 3.',
-        7: 'Could not decode address',
-        8: 'Checksum failed for address',
-        9: 'Invalid characters in address',
-        10: 'Address version number too high (or zero)',
-        11: 'The address version number currently must be 2, 3 or 4.'
-        ' Others aren\'t supported. Check the address.',
-        12: 'The stream number must be 1. Others aren\'t supported.'
-        ' Check the address.',
-        13: 'Could not find this address in your keys.dat file.',
-        14: 'Your fromAddress is disabled. Cannot send.',
-        15: 'Invalid ackData object size.',
-        16: 'You are already subscribed to that address.',
-        17: 'Label is not valid UTF-8 data.',
-        18: 'Chan name does not match address.',
-        19: 'The length of hash should be 32 bytes (encoded in hex'
-        ' thus 64 characters).',
-        20: 'Invalid method:',
-        21: 'Unexpected API Failure',
-        22: 'Decode error',
-        23: 'Bool expected in eighteenByteRipe',
-        24: 'Chan address is already present.',
-        25: 'Specified address is not a chan address.'
-        ' Use deleteAddress API call instead.',
-        26: 'Malformed varint in address: ',
-        27: 'Message is too long.',
-        28: 'Invalid parameter'
+        0: "Invalid command parameters number",
+        1: "The specified passphrase is blank.",
+        2: "The address version number currently must be 3, 4, or 0"
+        " (which means auto-select).",
+        3: "The stream number must be 1 (or 0 which means"
+        " auto-select). Others aren't supported.",
+        4: "Why would you ask me to generate 0 addresses for you?",
+        5: "You have (accidentally?) specified too many addresses to"
+        " make. Maximum 999. This check only exists to prevent"
+        " mischief; if you really want to create more addresses than"
+        " this, contact the Bitmessage developers and we can modify"
+        " the check or you can do it yourself by searching the source"
+        " code for this message.",
+        6: "The encoding type must be 2 or 3.",
+        7: "Could not decode address",
+        8: "Checksum failed for address",
+        9: "Invalid characters in address",
+        10: "Address version number too high (or zero)",
+        11: "The address version number currently must be 2, 3 or 4."
+        " Others aren't supported. Check the address.",
+        12: "The stream number must be 1. Others aren't supported. Check the address.",
+        13: "Could not find this address in your keys.dat file.",
+        14: "Your fromAddress is disabled. Cannot send.",
+        15: "Invalid ackData object size.",
+        16: "You are already subscribed to that address.",
+        17: "Label is not valid UTF-8 data.",
+        18: "Chan name does not match address.",
+        19: "The length of hash should be 32 bytes (encoded in hex"
+        " thus 64 characters).",
+        20: "Invalid method:",
+        21: "Unexpected API Failure",
+        22: "Decode error",
+        23: "Bool expected in eighteenByteRipe",
+        24: "Chan address is already present.",
+        25: "Specified address is not a chan address."
+        " Use deleteAddress API call instead.",
+        26: "Malformed varint in address: ",
+        27: "Message is too long.",
+        28: "Invalid parameter",
     }
 
     def __new__(mcs, name, bases, namespace):
         result = super(ErrorCodes, mcs).__new__(mcs, name, bases, namespace)
-        for code in six.iteritems(mcs._CODES):
+        for code in mcs._CODES.items():
             # beware: the formatting is adjusted for list-table
-            result.__doc__ += """   * - %04i
+            result.__doc__ += (
+                """   * - %04i
          - %s
-    """ % code
+    """
+                % code
+            )
         return result
 
 
-class APIError(xmlrpc_server.Fault):
+class APIError(xmlrpc.client.Fault):
     """
     APIError exception class
 
@@ -177,6 +189,7 @@ class APIError(xmlrpc_server.Fault):
        * - Error Number
          - Message
     """
+
     __metaclass__ = ErrorCodes
 
     def __str__(self):
@@ -184,6 +197,8 @@ class APIError(xmlrpc_server.Fault):
 
 
 # This thread, of which there is only one, runs the API.
+
+
 class singleAPI(StoppableThread):
     """API thread"""
 
@@ -193,10 +208,12 @@ class singleAPI(StoppableThread):
         super(singleAPI, self).stopThread()
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            s.connect((
-                config.get('bitmessagesettings', 'apiinterface'),
-                config.getint('bitmessagesettings', 'apiport')
-            ))
+            s.connect(
+                (
+                    config.get("bitmessagesettings", "apiinterface"),
+                    config.getint("bitmessagesettings", "apiport"),
+                )
+            )
             s.shutdown(socket.SHUT_RDWR)
             s.close()
         except BaseException:
@@ -208,28 +225,28 @@ class singleAPI(StoppableThread):
         :class:`jsonrpclib.SimpleJSONRPCServer` is created and started here
         with `BMRPCDispatcher` dispatcher.
         """
-        port = config.getint('bitmessagesettings', 'apiport')
+        port = config.getint("bitmessagesettings", "apiport")
         try:
-            getattr(errno, 'WSAEADDRINUSE')
+            getattr(errno, "WSAEADDRINUSE")
         except AttributeError:
             errno.WSAEADDRINUSE = errno.EADDRINUSE
 
         RPCServerBase = xmlrpc_server.SimpleXMLRPCServer
-        ct = 'text/xml'
-        if config.safeGet(
-                'bitmessagesettings', 'apivariant') == 'json':
+        ct = "text/xml"
+        if config.safeGet("bitmessagesettings", "apivariant") == "json":
             try:
-                from jsonrpclib.SimpleJSONRPCServer import \
-                    SimpleJSONRPCServer as RPCServerBase
+                from jsonrpclib.SimpleJSONRPCServer import (  # type: ignore
+                    SimpleJSONRPCServer as RPCServerBase,
+                )
             except ImportError:
-                logger.warning(
-                    'jsonrpclib not available, failing back to XML-RPC')
+                logger.warning("jsonrpclib not available, failing back to XML-RPC")
             else:
-                ct = 'application/json-rpc'
+                ct = "application/json-rpc"
 
         # Nested class. FIXME not found a better solution.
         class StoppableRPCServer(RPCServerBase):
             """A SimpleXMLRPCServer that honours state.shutdown"""
+
             allow_reuse_address = True
             content_type = ct
 
@@ -242,41 +259,38 @@ class singleAPI(StoppableThread):
         for attempt in range(50):
             try:
                 if attempt > 0:
-                    logger.warning(
-                        'Failed to start API listener on port %s', port)
-                    port = random.randint(32767, 65535)  # nosec B311
+                    logger.warning("Failed to start API listener on port %s", port)
+                    port = random.randint(32767, 65535)
                 se = StoppableRPCServer(
-                    (config.get(
-                        'bitmessagesettings', 'apiinterface'),
-                     port),
-                    BMXMLRPCRequestHandler, True, encoding='UTF-8')
+                    (config.get("bitmessagesettings", "apiinterface"), port),
+                    BMXMLRPCRequestHandler,
+                    True,
+                    encoding="UTF-8",
+                )
             except socket.error as e:
                 if e.errno in (errno.EADDRINUSE, errno.WSAEADDRINUSE):
                     continue
             else:
                 if attempt > 0:
-                    logger.warning('Setting apiport to %s', port)
-                    config.set(
-                        'bitmessagesettings', 'apiport', str(port))
+                    logger.warning("Setting apiport to %s", port)
+                    config.set("bitmessagesettings", "apiport", str(port))
                     config.save()
                 break
 
         se.register_instance(BMRPCDispatcher())
         se.register_introspection_functions()
 
-        apiNotifyPath = config.safeGet(
-            'bitmessagesettings', 'apinotifypath')
+        apiNotifyPath = config.safeGet("bitmessagesettings", "apinotifypath")
 
         if apiNotifyPath:
-            logger.info('Trying to call %s', apiNotifyPath)
+            logger.info("Trying to call %s", apiNotifyPath)
             try:
-                subprocess.call([apiNotifyPath, "startingUp"])  # nosec B603
+                subprocess.call([apiNotifyPath, "startingUp"])
             except OSError:
                 logger.warning(
-                    'Failed to call %s, removing apinotifypath setting',
-                    apiNotifyPath)
-                config.remove_option(
-                    'bitmessagesettings', 'apinotifypath')
+                    "Failed to call %s, removing apinotifypath setting", apiNotifyPath
+                )
+                config.remove_option("bitmessagesettings", "apinotifypath")
 
         se.serve_forever()
 
@@ -286,18 +300,17 @@ class CommandHandler(type):
     The metaclass for `BMRPCDispatcher` which fills _handlers dict by
     methods decorated with @command
     """
+
     def __new__(mcs, name, bases, namespace):
-        # pylint: disable=protected-access
-        result = super(CommandHandler, mcs).__new__(
-            mcs, name, bases, namespace)
+        result = super(CommandHandler, mcs).__new__(mcs, name, bases, namespace)
         result.config = config
         result._handlers = {}
-        apivariant = result.config.safeGet('bitmessagesettings', 'apivariant')
+        apivariant = result.config.safeGet("bitmessagesettings", "apivariant")
         for func in namespace.values():
             try:
-                for alias in getattr(func, '_cmd'):
+                for alias in getattr(func, "_cmd"):
                     try:
-                        prefix, alias = alias.split(':')
+                        prefix, alias = alias.split(":")
                         if apivariant != prefix:
                             continue
                     except ValueError:
@@ -308,7 +321,7 @@ class CommandHandler(type):
         return result
 
 
-class testmode(object):  # pylint: disable=too-few-public-methods
+class testmode(object):
     """Decorator to check testmode & route to command decorator"""
 
     def __init__(self, *aliases):
@@ -322,31 +335,39 @@ class testmode(object):  # pylint: disable=too-few-public-methods
         return command(self.aliases[0]).__call__(func)
 
 
-class command(object):  # pylint: disable=too-few-public-methods
+class command(object):
     """Decorator for API command method"""
+
     def __init__(self, *aliases):
         self.aliases = aliases
 
     def __call__(self, func):
+        if config.safeGet("bitmessagesettings", "apivariant") == "legacy":
 
-        if config.safeGet(
-                'bitmessagesettings', 'apivariant') == 'legacy':
             def wrapper(*args):
                 """
                 A wrapper for legacy apivariant which dumps the result
                 into string of json
                 """
                 result = func(*args)
-                return result if isinstance(result, (int, str)) \
+                return (
+                    result
+                    if isinstance(result, (int, str))
                     else json.dumps(result, indent=4)
+                )
+
             wrapper.__doc__ = func.__doc__
         else:
             wrapper = func
-        # pylint: disable=protected-access
-        wrapper._cmd = self.aliases
-        wrapper.__doc__ = """Commands: *%s*
 
-        """ % ', '.join(self.aliases) + wrapper.__doc__.lstrip()
+        wrapper._cmd = self.aliases
+        wrapper.__doc__ = (
+            """Commands: *%s*
+
+        """
+            % ", ".join(self.aliases)
+            + wrapper.__doc__.lstrip()
+        )
         return wrapper
 
 
@@ -355,10 +376,11 @@ class command(object):  # pylint: disable=too-few-public-methods
 # Modified by Jonathan Warren (Atheros).
 # Further modified by the Bitmessage developers
 # http://code.activestate.com/recipes/501148
+
+
 class BMXMLRPCRequestHandler(xmlrpc_server.SimpleXMLRPCRequestHandler):
     """The main API handler"""
 
-    # pylint: disable=protected-access
     def do_POST(self):
         """
         Handles the HTTP POST request.
@@ -391,10 +413,10 @@ class BMXMLRPCRequestHandler(xmlrpc_server.SimpleXMLRPCRequestHandler):
                     break
                 L.append(chunk)
                 size_remaining -= len(L[-1])
-            data = b''.join(L)
+            data = b"".join(L)
 
             # data = self.decode_request_content(data)
-            # pylint: disable=attribute-defined-outside-init
+
             self.cookies = []
 
             validuser = self.APIAuthenticateClient()
@@ -413,7 +435,7 @@ class BMXMLRPCRequestHandler(xmlrpc_server.SimpleXMLRPCRequestHandler):
                 # using that method if present.
 
                 response = self.server._marshaled_dispatch(
-                    data, getattr(self, '_dispatch', None)
+                    data, getattr(self, "_dispatch", None)
                 )
         except Exception:  # This should only happen if the module is buggy
             # internal error, report as HTTP server error
@@ -428,7 +450,7 @@ class BMXMLRPCRequestHandler(xmlrpc_server.SimpleXMLRPCRequestHandler):
             # HACK :start -> sends cookies here
             if self.cookies:
                 for cookie in self.cookies:
-                    self.send_header('Set-Cookie', cookie.output(header=''))
+                    self.send_header("Set-Cookie", cookie.output(header=""))
             # HACK :end
 
             self.end_headers()
@@ -447,149 +469,158 @@ class BMXMLRPCRequestHandler(xmlrpc_server.SimpleXMLRPCRequestHandler):
         Predicate to check for valid API credentials in the request header
         """
 
-        if 'Authorization' in self.headers:
+        if "Authorization" in self.headers:
             # handle Basic authentication
-            encstr = self.headers.get('Authorization').split()[1]
-            emailid, password = base64.b64decode(
-                encstr).decode('utf-8').split(':')
-            return (
-                emailid == config.get(
-                    'bitmessagesettings', 'apiusername'
-                ) and password == config.get(
-                    'bitmessagesettings', 'apipassword'))
+            encstr = self.headers.get("Authorization").split()[1]
+            emailid, password = base64.b64decode(encstr).decode("utf-8").split(":")
+            return emailid == config.get(
+                "bitmessagesettings", "apiusername"
+            ) and password == config.get("bitmessagesettings", "apipassword")
         else:
             logger.warning(
-                'Authentication failed because header lacks'
-                ' Authentication field')
+                "Authentication failed because header lacks Authentication field"
+            )
             time.sleep(2)
 
         return False
 
 
-# pylint: disable=no-self-use,no-member,too-many-public-methods
-@six.add_metaclass(CommandHandler)
-class BMRPCDispatcher(object):
+class BMRPCDispatcher(object, metaclass=CommandHandler):
     """This class is used to dispatch API commands"""
 
     @staticmethod
     def _decode(text, decode_type):
         try:
-            if decode_type == 'hex':
+            if decode_type == "hex":
                 return unhexlify(text)
-            elif decode_type == 'base64':
+            elif decode_type == "base64":
                 return base64.b64decode(text)
         except Exception as e:
             raise APIError(
-                22, 'Decode error - %s. Had trouble while decoding string: %r'
-                % (e, text)
+                22,
+                "Decode error - %s. Had trouble while decoding string: %r" % (e, text),
             )
 
     def _verifyAddress(self, address):
-        status, addressVersionNumber, streamNumber, ripe = \
-            decodeAddress(address)
-        if status != 'success':
-            if status == 'checksumfailed':
-                raise APIError(8, 'Checksum failed for address: ' + address)
-            if status == 'invalidcharacters':
-                raise APIError(9, 'Invalid characters in address: ' + address)
-            if status == 'versiontoohigh':
+        status, addressVersionNumber, streamNumber, ripe = decodeAddress(address)
+        if status != "success":
+            if status == "checksumfailed":
+                raise APIError(8, "Checksum failed for address: " + address)
+            if status == "invalidcharacters":
+                raise APIError(9, "Invalid characters in address: " + address)
+            if status == "versiontoohigh":
                 raise APIError(
-                    10, 'Address version number too high (or zero) in address: '
-                    + address)
-            if status == 'varintmalformed':
-                raise APIError(26, 'Malformed varint in address: ' + address)
-            raise APIError(
-                7, 'Could not decode address: %s : %s' % (address, status))
+                    10,
+                    "Address version number too high (or zero) in address: " + address,
+                )
+            if status == "varintmalformed":
+                raise APIError(26, "Malformed varint in address: " + address)
+            raise APIError(7, "Could not decode address: %s : %s" % (address, status))
         if addressVersionNumber < 2 or addressVersionNumber > 4:
             raise APIError(
-                11, 'The address version number currently must be 2, 3 or 4.'
-                ' Others aren\'t supported. Check the address.'
+                11,
+                "The address version number currently must be 2, 3 or 4."
+                " Others aren't supported. Check the address.",
             )
         if streamNumber != 1:
             raise APIError(
-                12, 'The stream number must be 1. Others aren\'t supported.'
-                ' Check the address.'
+                12,
+                "The stream number must be 1. Others aren't supported."
+                " Check the address.",
             )
 
-        return {
-            'status': status,
-            'addressVersion': addressVersionNumber,
-            'streamNumber': streamNumber,
-            'ripe': base64.b64encode(ripe)
-        } if self._method == 'decodeAddress' else (
-            status, addressVersionNumber, streamNumber, ripe)
+        return (
+            {
+                "status": status,
+                "addressVersion": addressVersionNumber,
+                "streamNumber": streamNumber,
+                "ripe": base64.b64encode(ripe),
+            }
+            if self._method == "decodeAddress"
+            else (status, addressVersionNumber, streamNumber, ripe)
+        )
 
     @staticmethod
     def _dump_inbox_message(
-            msgid, toAddress, fromAddress, subject, received,
-            message, encodingtype, read):
+        msgid, toAddress, fromAddress, subject, received, message, encodingtype, read
+    ):
         subject = shared.fixPotentiallyInvalidUTF8Data(subject)
         message = shared.fixPotentiallyInvalidUTF8Data(message)
         return {
-            'msgid': hexlify(msgid),
-            'toAddress': toAddress,
-            'fromAddress': fromAddress,
-            'subject': base64.b64encode(subject),
-            'message': base64.b64encode(message),
-            'encodingType': encodingtype,
-            'receivedTime': received,
-            'read': read
+            "msgid": hexlify(msgid),
+            "toAddress": toAddress,
+            "fromAddress": fromAddress,
+            "subject": base64.b64encode(subject),
+            "message": base64.b64encode(message),
+            "encodingType": encodingtype,
+            "receivedTime": received,
+            "read": read,
         }
 
     @staticmethod
-    def _dump_sent_message(  # pylint: disable=too-many-arguments
-            msgid, toAddress, fromAddress, subject, lastactiontime,
-            message, encodingtype, status, ackdata):
+    def _dump_sent_message(
+        msgid,
+        toAddress,
+        fromAddress,
+        subject,
+        lastactiontime,
+        message,
+        encodingtype,
+        status,
+        ackdata,
+    ):
         subject = shared.fixPotentiallyInvalidUTF8Data(subject)
         message = shared.fixPotentiallyInvalidUTF8Data(message)
         return {
-            'msgid': hexlify(msgid),
-            'toAddress': toAddress,
-            'fromAddress': fromAddress,
-            'subject': base64.b64encode(subject),
-            'message': base64.b64encode(message),
-            'encodingType': encodingtype,
-            'lastActionTime': lastactiontime,
-            'status': status,
-            'ackData': hexlify(ackdata)
+            "msgid": hexlify(msgid),
+            "toAddress": toAddress,
+            "fromAddress": fromAddress,
+            "subject": base64.b64encode(subject),
+            "message": base64.b64encode(message),
+            "encodingType": encodingtype,
+            "lastActionTime": lastactiontime,
+            "status": status,
+            "ackData": hexlify(ackdata),
         }
 
     @staticmethod
-    def _blackwhitelist_entries(kind='black'):
+    def _blackwhitelist_entries(kind="black"):
         queryreturn = sqlQuery(
             "SELECT label, address FROM %slist WHERE enabled = 1" % kind
         )
         data = [
-            {'label': base64.b64encode(
-                shared.fixPotentiallyInvalidUTF8Data(label)),
-             'address': address} for label, address in queryreturn
+            {
+                "label": base64.b64encode(shared.fixPotentiallyInvalidUTF8Data(label)),
+                "address": address,
+            }
+            for label, address in queryreturn
         ]
-        return {'addresses': data}
+        return {"addresses": data}
 
-    def _blackwhitelist_add(self, address, label, kind='black'):
+    def _blackwhitelist_add(self, address, label, kind="black"):
         label = self._decode(label, "base64")
         address = addBMIfNotPresent(address)
         self._verifyAddress(address)
         queryreturn = sqlQuery(
-            "SELECT address FROM %slist WHERE address=?" % kind, address)
+            "SELECT address FROM %slist WHERE address=?" % kind, address
+        )
         if queryreturn != []:
             sqlExecute(
-                "UPDATE %slist SET label=?, enabled=1 WHERE address=?" % kind,
-                address)
+                "UPDATE %slist SET label=?, enabled=1 WHERE address=?" % kind, address
+            )
         else:
-            sqlExecute(
-                "INSERT INTO %slist VALUES (?,?,1)" % kind, label, address)
-        queues.UISignalQueue.put(('rerenderBlackWhiteList', ''))
+            sqlExecute("INSERT INTO %slist VALUES (?,?,1)" % kind, label, address)
+        queues.UISignalQueue.put(("rerenderBlackWhiteList", ""))
 
-    def _blackwhitelist_del(self, address, kind='black'):
+    def _blackwhitelist_del(self, address, kind="black"):
         address = addBMIfNotPresent(address)
         self._verifyAddress(address)
         sqlExecute("DELETE FROM %slist WHERE address=?" % kind, address)
-        queues.UISignalQueue.put(('rerenderBlackWhiteList', ''))
+        queues.UISignalQueue.put(("rerenderBlackWhiteList", ""))
 
     # Request Handlers
 
-    @command('decodeAddress')
+    @command("decodeAddress")
     def HandleDecodeAddress(self, address):
         """
         Decode given address and return dict with
@@ -597,7 +628,7 @@ class BMRPCDispatcher(object):
         """
         return self._verifyAddress(address)
 
-    @command('listAddresses', 'listAddresses2')
+    @command("listAddresses", "listAddresses2")
     def HandleListAddresses(self):
         """
         Returns dict with a list of all used addresses with their properties
@@ -606,40 +637,40 @@ class BMRPCDispatcher(object):
         data = []
         for address in self.config.addresses():
             streamNumber = decodeAddress(address)[2]
-            label = self.config.get(address, 'label')
-            if self._method == 'listAddresses2':
+            label = self.config.get(address, "label")
+            if self._method == "listAddresses2":
                 label = base64.b64encode(label)
-            data.append({
-                'label': label,
-                'address': address,
-                'stream': streamNumber,
-                'enabled': self.config.safeGetBoolean(address, 'enabled'),
-                'chan': self.config.safeGetBoolean(address, 'chan')
-            })
-        return {'addresses': data}
+            data.append(
+                {
+                    "label": label,
+                    "address": address,
+                    "stream": streamNumber,
+                    "enabled": self.config.safeGetBoolean(address, "enabled"),
+                    "chan": self.config.safeGetBoolean(address, "chan"),
+                }
+            )
+        return {"addresses": data}
 
     # the listAddressbook alias should be removed eventually.
-    @command('listAddressBookEntries', 'legacy:listAddressbook')
+    @command("listAddressBookEntries", "legacy:listAddressbook")
     def HandleListAddressBookEntries(self, label=None):
         """
         Returns dict with a list of all address book entries (address and label)
         in the *addresses* key.
         """
-        queryreturn = sqlQuery(
-            "SELECT label, address from addressbook WHERE label = ?",
-            label
-        ) if label else sqlQuery("SELECT label, address from addressbook")
+        queryreturn = (
+            sqlQuery("SELECT label, address from addressbook WHERE label = ?", label)
+            if label
+            else sqlQuery("SELECT label, address from addressbook")
+        )
         data = []
         for label, address in queryreturn:
             label = shared.fixPotentiallyInvalidUTF8Data(label)
-            data.append({
-                'label': base64.b64encode(label),
-                'address': address
-            })
-        return {'addresses': data}
+            data.append({"label": base64.b64encode(label), "address": address})
+        return {"addresses": data}
 
     # the addAddressbook alias should be deleted eventually.
-    @command('addAddressBookEntry', 'legacy:addAddressbook')
+    @command("addAddressBookEntry", "legacy:addAddressbook")
     def HandleAddAddressBookEntry(self, address, label):
         """Add an entry to address book. label must be base64 encoded."""
         label = self._decode(label, "base64")
@@ -647,88 +678,87 @@ class BMRPCDispatcher(object):
         self._verifyAddress(address)
         # TODO: add unique together constraint in the table
         queryreturn = sqlQuery(
-            "SELECT address FROM addressbook WHERE address=?", address)
+            "SELECT address FROM addressbook WHERE address=?", address
+        )
         if queryreturn != []:
-            raise APIError(
-                16, 'You already have this address in your address book.')
+            raise APIError(16, "You already have this address in your address book.")
 
         sqlExecute("INSERT INTO addressbook VALUES(?,?)", label, address)
-        queues.UISignalQueue.put(('rerenderMessagelistFromLabels', ''))
-        queues.UISignalQueue.put(('rerenderMessagelistToLabels', ''))
-        queues.UISignalQueue.put(('rerenderAddressBook', ''))
+        queues.UISignalQueue.put(("rerenderMessagelistFromLabels", ""))
+        queues.UISignalQueue.put(("rerenderMessagelistToLabels", ""))
+        queues.UISignalQueue.put(("rerenderAddressBook", ""))
         return "Added address %s to address book" % address
 
     # the deleteAddressbook alias should be deleted eventually.
-    @command('deleteAddressBookEntry', 'legacy:deleteAddressbook')
+    @command("deleteAddressBookEntry", "legacy:deleteAddressbook")
     def HandleDeleteAddressBookEntry(self, address):
         """Delete an entry from address book."""
         address = addBMIfNotPresent(address)
         self._verifyAddress(address)
-        sqlExecute('DELETE FROM addressbook WHERE address=?', address)
-        queues.UISignalQueue.put(('rerenderMessagelistFromLabels', ''))
-        queues.UISignalQueue.put(('rerenderMessagelistToLabels', ''))
-        queues.UISignalQueue.put(('rerenderAddressBook', ''))
+        sqlExecute("DELETE FROM addressbook WHERE address=?", address)
+        queues.UISignalQueue.put(("rerenderMessagelistFromLabels", ""))
+        queues.UISignalQueue.put(("rerenderMessagelistToLabels", ""))
+        queues.UISignalQueue.put(("rerenderAddressBook", ""))
         return "Deleted address book entry for %s if it existed" % address
 
-    @command('getBlackWhitelistKind')
+    @command("getBlackWhitelistKind")
     def HandleGetBlackWhitelistKind(self):
         """Get the list kind set in config - black or white."""
-        return self.config.get('bitmessagesettings', 'blackwhitelist')
+        return self.config.get("bitmessagesettings", "blackwhitelist")
 
-    @command('setBlackWhitelistKind')
+    @command("setBlackWhitelistKind")
     def HandleSetBlackWhitelistKind(self, kind):
         """Set the list kind used - black or white."""
-        blackwhitelist_kinds = ('black', 'white')
+        blackwhitelist_kinds = ("black", "white")
         if kind not in blackwhitelist_kinds:
             raise APIError(
-                28, 'Invalid kind, should be one of %s'
-                % (blackwhitelist_kinds,))
-        return self.config.set('bitmessagesettings', 'blackwhitelist', kind)
+                28, "Invalid kind, should be one of %s" % (blackwhitelist_kinds,)
+            )
+        return self.config.set("bitmessagesettings", "blackwhitelist", kind)
 
-    @command('listBlacklistEntries')
+    @command("listBlacklistEntries")
     def HandleListBlacklistEntries(self):
         """
         Returns dict with a list of all blacklist entries (address and label)
         in the *addresses* key.
         """
-        return self._blackwhitelist_entries('black')
+        return self._blackwhitelist_entries("black")
 
-    @command('listWhitelistEntries')
+    @command("listWhitelistEntries")
     def HandleListWhitelistEntries(self):
         """
         Returns dict with a list of all whitelist entries (address and label)
         in the *addresses* key.
         """
-        return self._blackwhitelist_entries('white')
+        return self._blackwhitelist_entries("white")
 
-    @command('addBlacklistEntry')
+    @command("addBlacklistEntry")
     def HandleAddBlacklistEntry(self, address, label):
         """Add an entry to blacklist. label must be base64 encoded."""
-        self._blackwhitelist_add(address, label, 'black')
+        self._blackwhitelist_add(address, label, "black")
         return "Added address %s to blacklist" % address
 
-    @command('addWhitelistEntry')
+    @command("addWhitelistEntry")
     def HandleAddWhitelistEntry(self, address, label):
         """Add an entry to whitelist. label must be base64 encoded."""
-        self._blackwhitelist_add(address, label, 'white')
+        self._blackwhitelist_add(address, label, "white")
         return "Added address %s to whitelist" % address
 
-    @command('deleteBlacklistEntry')
+    @command("deleteBlacklistEntry")
     def HandleDeleteBlacklistEntry(self, address):
         """Delete an entry from blacklist."""
-        self._blackwhitelist_del(address, 'black')
+        self._blackwhitelist_del(address, "black")
         return "Deleted blacklist entry for %s if it existed" % address
 
-    @command('deleteWhitelistEntry')
+    @command("deleteWhitelistEntry")
     def HandleDeleteWhitelistEntry(self, address):
         """Delete an entry from whitelist."""
-        self._blackwhitelist_del(address, 'white')
+        self._blackwhitelist_del(address, "white")
         return "Deleted whitelist entry for %s if it existed" % address
 
-    @command('createRandomAddress')
+    @command("createRandomAddress")
     def HandleCreateRandomAddress(
-        self, label, eighteenByteRipe=False, totalDifficulty=0,
-        smallMessageDifficulty=0
+        self, label, eighteenByteRipe=False, totalDifficulty=0, smallMessageDifficulty=0
     ):
         """
         Create one address using the random number generator.
@@ -739,38 +769,56 @@ class BMRPCDispatcher(object):
           (as opposed to a 19 byte hash).
         """
 
-        nonceTrialsPerByte = self.config.get(
-            'bitmessagesettings', 'defaultnoncetrialsperbyte'
-        ) if not totalDifficulty else int(
-            networkDefaultProofOfWorkNonceTrialsPerByte * totalDifficulty)
-        payloadLengthExtraBytes = self.config.get(
-            'bitmessagesettings', 'defaultpayloadlengthextrabytes'
-        ) if not smallMessageDifficulty else int(
-            networkDefaultPayloadLengthExtraBytes * smallMessageDifficulty)
+        nonceTrialsPerByte = (
+            self.config.get("bitmessagesettings", "defaultnoncetrialsperbyte")
+            if not totalDifficulty
+            else int(networkDefaultProofOfWorkNonceTrialsPerByte * totalDifficulty)
+        )
+        payloadLengthExtraBytes = (
+            self.config.get("bitmessagesettings", "defaultpayloadlengthextrabytes")
+            if not smallMessageDifficulty
+            else int(networkDefaultPayloadLengthExtraBytes * smallMessageDifficulty)
+        )
 
         if not isinstance(eighteenByteRipe, bool):
             raise APIError(
-                23, 'Bool expected in eighteenByteRipe, saw %s instead'
-                % type(eighteenByteRipe))
+                23,
+                "Bool expected in eighteenByteRipe, saw %s instead"
+                % type(eighteenByteRipe),
+            )
         label = self._decode(label, "base64")
         try:
-            label.decode('utf-8')
+            label.decode("utf-8")
         except UnicodeDecodeError:
-            raise APIError(17, 'Label is not valid UTF-8 data.')
+            raise APIError(17, "Label is not valid UTF-8 data.")
         queues.apiAddressGeneratorReturnQueue.queue.clear()
         # FIXME hard coded stream no
         streamNumberForAddress = 1
-        queues.addressGeneratorQueue.put((
-            'createRandomAddress', 4, streamNumberForAddress, label, 1, "",
-            eighteenByteRipe, nonceTrialsPerByte, payloadLengthExtraBytes
-        ))
+        queues.addressGeneratorQueue.put(
+            (
+                "createRandomAddress",
+                4,
+                streamNumberForAddress,
+                label,
+                1,
+                "",
+                eighteenByteRipe,
+                nonceTrialsPerByte,
+                payloadLengthExtraBytes,
+            )
+        )
         return queues.apiAddressGeneratorReturnQueue.get()
 
-    @command('createDeterministicAddresses')
+    @command("createDeterministicAddresses")
     def HandleCreateDeterministicAddresses(
-        self, passphrase, numberOfAddresses=1, addressVersionNumber=0,
-        streamNumber=0, eighteenByteRipe=False, totalDifficulty=0,
-        smallMessageDifficulty=0
+        self,
+        passphrase,
+        numberOfAddresses=1,
+        addressVersionNumber=0,
+        streamNumber=0,
+        eighteenByteRipe=False,
+        totalDifficulty=0,
+        smallMessageDifficulty=0,
     ):
         """
         Create many addresses deterministically using the passphrase.
@@ -784,62 +832,81 @@ class BMRPCDispatcher(object):
         address version and the most available stream.
         """
 
-        nonceTrialsPerByte = self.config.get(
-            'bitmessagesettings', 'defaultnoncetrialsperbyte'
-        ) if not totalDifficulty else int(
-            networkDefaultProofOfWorkNonceTrialsPerByte * totalDifficulty)
-        payloadLengthExtraBytes = self.config.get(
-            'bitmessagesettings', 'defaultpayloadlengthextrabytes'
-        ) if not smallMessageDifficulty else int(
-            networkDefaultPayloadLengthExtraBytes * smallMessageDifficulty)
+        nonceTrialsPerByte = (
+            self.config.get("bitmessagesettings", "defaultnoncetrialsperbyte")
+            if not totalDifficulty
+            else int(networkDefaultProofOfWorkNonceTrialsPerByte * totalDifficulty)
+        )
+        payloadLengthExtraBytes = (
+            self.config.get("bitmessagesettings", "defaultpayloadlengthextrabytes")
+            if not smallMessageDifficulty
+            else int(networkDefaultPayloadLengthExtraBytes * smallMessageDifficulty)
+        )
 
         if not passphrase:
-            raise APIError(1, 'The specified passphrase is blank.')
+            raise APIError(1, "The specified passphrase is blank.")
         if not isinstance(eighteenByteRipe, bool):
             raise APIError(
-                23, 'Bool expected in eighteenByteRipe, saw %s instead'
-                % type(eighteenByteRipe))
+                23,
+                "Bool expected in eighteenByteRipe, saw %s instead"
+                % type(eighteenByteRipe),
+            )
         passphrase = self._decode(passphrase, "base64")
         # 0 means "just use the proper addressVersionNumber"
         if addressVersionNumber == 0:
             addressVersionNumber = 4
         if addressVersionNumber not in (3, 4):
             raise APIError(
-                2, 'The address version number currently must be 3, 4, or 0'
-                ' (which means auto-select). %i isn\'t supported.'
-                % addressVersionNumber)
+                2,
+                "The address version number currently must be 3, 4, or 0"
+                " (which means auto-select). %i isn't supported."
+                % addressVersionNumber,
+            )
         if streamNumber == 0:  # 0 means "just use the most available stream"
             streamNumber = 1  # FIXME hard coded stream no
         if streamNumber != 1:
             raise APIError(
-                3, 'The stream number must be 1 (or 0 which means'
-                ' auto-select). Others aren\'t supported.')
+                3,
+                "The stream number must be 1 (or 0 which means"
+                " auto-select). Others aren't supported.",
+            )
         if numberOfAddresses == 0:
-            raise APIError(
-                4, 'Why would you ask me to generate 0 addresses for you?')
+            raise APIError(4, "Why would you ask me to generate 0 addresses for you?")
         if numberOfAddresses > 999:
             raise APIError(
-                5, 'You have (accidentally?) specified too many addresses to'
-                ' make. Maximum 999. This check only exists to prevent'
-                ' mischief; if you really want to create more addresses than'
-                ' this, contact the Bitmessage developers and we can modify'
-                ' the check or you can do it yourself by searching the source'
-                ' code for this message.')
+                5,
+                "You have (accidentally?) specified too many addresses to"
+                " make. Maximum 999. This check only exists to prevent"
+                " mischief; if you really want to create more addresses than"
+                " this, contact the Bitmessage developers and we can modify"
+                " the check or you can do it yourself by searching the source"
+                " code for this message.",
+            )
         queues.apiAddressGeneratorReturnQueue.queue.clear()
         logger.debug(
-            'Requesting that the addressGenerator create %s addresses.',
-            numberOfAddresses)
-        queues.addressGeneratorQueue.put((
-            'createDeterministicAddresses', addressVersionNumber, streamNumber,
-            'unused API address', numberOfAddresses, passphrase,
-            eighteenByteRipe, nonceTrialsPerByte, payloadLengthExtraBytes
-        ))
+            "Requesting that the addressGenerator create %s addresses.",
+            numberOfAddresses,
+        )
+        queues.addressGeneratorQueue.put(
+            (
+                "createDeterministicAddresses",
+                addressVersionNumber,
+                streamNumber,
+                "unused API address",
+                numberOfAddresses,
+                passphrase,
+                eighteenByteRipe,
+                nonceTrialsPerByte,
+                payloadLengthExtraBytes,
+            )
+        )
 
-        return {'addresses': queues.apiAddressGeneratorReturnQueue.get()}
+        return {"addresses": queues.apiAddressGeneratorReturnQueue.get()}
 
-    @command('getDeterministicAddress')
+    @command("getDeterministicAddress")
     def HandleGetDeterministicAddress(
-            self, passphrase, addressVersionNumber, streamNumber):
+        self, passphrase, addressVersionNumber, streamNumber
+    ):
         """
         Similar to *createDeterministicAddresses* except that the one
         address that is returned will not be added to the Bitmessage
@@ -849,27 +916,35 @@ class BMRPCDispatcher(object):
         numberOfAddresses = 1
         eighteenByteRipe = False
         if not passphrase:
-            raise APIError(1, 'The specified passphrase is blank.')
+            raise APIError(1, "The specified passphrase is blank.")
         passphrase = self._decode(passphrase, "base64")
         if addressVersionNumber not in (3, 4):
             raise APIError(
-                2, 'The address version number currently must be 3 or 4. %i'
-                ' isn\'t supported.' % addressVersionNumber)
+                2,
+                "The address version number currently must be 3 or 4. %i"
+                " isn't supported." % addressVersionNumber,
+            )
         if streamNumber != 1:
-            raise APIError(
-                3, ' The stream number must be 1. Others aren\'t supported.')
+            raise APIError(3, " The stream number must be 1. Others aren't supported.")
         queues.apiAddressGeneratorReturnQueue.queue.clear()
         logger.debug(
-            'Requesting that the addressGenerator create %s addresses.',
-            numberOfAddresses)
-        queues.addressGeneratorQueue.put((
-            'getDeterministicAddress', addressVersionNumber, streamNumber,
-            'unused API address', numberOfAddresses, passphrase,
-            eighteenByteRipe
-        ))
+            "Requesting that the addressGenerator create %s addresses.",
+            numberOfAddresses,
+        )
+        queues.addressGeneratorQueue.put(
+            (
+                "getDeterministicAddress",
+                addressVersionNumber,
+                streamNumber,
+                "unused API address",
+                numberOfAddresses,
+                passphrase,
+                eighteenByteRipe,
+            )
+        )
         return queues.apiAddressGeneratorReturnQueue.get()
 
-    @command('createChan')
+    @command("createChan")
     def HandleCreateChan(self, passphrase):
         """
         Creates a new chan. passphrase must be base64 encoded.
@@ -878,31 +953,29 @@ class BMRPCDispatcher(object):
 
         passphrase = self._decode(passphrase, "base64")
         if not passphrase:
-            raise APIError(1, 'The specified passphrase is blank.')
+            raise APIError(1, "The specified passphrase is blank.")
         # It would be nice to make the label the passphrase but it is
         # possible that the passphrase contains non-utf-8 characters.
         try:
-            passphrase.decode('utf-8')
-            label = str_chan + ' ' + passphrase
+            passphrase.decode("utf-8")
+            label = str_chan + " " + passphrase
         except UnicodeDecodeError:
-            label = str_chan + ' ' + repr(passphrase)
+            label = str_chan + " " + repr(passphrase)
 
         addressVersionNumber = 4
         streamNumber = 1
         queues.apiAddressGeneratorReturnQueue.queue.clear()
-        logger.debug(
-            'Requesting that the addressGenerator create chan %s.', passphrase)
-        queues.addressGeneratorQueue.put((
-            'createChan', addressVersionNumber, streamNumber, label,
-            passphrase, True
-        ))
+        logger.debug("Requesting that the addressGenerator create chan %s.", passphrase)
+        queues.addressGeneratorQueue.put(
+            ("createChan", addressVersionNumber, streamNumber, label, passphrase, True)
+        )
         queueReturn = queues.apiAddressGeneratorReturnQueue.get()
         try:
             return queueReturn[0]
         except IndexError:
-            raise APIError(24, 'Chan address is already present.')
+            raise APIError(24, "Chan address is already present.")
 
-    @command('joinChan')
+    @command("joinChan")
     def HandleJoinChan(self, passphrase, suppliedAddress):
         """
         Join a chan. passphrase must be base64 encoded. Returns 'success'.
@@ -910,31 +983,31 @@ class BMRPCDispatcher(object):
 
         passphrase = self._decode(passphrase, "base64")
         if not passphrase:
-            raise APIError(1, 'The specified passphrase is blank.')
+            raise APIError(1, "The specified passphrase is blank.")
         # It would be nice to make the label the passphrase but it is
         # possible that the passphrase contains non-utf-8 characters.
         try:
-            passphrase.decode('utf-8')
-            label = str_chan + ' ' + passphrase
+            passphrase.decode("utf-8")
+            label = str_chan + " " + passphrase
         except UnicodeDecodeError:
-            label = str_chan + ' ' + repr(passphrase)
+            label = str_chan + " " + repr(passphrase)
 
         self._verifyAddress(suppliedAddress)
         suppliedAddress = addBMIfNotPresent(suppliedAddress)
         queues.apiAddressGeneratorReturnQueue.queue.clear()
-        queues.addressGeneratorQueue.put((
-            'joinChan', suppliedAddress, label, passphrase, True
-        ))
+        queues.addressGeneratorQueue.put(
+            ("joinChan", suppliedAddress, label, passphrase, True)
+        )
         queueReturn = queues.apiAddressGeneratorReturnQueue.get()
         try:
-            if queueReturn[0] == 'chan name does not match address':
-                raise APIError(18, 'Chan name does not match address.')
+            if queueReturn[0] == "chan name does not match address":
+                raise APIError(18, "Chan name does not match address.")
         except IndexError:
-            raise APIError(24, 'Chan address is already present.')
+            raise APIError(24, "Chan address is already present.")
 
         return "success"
 
-    @command('leaveChan')
+    @command("leaveChan")
     def HandleLeaveChan(self, address):
         """
         Leave a chan. Returns 'success'.
@@ -944,21 +1017,22 @@ class BMRPCDispatcher(object):
         """
         self._verifyAddress(address)
         address = addBMIfNotPresent(address)
-        if not self.config.safeGetBoolean(address, 'chan'):
+        if not self.config.safeGetBoolean(address, "chan"):
             raise APIError(
-                25, 'Specified address is not a chan address.'
-                ' Use deleteAddress API call instead.')
+                25,
+                "Specified address is not a chan address."
+                " Use deleteAddress API call instead.",
+            )
         try:
             self.config.remove_section(address)
         except configparser.NoSectionError:
-            raise APIError(
-                13, 'Could not find this address in your keys.dat file.')
+            raise APIError(13, "Could not find this address in your keys.dat file.")
         self.config.save()
-        queues.UISignalQueue.put(('rerenderMessagelistFromLabels', ''))
-        queues.UISignalQueue.put(('rerenderMessagelistToLabels', ''))
+        queues.UISignalQueue.put(("rerenderMessagelistFromLabels", ""))
+        queues.UISignalQueue.put(("rerenderMessagelistToLabels", ""))
         return "success"
 
-    @command('deleteAddress')
+    @command("deleteAddress")
     def HandleDeleteAddress(self, address):
         """
         Permanently delete the address from keys.dat file. Returns 'success'.
@@ -968,24 +1042,23 @@ class BMRPCDispatcher(object):
         try:
             self.config.remove_section(address)
         except configparser.NoSectionError:
-            raise APIError(
-                13, 'Could not find this address in your keys.dat file.')
+            raise APIError(13, "Could not find this address in your keys.dat file.")
         self.config.save()
-        queues.UISignalQueue.put(('writeNewAddressToTable', ('', '', '')))
+        queues.UISignalQueue.put(("writeNewAddressToTable", ("", "", "")))
         shared.reloadMyAddressHashes()
         return "success"
 
-    @command('enableAddress')
+    @command("enableAddress")
     def HandleEnableAddress(self, address, enable=True):
         """Enable or disable the address depending on the *enable* value"""
         self._verifyAddress(address)
         address = addBMIfNotPresent(address)
-        config.set(address, 'enabled', str(enable))
+        config.set(address, "enabled", str(enable))
         self.config.save()
         shared.reloadMyAddressHashes()
         return "success"
 
-    @command('getAllInboxMessages')
+    @command("getAllInboxMessages")
     def HandleGetAllInboxMessages(self):
         """
         Returns a dict with all inbox messages in the *inboxMessages* key.
@@ -1001,11 +1074,11 @@ class BMRPCDispatcher(object):
             " encodingtype, read FROM inbox WHERE folder='inbox'"
             " ORDER BY received"
         )
-        return {"inboxMessages": [
-            self._dump_inbox_message(*data) for data in queryreturn
-        ]}
+        return {
+            "inboxMessages": [self._dump_inbox_message(*data) for data in queryreturn]
+        }
 
-    @command('getAllInboxMessageIds', 'getAllInboxMessageIDs')
+    @command("getAllInboxMessageIds", "getAllInboxMessageIDs")
     def HandleGetAllInboxMessageIds(self):
         """
         The same as *getAllInboxMessages* but returns only *msgid*s,
@@ -1013,13 +1086,14 @@ class BMRPCDispatcher(object):
         """
 
         queryreturn = sqlQuery(
-            "SELECT msgid FROM inbox where folder='inbox' ORDER BY received")
+            "SELECT msgid FROM inbox where folder='inbox' ORDER BY received"
+        )
 
-        return {"inboxMessageIds": [
-            {'msgid': hexlify(msgid)} for msgid, in queryreturn
-        ]}
+        return {
+            "inboxMessageIds": [{"msgid": hexlify(msgid)} for (msgid,) in queryreturn]
+        }
 
-    @command('getInboxMessageById', 'getInboxMessageByID')
+    @command("getInboxMessageById", "getInboxMessageByID")
     def HandleGetInboxMessageById(self, hid, readStatus=None):
         """
         Returns a dict with list containing single message in the result
@@ -1033,30 +1107,30 @@ class BMRPCDispatcher(object):
         if readStatus is not None:
             if not isinstance(readStatus, bool):
                 raise APIError(
-                    23, 'Bool expected in readStatus, saw %s instead.'
-                    % type(readStatus))
-            queryreturn = sqlQuery(
-                "SELECT read FROM inbox WHERE msgid=?", msgid)
+                    23,
+                    "Bool expected in readStatus, saw %s instead." % type(readStatus),
+                )
+            queryreturn = sqlQuery("SELECT read FROM inbox WHERE msgid=?", msgid)
             # UPDATE is slow, only update if status is different
             try:
                 if (queryreturn[0][0] == 1) != readStatus:
                     sqlExecute(
-                        "UPDATE inbox set read = ? WHERE msgid=?",
-                        readStatus, msgid)
-                    queues.UISignalQueue.put(('changedInboxUnread', None))
+                        "UPDATE inbox set read = ? WHERE msgid=?", readStatus, msgid
+                    )
+                    queues.UISignalQueue.put(("changedInboxUnread", None))
             except IndexError:
                 pass
         queryreturn = sqlQuery(
             "SELECT msgid, toaddress, fromaddress, subject, received, message,"
-            " encodingtype, read FROM inbox WHERE msgid=?", msgid
+            " encodingtype, read FROM inbox WHERE msgid=?",
+            msgid,
         )
         try:
-            return {"inboxMessage": [
-                self._dump_inbox_message(*queryreturn[0])]}
+            return {"inboxMessage": [self._dump_inbox_message(*queryreturn[0])]}
         except IndexError:
             pass  # FIXME inconsistent
 
-    @command('getAllSentMessages')
+    @command("getAllSentMessages")
     def HandleGetAllSentMessages(self):
         """
         The same as *getAllInboxMessages* but for sent,
@@ -1071,11 +1145,11 @@ class BMRPCDispatcher(object):
             " message, encodingtype, status, ackdata FROM sent"
             " WHERE folder='sent' ORDER BY lastactiontime"
         )
-        return {"sentMessages": [
-            self._dump_sent_message(*data) for data in queryreturn
-        ]}
+        return {
+            "sentMessages": [self._dump_sent_message(*data) for data in queryreturn]
+        }
 
-    @command('getAllSentMessageIds', 'getAllSentMessageIDs')
+    @command("getAllSentMessageIds", "getAllSentMessageIDs")
     def HandleGetAllSentMessageIds(self):
         """
         The same as *getAllInboxMessageIds* but for sent,
@@ -1083,15 +1157,14 @@ class BMRPCDispatcher(object):
         """
 
         queryreturn = sqlQuery(
-            "SELECT msgid FROM sent WHERE folder='sent'"
-            " ORDER BY lastactiontime"
+            "SELECT msgid FROM sent WHERE folder='sent' ORDER BY lastactiontime"
         )
-        return {"sentMessageIds": [
-            {'msgid': hexlify(msgid)} for msgid, in queryreturn
-        ]}
+        return {
+            "sentMessageIds": [{"msgid": hexlify(msgid)} for (msgid,) in queryreturn]
+        }
 
     # after some time getInboxMessagesByAddress should be removed
-    @command('getInboxMessagesByReceiver', 'legacy:getInboxMessagesByAddress')
+    @command("getInboxMessagesByReceiver", "legacy:getInboxMessagesByAddress")
     def HandleInboxMessagesByReceiver(self, toAddress):
         """
         The same as *getAllInboxMessages* but returns only messages
@@ -1101,12 +1174,14 @@ class BMRPCDispatcher(object):
         queryreturn = sqlQuery(
             "SELECT msgid, toaddress, fromaddress, subject, received,"
             " message, encodingtype, read FROM inbox WHERE folder='inbox'"
-            " AND toAddress=?", toAddress)
-        return {"inboxMessages": [
-            self._dump_inbox_message(*data) for data in queryreturn
-        ]}
+            " AND toAddress=?",
+            toAddress,
+        )
+        return {
+            "inboxMessages": [self._dump_inbox_message(*data) for data in queryreturn]
+        }
 
-    @command('getSentMessageById', 'getSentMessageByID')
+    @command("getSentMessageById", "getSentMessageByID")
     def HandleGetSentMessageById(self, hid):
         """
         Similiar to *getInboxMessageById* but doesn't change message's
@@ -1118,16 +1193,14 @@ class BMRPCDispatcher(object):
         queryreturn = sqlQuery(
             "SELECT msgid, toaddress, fromaddress, subject, lastactiontime,"
             " message, encodingtype, status, ackdata FROM sent WHERE msgid=?",
-            msgid
+            msgid,
         )
         try:
-            return {"sentMessage": [
-                self._dump_sent_message(*queryreturn[0])
-            ]}
+            return {"sentMessage": [self._dump_sent_message(*queryreturn[0])]}
         except IndexError:
             pass  # FIXME inconsistent
 
-    @command('getSentMessagesByAddress', 'getSentMessagesBySender')
+    @command("getSentMessagesByAddress", "getSentMessagesBySender")
     def HandleGetSentMessagesByAddress(self, fromAddress):
         """
         The same as *getAllSentMessages* but returns only messages
@@ -1138,13 +1211,13 @@ class BMRPCDispatcher(object):
             "SELECT msgid, toaddress, fromaddress, subject, lastactiontime,"
             " message, encodingtype, status, ackdata FROM sent"
             " WHERE folder='sent' AND fromAddress=? ORDER BY lastactiontime",
-            fromAddress
+            fromAddress,
         )
-        return {"sentMessages": [
-            self._dump_sent_message(*data) for data in queryreturn
-        ]}
+        return {
+            "sentMessages": [self._dump_sent_message(*data) for data in queryreturn]
+        }
 
-    @command('getSentMessageByAckData')
+    @command("getSentMessageByAckData")
     def HandleGetSentMessagesByAckData(self, ackData):
         """
         Similiar to *getSentMessageById* but searches by ackdata
@@ -1155,17 +1228,16 @@ class BMRPCDispatcher(object):
         queryreturn = sqlQuery(
             "SELECT msgid, toaddress, fromaddress, subject, lastactiontime,"
             " message, encodingtype, status, ackdata FROM sent"
-            " WHERE ackdata=?", ackData
+            " WHERE ackdata=?",
+            ackData,
         )
 
         try:
-            return {"sentMessage": [
-                self._dump_sent_message(*queryreturn[0])
-            ]}
+            return {"sentMessage": [self._dump_sent_message(*queryreturn[0])]}
         except IndexError:
             pass  # FIXME inconsistent
 
-    @command('trashMessage')
+    @command("trashMessage")
     def HandleTrashMessage(self, msgid):
         """
         Trash message by msgid (encoded in hex). Returns a simple message
@@ -1177,26 +1249,31 @@ class BMRPCDispatcher(object):
         helper_inbox.trash(msgid)
         # Trash if in sent table
         sqlExecute("UPDATE sent SET folder='trash' WHERE msgid=?", msgid)
-        return 'Trashed message (assuming message existed).'
+        return "Trashed message (assuming message existed)."
 
-    @command('trashInboxMessage')
+    @command("trashInboxMessage")
     def HandleTrashInboxMessage(self, msgid):
         """Trash inbox message by msgid (encoded in hex)."""
         msgid = self._decode(msgid, "hex")
         helper_inbox.trash(msgid)
-        return 'Trashed inbox message (assuming message existed).'
+        return "Trashed inbox message (assuming message existed)."
 
-    @command('trashSentMessage')
+    @command("trashSentMessage")
     def HandleTrashSentMessage(self, msgid):
         """Trash sent message by msgid (encoded in hex)."""
         msgid = self._decode(msgid, "hex")
-        sqlExecute('''UPDATE sent SET folder='trash' WHERE msgid=?''', msgid)
-        return 'Trashed sent message (assuming message existed).'
+        sqlExecute("""UPDATE sent SET folder='trash' WHERE msgid=?""", msgid)
+        return "Trashed sent message (assuming message existed)."
 
-    @command('sendMessage')
+    @command("sendMessage")
     def HandleSendMessage(
-        self, toAddress, fromAddress, subject, message,
-        encodingType=2, TTL=4 * 24 * 60 * 60
+        self,
+        toAddress,
+        fromAddress,
+        subject,
+        message,
+        encodingType=2,
+        TTL=4 * 24 * 60 * 60,
     ):
         """
         Send the message and return ackdata (hex encoded string).
@@ -1205,13 +1282,13 @@ class BMRPCDispatcher(object):
         the bounds of 3600 to 2419200 will be moved to be within those
         bounds. TTL defaults to 4 days.
         """
-        # pylint: disable=too-many-locals
+
         if encodingType not in (2, 3):
-            raise APIError(6, 'The encoding type must be 2 or 3.')
+            raise APIError(6, "The encoding type must be 2 or 3.")
         subject = self._decode(subject, "base64")
         message = self._decode(message, "base64")
-        if len(subject + message) > (2 ** 18 - 500):
-            raise APIError(27, 'Message is too long.')
+        if len(subject + message) > (2**18 - 500):
+            raise APIError(27, "Message is too long.")
         if TTL < 60 * 60:
             TTL = 60 * 60
         if TTL > 28 * 24 * 60 * 60:
@@ -1220,44 +1297,53 @@ class BMRPCDispatcher(object):
         fromAddress = addBMIfNotPresent(fromAddress)
         self._verifyAddress(fromAddress)
         try:
-            fromAddressEnabled = self.config.getboolean(fromAddress, 'enabled')
+            fromAddressEnabled = self.config.getboolean(fromAddress, "enabled")
         except configparser.NoSectionError:
-            raise APIError(
-                13, 'Could not find your fromAddress in the keys.dat file.')
+            raise APIError(13, "Could not find your fromAddress in the keys.dat file.")
         if not fromAddressEnabled:
-            raise APIError(14, 'Your fromAddress is disabled. Cannot send.')
+            raise APIError(14, "Your fromAddress is disabled. Cannot send.")
 
         ackdata = helper_sent.insert(
-            toAddress=toAddress, fromAddress=fromAddress,
-            subject=subject, message=message, encoding=encodingType, ttl=TTL)
+            toAddress=toAddress,
+            fromAddress=fromAddress,
+            subject=subject,
+            message=message,
+            encoding=encodingType,
+            ttl=TTL,
+        )
 
-        toLabel = ''
+        toLabel = ""
         queryreturn = sqlQuery(
-            "SELECT label FROM addressbook WHERE address=?", toAddress)
+            "SELECT label FROM addressbook WHERE address=?", toAddress
+        )
         try:
             toLabel = queryreturn[0][0]
         except IndexError:
             pass
 
-        queues.UISignalQueue.put(('displayNewSentMessage', (
-            toAddress, toLabel, fromAddress, subject, message, ackdata)))
-        queues.workerQueue.put(('sendmessage', toAddress))
+        queues.UISignalQueue.put(
+            (
+                "displayNewSentMessage",
+                (toAddress, toLabel, fromAddress, subject, message, ackdata),
+            )
+        )
+        queues.workerQueue.put(("sendmessage", toAddress))
 
         return hexlify(ackdata)
 
-    @command('sendBroadcast')
+    @command("sendBroadcast")
     def HandleSendBroadcast(
-        self, fromAddress, subject, message, encodingType=2,
-            TTL=4 * 24 * 60 * 60):
+        self, fromAddress, subject, message, encodingType=2, TTL=4 * 24 * 60 * 60
+    ):
         """Send the broadcast message. Similiar to *sendMessage*."""
 
         if encodingType not in (2, 3):
-            raise APIError(6, 'The encoding type must be 2 or 3.')
+            raise APIError(6, "The encoding type must be 2 or 3.")
 
         subject = self._decode(subject, "base64")
         message = self._decode(message, "base64")
-        if len(subject + message) > (2 ** 18 - 500):
-            raise APIError(27, 'Message is too long.')
+        if len(subject + message) > (2**18 - 500):
+            raise APIError(27, "Message is too long.")
         if TTL < 60 * 60:
             TTL = 60 * 60
         if TTL > 28 * 24 * 60 * 60:
@@ -1265,28 +1351,34 @@ class BMRPCDispatcher(object):
         fromAddress = addBMIfNotPresent(fromAddress)
         self._verifyAddress(fromAddress)
         try:
-            fromAddressEnabled = self.config.getboolean(fromAddress, 'enabled')
+            fromAddressEnabled = self.config.getboolean(fromAddress, "enabled")
         except configparser.NoSectionError:
-            raise APIError(
-                13, 'Could not find your fromAddress in the keys.dat file.')
+            raise APIError(13, "Could not find your fromAddress in the keys.dat file.")
         if not fromAddressEnabled:
-            raise APIError(14, 'Your fromAddress is disabled. Cannot send.')
+            raise APIError(14, "Your fromAddress is disabled. Cannot send.")
 
         toAddress = str_broadcast_subscribers
 
         ackdata = helper_sent.insert(
-            fromAddress=fromAddress, subject=subject,
-            message=message, status='broadcastqueued',
-            encoding=encodingType)
+            fromAddress=fromAddress,
+            subject=subject,
+            message=message,
+            status="broadcastqueued",
+            encoding=encodingType,
+        )
 
         toLabel = str_broadcast_subscribers
-        queues.UISignalQueue.put(('displayNewSentMessage', (
-            toAddress, toLabel, fromAddress, subject, message, ackdata)))
-        queues.workerQueue.put(('sendbroadcast', ''))
+        queues.UISignalQueue.put(
+            (
+                "displayNewSentMessage",
+                (toAddress, toLabel, fromAddress, subject, message, ackdata),
+            )
+        )
+        queues.workerQueue.put(("sendbroadcast", ""))
 
         return hexlify(ackdata)
 
-    @command('getStatus')
+    @command("getStatus")
     def HandleGetStatus(self, ackdata):
         """
         Get the status of sent message by its ackdata (hex encoded).
@@ -1297,41 +1389,42 @@ class BMRPCDispatcher(object):
 
         if len(ackdata) < 76:
             # The length of ackData should be at least 38 bytes (76 hex digits)
-            raise APIError(15, 'Invalid ackData object size.')
+            raise APIError(15, "Invalid ackData object size.")
         ackdata = self._decode(ackdata, "hex")
-        queryreturn = sqlQuery(
-            "SELECT status FROM sent where ackdata=?", ackdata)
+        queryreturn = sqlQuery("SELECT status FROM sent where ackdata=?", ackdata)
         try:
-            return queryreturn[0][0]
+            status = queryreturn[0][0]
+            # Ensure status is string, not bytes (Python 3 compatibility)
+            if isinstance(status, bytes):
+                status = status.decode('utf-8', 'replace')
+            return status
         except IndexError:
-            return 'notfound'
+            return "notfound"
 
-    @command('addSubscription')
-    def HandleAddSubscription(self, address, label=''):
+    @command("addSubscription")
+    def HandleAddSubscription(self, address, label=""):
         """Subscribe to the address. label must be base64 encoded."""
 
         if label:
             label = self._decode(label, "base64")
             try:
-                label.decode('utf-8')
+                label.decode("utf-8")
             except UnicodeDecodeError:
-                raise APIError(17, 'Label is not valid UTF-8 data.')
+                raise APIError(17, "Label is not valid UTF-8 data.")
         self._verifyAddress(address)
         address = addBMIfNotPresent(address)
         # First we must check to see if the address is already in the
         # subscriptions list.
-        queryreturn = sqlQuery(
-            "SELECT * FROM subscriptions WHERE address=?", address)
+        queryreturn = sqlQuery("SELECT * FROM subscriptions WHERE address=?", address)
         if queryreturn:
-            raise APIError(16, 'You are already subscribed to that address.')
-        sqlExecute(
-            "INSERT INTO subscriptions VALUES (?,?,?)", label, address, True)
+            raise APIError(16, "You are already subscribed to that address.")
+        sqlExecute("INSERT INTO subscriptions VALUES (?,?,?)", label, address, True)
         shared.reloadBroadcastSendersForWhichImWatching()
-        queues.UISignalQueue.put(('rerenderMessagelistFromLabels', ''))
-        queues.UISignalQueue.put(('rerenderSubscriptions', ''))
-        return 'Added subscription.'
+        queues.UISignalQueue.put(("rerenderMessagelistFromLabels", ""))
+        queues.UISignalQueue.put(("rerenderSubscriptions", ""))
+        return "Added subscription."
 
-    @command('deleteSubscription')
+    @command("deleteSubscription")
     def HandleDeleteSubscription(self, address):
         """
         Unsubscribe from the address. The program does not check whether
@@ -1341,34 +1434,36 @@ class BMRPCDispatcher(object):
         address = addBMIfNotPresent(address)
         sqlExecute("DELETE FROM subscriptions WHERE address=?", address)
         shared.reloadBroadcastSendersForWhichImWatching()
-        queues.UISignalQueue.put(('rerenderMessagelistFromLabels', ''))
-        queues.UISignalQueue.put(('rerenderSubscriptions', ''))
-        return 'Deleted subscription if it existed.'
+        queues.UISignalQueue.put(("rerenderMessagelistFromLabels", ""))
+        queues.UISignalQueue.put(("rerenderSubscriptions", ""))
+        return "Deleted subscription if it existed."
 
-    @command('listSubscriptions')
+    @command("listSubscriptions")
     def ListSubscriptions(self):
         """
         Returns dict with a list of all subscriptions
         in the *subscriptions* key.
         """
 
-        queryreturn = sqlQuery(
-            "SELECT label, address, enabled FROM subscriptions")
+        queryreturn = sqlQuery("SELECT label, address, enabled FROM subscriptions")
         data = []
         for label, address, enabled in queryreturn:
             label = shared.fixPotentiallyInvalidUTF8Data(label)
-            data.append({
-                'label': base64.b64encode(label),
-                'address': address,
-                'enabled': enabled == 1
-            })
-        return {'subscriptions': data}
+            data.append(
+                {
+                    "label": base64.b64encode(label),
+                    "address": address,
+                    "enabled": enabled == 1,
+                }
+            )
+        return {"subscriptions": data}
 
-    @command('disseminatePreEncryptedMsg', 'disseminatePreparedObject')
+    @command("disseminatePreEncryptedMsg", "disseminatePreparedObject")
     def HandleDisseminatePreparedObject(
-        self, encryptedPayload,
+        self,
+        encryptedPayload,
         nonceTrialsPerByte=networkDefaultProofOfWorkNonceTrialsPerByte,
-        payloadLengthExtraBytes=networkDefaultPayloadLengthExtraBytes
+        payloadLengthExtraBytes=networkDefaultPayloadLengthExtraBytes,
     ):
         """
         Handle a request to disseminate an encrypted message.
@@ -1384,9 +1479,10 @@ class BMRPCDispatcher(object):
         """
         encryptedPayload = self._decode(encryptedPayload, "hex")
 
-        nonce, = unpack('>Q', encryptedPayload[:8])
-        objectType, toStreamNumber, expiresTime = \
-            protocol.decodeObjectParameters(encryptedPayload)
+        (nonce,) = unpack(">Q", encryptedPayload[:8])
+        objectType, toStreamNumber, expiresTime = protocol.decodeObjectParameters(
+            encryptedPayload
+        )
 
         if nonce == 0:  # Let us do the POW and attach it to the front
             encryptedPayload = encryptedPayload[8:]
@@ -1396,44 +1492,49 @@ class BMRPCDispatcher(object):
             logger.debug("TTL: %s", TTL)
             logger.debug("objectType: %s", objectType)
             logger.info(
-                '(For msg message via API) Doing proof of work. Total required'
-                ' difficulty: %s\nRequired small message difficulty: %s',
-                float(nonceTrialsPerByte)
-                / networkDefaultProofOfWorkNonceTrialsPerByte,
-                float(payloadLengthExtraBytes)
-                / networkDefaultPayloadLengthExtraBytes,
+                "(For msg message via API) Doing proof of work. Total required"
+                " difficulty: %s\nRequired small message difficulty: %s",
+                float(nonceTrialsPerByte) / networkDefaultProofOfWorkNonceTrialsPerByte,
+                float(payloadLengthExtraBytes) / networkDefaultPayloadLengthExtraBytes,
             )
             powStartTime = time.time()
             trialValue, nonce = proofofwork.calculate(
-                encryptedPayload, TTL,
-                nonceTrialsPerByte, payloadLengthExtraBytes
+                encryptedPayload, TTL, nonceTrialsPerByte, payloadLengthExtraBytes
             )
             logger.info(
-                '(For msg message via API) Found proof of work %s\nNonce: %s\n'
-                'POW took %s seconds. %s nonce trials per second.',
-                trialValue, nonce, int(time.time() - powStartTime),
-                nonce / (time.time() - powStartTime)
+                "(For msg message via API) Found proof of work %s\nNonce: %s\n"
+                "POW took %s seconds. %s nonce trials per second.",
+                trialValue,
+                nonce,
+                int(time.time() - powStartTime),
+                nonce / (time.time() - powStartTime),
             )
-            encryptedPayload = pack('>Q', nonce) + encryptedPayload
+            encryptedPayload = pack(">Q", nonce) + encryptedPayload
 
         inventoryHash = calculateInventoryHash(encryptedPayload)
         state.Inventory[inventoryHash] = (
-            objectType, toStreamNumber, encryptedPayload, expiresTime, b'')
+            objectType,
+            toStreamNumber,
+            encryptedPayload,
+            expiresTime,
+            b"",
+        )
         logger.info(
-            'Broadcasting inv for msg(API disseminatePreEncryptedMsg'
-            ' command): %s', hexlify(inventoryHash))
+            "Broadcasting inv for msg(API disseminatePreEncryptedMsg command): %s",
+            hexlify(inventoryHash),
+        )
         invQueue.put((toStreamNumber, inventoryHash))
         return hexlify(inventoryHash).decode()
 
-    @command('trashSentMessageByAckData')
+    @command("trashSentMessageByAckData")
     def HandleTrashSentMessageByAckDAta(self, ackdata):
         """Trash a sent message by ackdata (hex encoded)"""
         # This API method should only be used when msgid is not available
         ackdata = self._decode(ackdata, "hex")
         sqlExecute("UPDATE sent SET folder='trash' WHERE ackdata=?", ackdata)
-        return 'Trashed sent message (assuming message existed).'
+        return "Trashed sent message (assuming message existed)."
 
-    @command('disseminatePubkey')
+    @command("disseminatePubkey")
     def HandleDissimatePubKey(self, payload):
         """Handle a request to disseminate a public key"""
 
@@ -1445,42 +1546,51 @@ class BMRPCDispatcher(object):
         payload = self._decode(payload, "hex")
 
         # Let us do the POW
-        target = 2 ** 64 / ((
-            len(payload) + networkDefaultPayloadLengthExtraBytes + 8
-        ) * networkDefaultProofOfWorkNonceTrialsPerByte)
-        logger.info('(For pubkey message via API) Doing proof of work...')
+        target = 2**64 / (
+            (len(payload) + networkDefaultPayloadLengthExtraBytes + 8)
+            * networkDefaultProofOfWorkNonceTrialsPerByte
+        )
+        logger.info("(For pubkey message via API) Doing proof of work...")
         initialHash = hashlib.sha512(payload).digest()
         trialValue, nonce = proofofwork.run(target, initialHash)
         logger.info(
-            '(For pubkey message via API) Found proof of work %s Nonce: %s',
-            trialValue, nonce
+            "(For pubkey message via API) Found proof of work %s Nonce: %s",
+            trialValue,
+            nonce,
         )
-        payload = pack('>Q', nonce) + payload
+        payload = pack(">Q", nonce) + payload
 
         pubkeyReadPosition = 8  # bypass the nonce
-        if payload[pubkeyReadPosition:pubkeyReadPosition + 4] == \
-                '\x00\x00\x00\x00':  # if this pubkey uses 8 byte time
+        if (
+            payload[pubkeyReadPosition:pubkeyReadPosition + 4] == "\x00\x00\x00\x00"
+        ):  # if this pubkey uses 8 byte time
             pubkeyReadPosition += 8
         else:
             pubkeyReadPosition += 4
         addressVersionLength = decodeVarint(
-            payload[pubkeyReadPosition:pubkeyReadPosition + 10])[1]
+            payload[pubkeyReadPosition:pubkeyReadPosition + 10]
+        )[1]
         pubkeyReadPosition += addressVersionLength
         pubkeyStreamNumber = decodeVarint(
-            payload[pubkeyReadPosition:pubkeyReadPosition + 10])[0]
+            payload[pubkeyReadPosition:pubkeyReadPosition + 10]
+        )[0]
         inventoryHash = calculateInventoryHash(payload)
         objectType = 1  # .. todo::: support v4 pubkeys
         TTL = 28 * 24 * 60 * 60
         state.Inventory[inventoryHash] = (
-            objectType, pubkeyStreamNumber, payload, int(time.time()) + TTL, ''
+            objectType,
+            pubkeyStreamNumber,
+            payload,
+            int(time.time()) + TTL,
+            "",
         )
         logger.info(
-            'broadcasting inv within API command disseminatePubkey with'
-            ' hash: %s', hexlify(inventoryHash))
+            "broadcasting inv within API command disseminatePubkey with hash: %s",
+            hexlify(inventoryHash),
+        )
         invQueue.put((pubkeyStreamNumber, inventoryHash))
 
-    @command(
-        'getMessageDataByDestinationHash', 'getMessageDataByDestinationTag')
+    @command("getMessageDataByDestinationHash", "getMessageDataByDestinationTag")
     def HandleGetMessageDataByDestinationHash(self, requestedHash):
         """Handle a request to get message data by destination hash"""
 
@@ -1489,32 +1599,38 @@ class BMRPCDispatcher(object):
         # doc.
         if len(requestedHash) != 32:
             raise APIError(
-                19, 'The length of hash should be 32 bytes (encoded in hex'
-                ' thus 64 characters).')
+                19,
+                "The length of hash should be 32 bytes (encoded in hex"
+                " thus 64 characters).",
+            )
         requestedHash = self._decode(requestedHash, "hex")
 
         # This is not a particularly commonly used API function. Before we
         # use it we'll need to fill out a field in our inventory database
         # which is blank by default (first20bytesofencryptedmessage).
         queryreturn = sqlQuery(
-            "SELECT hash, payload FROM inventory WHERE tag = ''"
-            " and objecttype = 2")
+            "SELECT hash, payload FROM inventory WHERE tag = '' and objecttype = 2"
+        )
         with SqlBulkExecute() as sql:
             for hash01, payload in queryreturn:
                 readPosition = 16  # Nonce length + time length
                 # Stream Number length
-                readPosition += decodeVarint(
-                    payload[readPosition:readPosition + 10])[1]
+                readPosition += decodeVarint(payload[readPosition:readPosition + 10])[
+                    1
+                ]
                 t = (payload[readPosition:readPosition + 32], hash01)
                 sql.execute("UPDATE inventory SET tag=? WHERE hash=?", *t)
 
         queryreturn = sqlQuery(
-            "SELECT payload FROM inventory WHERE tag = ?", requestedHash)
-        return {"receivedMessageDatas": [
-            {'data': hexlify(payload)} for payload, in queryreturn
-        ]}
+            "SELECT payload FROM inventory WHERE tag = ?", requestedHash
+        )
+        return {
+            "receivedMessageDatas": [
+                {"data": hexlify(payload)} for (payload,) in queryreturn
+            ]
+        }
 
-    @command('clientStatus')
+    @command("clientStatus")
     def HandleClientStatus(self):
         """
         Returns the bitmessage status as dict with keys *networkConnections*,
@@ -1529,111 +1645,115 @@ class BMRPCDispatcher(object):
         connections_num = len(stats.connectedHostsList())
 
         if connections_num == 0:
-            networkStatus = 'notConnected'
+            networkStatus = "notConnected"
         elif state.clientHasReceivedIncomingConnections:
-            networkStatus = 'connectedAndReceivingIncomingConnections'
+            networkStatus = "connectedAndReceivingIncomingConnections"
         else:
-            networkStatus = 'connectedButHaveNotReceivedIncomingConnections'
+            networkStatus = "connectedButHaveNotReceivedIncomingConnections"
         return {
-            'networkConnections': connections_num,
-            'numberOfMessagesProcessed': state.numberOfMessagesProcessed,
-            'numberOfBroadcastsProcessed': state.numberOfBroadcastsProcessed,
-            'numberOfPubkeysProcessed': state.numberOfPubkeysProcessed,
-            'pendingDownload': stats.pendingDownload(),
-            'networkStatus': networkStatus,
-            'softwareName': 'PyBitmessage',
-            'softwareVersion': softwareVersion
+            "networkConnections": connections_num,
+            "numberOfMessagesProcessed": state.numberOfMessagesProcessed,
+            "numberOfBroadcastsProcessed": state.numberOfBroadcastsProcessed,
+            "numberOfPubkeysProcessed": state.numberOfPubkeysProcessed,
+            "pendingDownload": stats.pendingDownload(),
+            "networkStatus": networkStatus,
+            "softwareName": "PyBitmessage",
+            "softwareVersion": softwareVersion,
         }
 
-    @command('listConnections')
+    @command("listConnections")
     def HandleListConnections(self):
         """
         Returns bitmessage connection information as dict with keys *inbound*,
         *outbound*.
         """
         if connectionpool is None:
-            raise APIError(21, 'Could not import BMConnectionPool.')
+            raise APIError(21, "Could not import BMConnectionPool.")
         inboundConnections = []
         outboundConnections = []
         for i in connectionpool.pool.inboundConnections.values():
-            inboundConnections.append({
-                'host': i.destination.host,
-                'port': i.destination.port,
-                'fullyEstablished': i.fullyEstablished,
-                'userAgent': str(i.userAgent)
-            })
+            inboundConnections.append(
+                {
+                    "host": i.destination.host,
+                    "port": i.destination.port,
+                    "fullyEstablished": i.fullyEstablished,
+                    "userAgent": str(i.userAgent),
+                }
+            )
         for i in connectionpool.pool.outboundConnections.values():
-            outboundConnections.append({
-                'host': i.destination.host,
-                'port': i.destination.port,
-                'fullyEstablished': i.fullyEstablished,
-                'userAgent': str(i.userAgent)
-            })
-        return {
-            'inbound': inboundConnections,
-            'outbound': outboundConnections
-        }
+            outboundConnections.append(
+                {
+                    "host": i.destination.host,
+                    "port": i.destination.port,
+                    "fullyEstablished": i.fullyEstablished,
+                    "userAgent": str(i.userAgent),
+                }
+            )
+        return {"inbound": inboundConnections, "outbound": outboundConnections}
 
-    @command('helloWorld')
+    @command("helloWorld")
     def HandleHelloWorld(self, a, b):
         """Test two string params"""
-        return a + '-' + b
+        return a + "-" + b
 
-    @command('add')
+    @command("add")
     def HandleAdd(self, a, b):
         """Test two numeric params"""
         return a + b
 
-    @command('statusBar')
+    @command("statusBar")
     def HandleStatusBar(self, message):
         """Update GUI statusbar message"""
-        queues.UISignalQueue.put(('updateStatusBar', message))
+        queues.UISignalQueue.put(("updateStatusBar", message))
         return "success"
 
-    @testmode('undeleteMessage')
+    @testmode("undeleteMessage")
     def HandleUndeleteMessage(self, msgid):
         """Undelete message"""
         msgid = self._decode(msgid, "hex")
         helper_inbox.undeleteMessage(msgid)
         return "Undeleted message"
 
-    @command('deleteAndVacuum')
+    @command("deleteAndVacuum")
     def HandleDeleteAndVacuum(self):
         """Cleanup trashes and vacuum messages database"""
-        sqlStoredProcedure('deleteandvacuume')
-        return 'done'
+        sqlStoredProcedure("deleteandvacuume")
+        return "done"
 
-    @command('shutdown')
+    @command("shutdown")
     def HandleShutdown(self):
         """Shutdown the bitmessage. Returns 'done'."""
         # backward compatible trick because False == 0 is True
         state.shutdown = False
-        return 'done'
+        return "done"
 
     def _handle_request(self, method, params):
         try:
-            # pylint: disable=attribute-defined-outside-init
             self._method = method
             func = self._handlers[method]
             return func(self, *params)
         except KeyError:
-            raise APIError(20, 'Invalid method: %s' % method)
+            raise APIError(20, "Invalid method: %s" % method)
         except TypeError as e:
-            msg = 'Unexpected API Failure - %s' % e
-            if 'argument' not in str(e):
+            msg = "Unexpected API Failure - %s" % e
+            if "argument" not in str(e):
                 raise APIError(21, msg)
             argcount = len(params)
-            maxcount = func.func_code.co_argcount
+            maxcount = func.__code__.co_argcount
             if argcount > maxcount:
-                msg = (
-                    'Command %s takes at most %s parameters (%s given)'
-                    % (method, maxcount, argcount))
+                msg = "Command %s takes at most %s parameters (%s given)" % (
+                    method,
+                    maxcount,
+                    argcount,
+                )
             else:
-                mincount = maxcount - len(func.func_defaults or [])
+                mincount = maxcount - len(func.__defaults__ or [])
                 if argcount < mincount:
-                    msg = (
-                        'Command %s takes at least %s parameters (%s given)'
-                        % (method, mincount, argcount))
+                    msg = "Command %s takes at least %s parameters (%s given)" % (
+                        method,
+                        mincount,
+                        argcount,
+                    )
             raise APIError(0, msg)
         finally:
             state.last_api_response = time.time()
@@ -1648,17 +1768,17 @@ class BMRPCDispatcher(object):
         except varintDecodeError as e:
             logger.error(e)
             _fault = APIError(
-                26, 'Data contains a malformed varint. Some details: %s' % e)
+                26, "Data contains a malformed varint. Some details: %s" % e
+            )
         except Exception as e:
             logger.exception(e)
-            _fault = APIError(21, 'Unexpected API Failure - %s' % e)
+            _fault = APIError(21, "Unexpected API Failure - %s" % e)
 
         if _fault:
-            if self.config.safeGet(
-                    'bitmessagesettings', 'apivariant') == 'legacy':
+            if self.config.safeGet("bitmessagesettings", "apivariant") == "legacy":
                 return str(_fault)
             else:
-                raise _fault  # pylint: disable=raising-bad-type
+                raise _fault
 
     def _listMethods(self):
         """List all API commands"""

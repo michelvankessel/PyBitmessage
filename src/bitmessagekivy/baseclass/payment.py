@@ -1,5 +1,3 @@
-# pylint: disable=import-error, no-name-in-module, too-few-public-methods, too-many-ancestors
-
 """
 Payment/subscription frontend
 """
@@ -20,11 +18,11 @@ class Payment(Screen):
 
     def __init__(self, *args, **kwargs):
         """Instantiate Kivy state variable"""
-        super().__init__(*args, **kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(*args, **kwargs)
         self.kivy_state = kivy_state_variables()
 
     # TODO: get_free_credits() is not used anywhere, will be used later for Payment/subscription.
-    def get_free_credits(self, instance):  # pylint: disable=unused-argument
+    def get_free_credits(self, instance):
         """Get the available credits"""
         self.kivy_state.available_credit = 0
         existing_credits = 0
@@ -36,7 +34,7 @@ class Payment(Screen):
             toast('Credit added to your account!')
             # TODO: There is no sc18 screen id is available,
             # need to create sc18 for Credits screen inside main.kv
-            App.get_running_app().root.ids.sc18.ids.cred.text = f'{self.kivy_state.available_credit}'  # noqa: E999
+            App.get_running_app().root.ids.sc18.ids.cred.text = f'{self.kivy_state.available_credit}'
 
 
 class Category(BoxLayout, RectangularElevationBehavior):

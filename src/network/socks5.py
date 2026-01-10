@@ -1,31 +1,32 @@
 """
 SOCKS5 proxy module
 """
-# pylint: disable=attribute-defined-outside-init
 
 import logging
 import socket
 import struct
 
-from node import Peer
-from proxy import GeneralProxyError, Proxy, ProxyError
+from .node import Peer
+from .proxy import GeneralProxyError, Proxy, ProxyError
 
-logger = logging.getLogger('default')
+logger = logging.getLogger("default")
 
 
 class Socks5AuthError(ProxyError):
     """Rised when the socks5 protocol encounters an authentication error"""
+
     errorCodes = (
         "Succeeded",
         "Authentication is required",
         "All offered authentication methods were rejected",
         "Unknown username or invalid password",
-        "Unknown error"
+        "Unknown error",
     )
 
 
 class Socks5Error(ProxyError):
     """Rised when socks5 protocol encounters an error"""
+
     errorCodes = (
         "Succeeded",
         "General SOCKS server failure",
@@ -36,12 +37,13 @@ class Socks5Error(ProxyError):
         "TTL expired",
         "Command not supported",
         "Address type not supported",
-        "Unknown error"
+        "Unknown error",
     )
 
 
 class Socks5(Proxy):
     """A socks5 proxy base class"""
+
     def __init__(self, address=None):
         Proxy.__init__(self, address)
         self.ipaddr = None
@@ -50,15 +52,15 @@ class Socks5(Proxy):
     def state_init(self):
         """Protocol initialization (before connection is established)"""
         if self._auth:
-            self.append_write_buf(struct.pack('BBBB', 0x05, 0x02, 0x00, 0x02))
+            self.append_write_buf(struct.pack("BBBB", 0x05, 0x02, 0x00, 0x02))
         else:
-            self.append_write_buf(struct.pack('BBB', 0x05, 0x01, 0x00))
+            self.append_write_buf(struct.pack("BBB", 0x05, 0x01, 0x00))
         self.set_state("auth_1", length=0, expectBytes=2)
         return True
 
     def state_auth_1(self):
         """Perform authentication if peer is requesting it."""
-        ret = struct.unpack('BB', self.read_buf[:2])
+        ret = struct.unpack("BB", self.read_buf[:2])
         if ret[0] != 5:
             # general error
             raise GeneralProxyError(1)
@@ -68,12 +70,14 @@ class Socks5(Proxy):
         elif ret[1] == 2:
             # username/password
             self.append_write_buf(
-                struct.pack(
-                    'BB', 1, len(self._auth[0])) + self._auth[0] + struct.pack(
-                        'B', len(self._auth[1])) + self._auth[1])
+                struct.pack("BB", 1, len(self._auth[0]))
+                + self._auth[0]
+                + struct.pack("B", len(self._auth[1]))
+                + self._auth[1]
+            )
             self.set_state("auth_needed", length=2, expectBytes=2)
         else:
-            if ret[1] == 0xff:
+            if ret[1] == 0xFF:
                 # auth error
                 raise Socks5AuthError(2)
             else:
@@ -83,7 +87,7 @@ class Socks5(Proxy):
 
     def state_auth_needed(self):
         """Handle response to authentication attempt"""
-        ret = struct.unpack('BB', self.read_buf[0:2])
+        ret = struct.unpack("BB", self.read_buf[0:2])
         if ret[0] != 1:
             # general error
             raise GeneralProxyError(1)
@@ -130,8 +134,7 @@ class Socks5(Proxy):
         length of the data.
         """
         self.address_length = ord(self.read_buf[0:1])
-        self.set_state(
-            "proxy_addr_2_2", length=1, expectBytes=self.address_length)
+        self.set_state("proxy_addr_2_2", length=1, expectBytes=self.address_length)
         return True
 
     def state_proxy_addr_2_2(self):
@@ -148,8 +151,7 @@ class Socks5(Proxy):
         self.boundport = struct.unpack(">H", self.read_buf[0:2])[0]
         self.__proxysockname = (self.boundaddr, self.boundport)
         if self.ipaddr is not None:
-            self.__proxypeername = (
-                socket.inet_ntoa(self.ipaddr), self.destination[1])
+            self.__proxypeername = (socket.inet_ntoa(self.ipaddr), self.destination[1])
         else:
             self.__proxypeername = (self.destination[0], self.destport)
         self.set_state("proxy_handshake_done", length=2)
@@ -163,10 +165,11 @@ class Socks5(Proxy):
 
 class Socks5Connection(Socks5):
     """Child socks5 class used for making outbound connections."""
+
     def state_auth_done(self):
         """Request connection to be made"""
         # Now we can request the actual connection
-        self.append_write_buf(struct.pack('BBB', 0x05, 0x01, 0x00))
+        self.append_write_buf(struct.pack("BBB", 0x05, 0x01, 0x00))
         # If the given destination address is an IP address, we'll
         # use the IPv4 address request even if remote resolving was specified.
         try:
@@ -177,12 +180,16 @@ class Socks5Connection(Socks5):
             if self._remote_dns:
                 # Resolve remotely
                 self.ipaddr = None
-                self.append_write_buf(chr(0x03).encode() + chr(
-                    len(self.destination[0])).encode() + self.destination[0])
+                self.append_write_buf(
+                    chr(0x03).encode()
+                    + chr(len(self.destination[0])).encode()
+                    + self.destination[0].encode()
+                )
             else:
                 # Resolve locally
                 self.ipaddr = socket.inet_aton(
-                    socket.gethostbyname(self.destination[0]))
+                    socket.gethostbyname(self.destination[0])
+                )
                 self.append_write_buf(chr(0x01).encode() + self.ipaddr)
         self.append_write_buf(struct.pack(">H", self.destination[1]))
         self.set_state("pre_connect", length=0, expectBytes=4)
@@ -199,6 +206,7 @@ class Socks5Connection(Socks5):
 
 class Socks5Resolver(Socks5):
     """DNS resolver class using socks5"""
+
     def __init__(self, host):
         self.host = host
         self.port = 8444
@@ -207,9 +215,10 @@ class Socks5Resolver(Socks5):
     def state_auth_done(self):
         """Perform resolving"""
         # Now we can request the actual connection
-        self.append_write_buf(struct.pack('BBB', 0x05, 0xF0, 0x00))
-        self.append_write_buf(chr(0x03).encode() + chr(
-            len(self.host)).encode() + str(self.host))
+        self.append_write_buf(struct.pack("BBB", 0x05, 0xF0, 0x00))
+        self.append_write_buf(
+            chr(0x03).encode() + chr(len(self.host)).encode() + self.host.encode()
+        )
         self.append_write_buf(struct.pack(">H", self.port))
         self.set_state("pre_connect", length=0, expectBytes=4)
         return True
@@ -220,5 +229,4 @@ class Socks5Resolver(Socks5):
         To use this within PyBitmessage, a callback needs to be
         implemented which hasn't been done yet.
         """
-        logger.debug(
-            'Resolved %s as %s', self.host, self.proxy_sock_name())
+        logger.debug("Resolved %s as %s", self.host, self.proxy_sock_name())

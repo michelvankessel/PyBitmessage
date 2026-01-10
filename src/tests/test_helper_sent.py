@@ -3,12 +3,7 @@
 import unittest
 from pybitmessage.helper_sent import insert, delete, trash, retrieve_message_details
 
-try:
-    # Python 3
-    from unittest.mock import patch
-except ImportError:
-    # Python 2
-    from mock import patch
+from unittest.mock import patch
 
 
 class TestHelperSent(unittest.TestCase):

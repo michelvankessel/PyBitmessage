@@ -8,22 +8,23 @@ http://www.sphinx-doc.org/en/master/config
 
 import os
 import sys
-
-sys.path.insert(0, os.path.abspath('../src'))
-
 from importlib import import_module
 
-import version  # noqa:E402
+# Add the src directory to the path so we can import the version module
+sys.path.insert(0, os.path.abspath('../src'))
+
+# Dynamically import version module after path modification
+version = import_module('version')
 
 
 # -- Project information -----------------------------------------------------
 
 project = u'PyBitmessage'
-copyright = u'2019-2022, The Bitmessage Team'  # pylint: disable=redefined-builtin
+copyright = u'2019-2022, The Bitmessage Team'
 author = u'The Bitmessage Team'
 
 # The short X.Y version
-version = unicode(version.softwareVersion)
+version = str(version.softwareVersion)
 
 # The full version, including alpha/beta/rc tags
 release = version
@@ -216,8 +217,7 @@ autodoc_mock_imports = [
     'pkg_resources',
     'pycanberra',
     'pyopencl',
-    'PyQt4',
-    'PyQt5',
+    'PyQt6',
     'qrcode',
     'stem',
     'xdg',

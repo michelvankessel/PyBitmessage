@@ -13,40 +13,40 @@ import os
 import sys
 
 
-try:
-    import pathmagic
-except ImportError:
-    from pybitmessage import pathmagic
-app_dir = pathmagic.setup()
-
-import depends
-depends.check_dependencies()
-
 import getopt
 import multiprocessing
-# Used to capture a Ctrl-C keypress so that Bitmessage can shutdown gracefully.
 import signal
 import threading
 import time
 import traceback
 
+try:
+    import pathmagic
+except ImportError:
+    pathmagic = __import__("pybitmessage.pathmagic", fromlist=["pathmagic"])
+
+
+import depends
 import defaults
-# Network subsystem
 import network
 import shutdown
 import state
 
 from testmode_init import populate_api_test_data
 from bmconfigparser import config
-from debug import logger  # this should go before any threads
+from debug import logger
 from helper_startup import (
-    adjustHalfOpenConnectionsLimit, fixSocket, start_proxyconfig)
+    adjustHalfOpenConnectionsLimit, fixSocket, start_proxyconfig, loadConfig)
 from inventory import Inventory
 from singleinstance import singleinstance
-# Synchronous threads
 from threads import (
     set_thread_name, printLock,
     addressGenerator, objectProcessor, singleCleaner, singleWorker, sqlThread)
+
+# Setup path and check dependencies
+app_dir = pathmagic.app_dir
+depends.check_dependencies()
+loadConfig()
 
 
 def signal_handler(signum, frame):
@@ -84,7 +84,7 @@ class Main(object):
     """Main PyBitmessage class"""
     def start(self):
         """Start main application"""
-        # pylint: disable=too-many-statements,too-many-branches,too-many-locals
+
         fixSocket()
         adjustHalfOpenConnectionsLimit()
 
@@ -209,7 +209,7 @@ class Main(object):
 
             # API is also objproc dependent
             if config.safeGetBoolean('bitmessagesettings', 'apienabled'):
-                import api  # pylint: disable=relative-import
+                import api
                 singleAPIThread = api.singleAPI()
                 # close the main program even if there are threads left
                 singleAPIThread.daemon = True
@@ -260,7 +260,7 @@ class Main(object):
         elif not state.enableGUI:
             state.enableGUI = True
             try:
-                # pylint: disable=relative-import
+
                 from tests import core as test_core
             except ImportError:
                 try:
@@ -286,7 +286,7 @@ class Main(object):
                 # wait until grandchild ready
                 while True:
                     time.sleep(1)
-                os._exit(0)  # pylint: disable=protected-access
+                os._exit(0)
         except AttributeError:
             # fork not implemented
             pass
@@ -307,7 +307,7 @@ class Main(object):
                 # wait until child ready
                 while True:
                     time.sleep(1)
-                os._exit(0)  # pylint: disable=protected-access
+                os._exit(0)
         except AttributeError:
             # fork not implemented
             pass
@@ -319,7 +319,7 @@ class Main(object):
         if not sys.platform.startswith('win'):
             si = open(os.devnull, 'r')
             so = open(os.devnull, 'a+')
-            se = open(os.devnull, 'a+', 0)
+            se = open(os.devnull, 'ab+', 0)
             os.dup2(si.fileno(), sys.stdin.fileno())
             os.dup2(so.fileno(), sys.stdout.fileno())
             os.dup2(se.fileno(), sys.stderr.fileno())

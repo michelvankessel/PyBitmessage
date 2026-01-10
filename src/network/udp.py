@@ -8,23 +8,23 @@ import time
 # magic imports!
 import protocol
 import state
-import connectionpool
+from . import connectionpool
 
 from network import receiveDataQueue
-from bmproto import BMProto
-from node import Peer
-from objectracker import ObjectTracker
+from .bmproto import BMProto
+from .node import Peer
+from .objectracker import ObjectTracker
 
 
 logger = logging.getLogger('default')
 
 
-class UDPSocket(BMProto):  # pylint: disable=too-many-instance-attributes
+class UDPSocket(BMProto):
     """Bitmessage protocol over UDP (class)"""
     port = 8444
 
     def __init__(self, host=None, sock=None, announcing=False):
-        # pylint: disable=bad-super-call
+
         super(BMProto, self).__init__(sock=sock)
         self.verackReceived = True
         self.verackSent = True
@@ -81,7 +81,7 @@ class UDPSocket(BMProto):  # pylint: disable=too-many-instance-attributes
             return True
         remoteport = False
         for seenTime, stream, _, ip, port in addresses:
-            decodedIP = protocol.checkIPAddress(str(ip))
+            decodedIP = protocol.checkIPAddress(ip)
             if stream not in connectionpool.pool.streams:
                 continue
             if (seenTime < time.time() - protocol.MAX_TIME_OFFSET
@@ -106,7 +106,8 @@ class UDPSocket(BMProto):  # pylint: disable=too-many-instance-attributes
     def bm_command_ping(self):
         return True
 
-    def bm_command_pong(self):
+    @staticmethod
+    def bm_command_pong():
         return True
 
     def bm_command_verack(self):
@@ -119,7 +120,7 @@ class UDPSocket(BMProto):  # pylint: disable=too-many-instance-attributes
         return
 
     def writable(self):
-        return self.write_buf
+        return bool(self.write_buf)
 
     def readable(self):
         return len(self.read_buf) < self._buf_len
@@ -144,7 +145,10 @@ class UDPSocket(BMProto):  # pylint: disable=too-many-instance-attributes
         try:
             retval = self.socket.sendto(
                 self.write_buf, ('<broadcast>', self.port))
-        except socket.error:
-            logger.error("socket error on sendto:", exc_info=True)
+        except (socket.error, OSError) as e:
+            if getattr(e, 'errno', None) == 49:  # Can't assign requested address (macOS)
+                logger.debug("UDP broadcast failed (Errno 49), standard on some macOS configs")
+            else:
+                logger.error("socket error on sendto: %s", e)
             retval = len(self.write_buf)
         self.slice_write_buf(retval)

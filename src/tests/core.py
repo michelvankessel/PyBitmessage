@@ -5,121 +5,124 @@ Tests for core and those that do not work outside
 
 import atexit
 import os
-import pickle  # nosec
-import Queue
-import random  # nosec
+import pickle
+import random
 import shutil
 import socket
 import string
 import sys
 import threading
 import time
+import queue
 import unittest
 
-import protocol
-import state
-import helper_sent
-import helper_addressbook
+import pybitmessage.protocol as protocol
+import pybitmessage.state as state
+import pybitmessage.helper_sent as helper_sent
+import pybitmessage.helper_addressbook as helper_addressbook
 
-from bmconfigparser import config
-from helper_msgcoding import MsgEncode, MsgDecode
-from helper_sql import sqlQuery
-from network import asyncore_pollchoose as asyncore, knownnodes
-from network.bmproto import BMProto
-import network.connectionpool as connectionpool
-from network.node import Node, Peer
-from network.tcp import Socks4aBMConnection, Socks5BMConnection, TCPConnection
-from queues import excQueue
-from version import softwareVersion
+from pybitmessage.bmconfigparser import config
+from pybitmessage.helper_msgcoding import MsgEncode, MsgDecode
+from pybitmessage.helper_sql import sqlQuery
+from pybitmessage.network import asyncore_pollchoose as asyncore, knownnodes
+from pybitmessage.network.bmproto import BMProto
+import pybitmessage.network.connectionpool as connectionpool
+from pybitmessage.network.node import Node, Peer
+from pybitmessage.network.tcp import Socks4aBMConnection, Socks5BMConnection, TCPConnection
+from pybitmessage.queues import excQueue
+from pybitmessage.version import softwareVersion
 
-from common import cleanup
+from .common import cleanup
 
 try:
-    socket.socket().bind(('127.0.0.1', 9050))
+    socket.socket().bind(("127.0.0.1", 9050))
     tor_port_free = True
 except (OSError, socket.error):
     tor_port_free = False
 
-frozen = getattr(sys, 'frozen', None)
-knownnodes_file = os.path.join(state.appdata, 'knownnodes.dat')
+frozen = getattr(sys, "frozen", None)
+knownnodes_file = os.path.join(state.appdata, "knownnodes.dat")
 
 
 def pickle_knownnodes():
     """Generate old style pickled knownnodes.dat"""
     now = time.time()
-    with open(knownnodes_file, 'wb') as dst:
-        pickle.dump({
-            stream: {
-                Peer(
-                    '%i.%i.%i.%i' % tuple([
-                        random.randint(1, 255) for i in range(4)]),
-                    8444): {'lastseen': now, 'rating': 0.1}
-                for i in range(1, 4)  # 3 test nodes
-            }
-            for stream in range(1, 4)  # 3 test streams
-        }, dst)
+    with open(knownnodes_file, "wb") as dst:
+        pickle.dump(
+            {
+                stream: {
+                    Peer(
+                        "%i.%i.%i.%i"
+                        % tuple([random.randint(1, 255) for i in range(4)]),
+                        8444,
+                    ): {"lastseen": now, "rating": 0.1}
+                    for i in range(1, 4)  # 3 test nodes
+                }
+                for stream in range(1, 4)  # 3 test streams
+            },
+            dst,
+        )
 
 
 class TestCore(unittest.TestCase):
     """Test case, which runs in main pybitmessage thread"""
-    addr = 'BM-2cVvkzJuQDsQHLqxRXc6HZGPLZnkBLzEZY'
+
+    addr = "BM-2cVvkzJuQDsQHLqxRXc6HZGPLZnkBLzEZY"
 
     def tearDown(self):
         """Reset possible unexpected settings after test"""
-        knownnodes.addKnownNode(1, Peer('127.0.0.1', 8444), is_self=True)
-        config.remove_option('bitmessagesettings', 'dontconnect')
-        config.remove_option('bitmessagesettings', 'onionservicesonly')
-        config.set('bitmessagesettings', 'socksproxytype', 'none')
+        knownnodes.addKnownNode(1, Peer("127.0.0.1", 8444), is_self=True)
+        config.remove_option("bitmessagesettings", "dontconnect")
+        config.remove_option("bitmessagesettings", "onionservicesonly")
+        config.set("bitmessagesettings", "socksproxytype", "none")
 
     def test_msgcoding(self):
         """test encoding and decoding (originally from helper_msgcoding)"""
         msg_data = {
-            'subject': ''.join(
-                random.choice(string.ascii_lowercase + string.digits)  # nosec
-                for _ in range(40)),
-            'body': ''.join(
-                random.choice(string.ascii_lowercase + string.digits)  # nosec
-                for _ in range(10000))
+            "subject": "".join(
+                random.choice(string.ascii_lowercase + string.digits) for _ in range(40)
+            ),
+            "body": "".join(
+                random.choice(string.ascii_lowercase + string.digits)
+                for _ in range(10000)
+            ),
         }
 
         obj1 = MsgEncode(msg_data, 1)
         obj2 = MsgEncode(msg_data, 2)
         obj3 = MsgEncode(msg_data, 3)
-        # print "1: %i 2: %i 3: %i" % (
-        # len(obj1.data), len(obj2.data), len(obj3.data))
 
         obj1e = MsgDecode(1, obj1.data)
         # no subject in trivial encoding
-        self.assertEqual(msg_data['body'], obj1e.body)
+        self.assertEqual(msg_data["body"], obj1e.body)
 
         obj2e = MsgDecode(2, obj2.data)
-        self.assertEqual(msg_data['subject'], obj2e.subject)
-        self.assertEqual(msg_data['body'], obj2e.body)
+        self.assertEqual(msg_data["subject"], obj2e.subject)
+        self.assertEqual(msg_data["body"], obj2e.body)
 
         obj3e = MsgDecode(3, obj3.data)
-        self.assertEqual(msg_data['subject'], obj3e.subject)
-        self.assertEqual(msg_data['body'], obj3e.body)
+        self.assertEqual(msg_data["subject"], obj3e.subject)
+        self.assertEqual(msg_data["body"], obj3e.body)
 
         try:
-            MsgEncode({'body': 'A msg with no subject'}, 3)
+            MsgEncode({"body": "A msg with no subject"}, 3)
         except Exception as e:
             self.fail(
-                'Exception %s while trying to encode message'
-                ' with no subject!' % e
+                "Exception %s while trying to encode message with no subject!" % e
             )
 
-    @unittest.skip('Bad environment for asyncore.loop')
+    @unittest.skip("Bad environment for asyncore.loop")
     def test_tcpconnection(self):
         """initial fill script from network.tcp"""
-        config.set('bitmessagesettings', 'dontconnect', 'true')
+        config.set("bitmessagesettings", "dontconnect", "true")
         try:
             for peer in (Peer("127.0.0.1", 8448),):
                 direct = TCPConnection(peer)
                 while asyncore.socket_map:
                     print("loop, state = %s" % direct.state)
                     asyncore.loop(timeout=10, count=1)
-        except:  # noqa:E722
-            self.fail('Exception in test loop')
+        except Exception:
+            self.fail("Exception in test loop")
 
     def _load_knownnodes(self, filepath):
         with knownnodes.knownNodesLock:
@@ -127,7 +130,7 @@ class TestCore(unittest.TestCase):
         try:
             knownnodes.readKnownNodes()
         except AttributeError as e:
-            self.fail('Failed to load knownnodes: %s' % e)
+            self.fail("Failed to load knownnodes: %s" % e)
 
     @staticmethod
     def _wipe_knownnodes():
@@ -137,29 +140,30 @@ class TestCore(unittest.TestCase):
     @staticmethod
     def _outdate_knownnodes():
         with knownnodes.knownNodesLock:
-            for nodes in knownnodes.knownNodes.itervalues():
-                for node in nodes.itervalues():
-                    node['lastseen'] -= 2419205  # older than 28 days
+            for nodes in knownnodes.knownNodes.values():
+                for node in nodes.values():
+                    node["lastseen"] -= 2419205  # older than 28 days
 
     def test_knownnodes_pickle(self):
         """ensure that 3 nodes was imported for each stream"""
         pickle_knownnodes()
         self._wipe_knownnodes()
         knownnodes.readKnownNodes()
-        for nodes in knownnodes.knownNodes.itervalues():
+        for nodes in knownnodes.knownNodes.values():
             self_count = n = 0
-            for n, node in enumerate(nodes.itervalues()):
-                if node.get('self'):
+            for n, node in enumerate(nodes.values()):
+                if node.get("self"):
                     self_count += 1
             self.assertEqual(n - self_count, 2)
 
     def test_knownnodes_default(self):
         """test adding default knownnodes if nothing loaded"""
-        cleanup(files=('knownnodes.dat',))
+        cleanup(files=("knownnodes.dat",))
         self._wipe_knownnodes()
         knownnodes.readKnownNodes()
         self.assertGreaterEqual(
-            len(knownnodes.knownNodes[1]), len(knownnodes.DEFAULT_NODES))
+            len(knownnodes.knownNodes[1]), len(knownnodes.DEFAULT_NODES)
+        )
 
     def test_0_cleaner(self):
         """test knownnodes starvation leading to IndexError in Asyncore"""
@@ -170,15 +174,15 @@ class TestCore(unittest.TestCase):
         while True:
             try:
                 thread, exc = excQueue.get(block=False)
-            except Queue.Empty:
+            except queue.Empty:
                 return
-            if thread == 'Asyncore' and isinstance(exc, IndexError):
+            if thread == "Asyncore" and isinstance(exc, IndexError):
                 self.fail("IndexError because of empty knownNodes!")
 
     def _initiate_bootstrap(self):
-        config.set('bitmessagesettings', 'dontconnect', 'true')
+        config.set("bitmessagesettings", "dontconnect", "true")
         self._wipe_knownnodes()
-        knownnodes.addKnownNode(1, Peer('127.0.0.1', 8444), is_self=True)
+        knownnodes.addKnownNode(1, Peer("127.0.0.1", 8444), is_self=True)
         knownnodes.cleanupKnownNodes(connectionpool.pool)
         time.sleep(5)
 
@@ -189,12 +193,11 @@ class TestCore(unittest.TestCase):
         fail otherwise.
         """
         _started = time.time()
-        config.remove_option('bitmessagesettings', 'dontconnect')
-        proxy_type = config.safeGet(
-            'bitmessagesettings', 'socksproxytype')
-        if proxy_type == 'SOCKS5':
+        config.remove_option("bitmessagesettings", "dontconnect")
+        proxy_type = config.safeGet("bitmessagesettings", "socksproxytype")
+        if proxy_type == "SOCKS5":
             connection_base = Socks5BMConnection
-        elif proxy_type == 'SOCKS4a':
+        elif proxy_type == "SOCKS4a":
             connection_base = Socks4aBMConnection
         else:
             connection_base = TCPConnection
@@ -202,32 +205,31 @@ class TestCore(unittest.TestCase):
         while c > 0:
             time.sleep(1)
             c -= 2
-            for peer, con in connectionpool.pool.outboundConnections.iteritems():
+            for peer, con in connectionpool.pool.outboundConnections.items():
                 if (
-                    peer.host.startswith('bootstrap')
-                    or peer.host == 'quzwelsuziwqgpt2.onion'
+                    peer.host.startswith("bootstrap")
+                    or peer.host == "quzwelsuziwqgpt2.onion"
                 ):
                     if c < 60:
                         self.fail(
-                            'Still connected to bootstrap node %s after %.2f'
-                            ' seconds' % (peer, time.time() - _started))
+                            "Still connected to bootstrap node %s after %.2f"
+                            " seconds" % (peer, time.time() - _started)
+                        )
                     c += 1
                     break
                 else:
                     self.assertIsInstance(con, connection_base)
-                    self.assertNotEqual(peer.host, '127.0.0.1')
+                    self.assertNotEqual(peer.host, "127.0.0.1")
                     if full and not con.fullyEstablished:
                         continue
                     return
-        self.fail(
-            'Failed to connect during %.2f sec' % (time.time() - _started))
+        self.fail("Failed to connect during %.2f sec" % (time.time() - _started))
 
     def _check_knownnodes(self):
-        for stream in knownnodes.knownNodes.itervalues():
+        for stream in knownnodes.knownNodes.values():
             for peer in stream:
-                if peer.host.startswith('bootstrap'):
-                    self.fail(
-                        'Bootstrap server in knownnodes: %s' % peer.host)
+                if peer.host.startswith("bootstrap"):
+                    self.fail("Bootstrap server in knownnodes: %s" % peer.host)
 
     def test_dontconnect(self):
         """all connections are closed 5 seconds after setting dontconnect"""
@@ -238,8 +240,7 @@ class TestCore(unittest.TestCase):
         """test connection to bootstrap servers"""
         self._initiate_bootstrap()
         for port in [8080, 8444]:
-            for item in socket.getaddrinfo(
-                    'bootstrap%s.bitmessage.org' % port, 80):
+            for item in socket.getaddrinfo("bootstrap%s.bitmessage.org" % port, 80):
                 try:
                     addr = item[4][0]
                     socket.inet_aton(item[4][0])
@@ -251,65 +252,71 @@ class TestCore(unittest.TestCase):
 
     def test_bootstrap(self):
         """test bootstrapping"""
-        config.set('bitmessagesettings', 'socksproxytype', 'none')
+        config.set("bitmessagesettings", "socksproxytype", "none")
         self._initiate_bootstrap()
         self._check_connection()
         self._check_knownnodes()
         # backup potentially enough knownnodes
         knownnodes.saveKnownNodes()
         with knownnodes.knownNodesLock:
-            shutil.copyfile(knownnodes_file, knownnodes_file + '.bak')
+            shutil.copyfile(knownnodes_file, knownnodes_file + ".bak")
 
-    @unittest.skipIf(tor_port_free, 'no running tor detected')
+    @unittest.skipIf(tor_port_free, "no running tor detected")
     def test_bootstrap_tor(self):
         """test bootstrapping with tor"""
-        config.set('bitmessagesettings', 'socksproxytype', 'SOCKS5')
+        config.set("bitmessagesettings", "socksproxytype", "SOCKS5")
         self._initiate_bootstrap()
         self._check_connection()
         self._check_knownnodes()
 
-    @unittest.skip('There are no onion bootstrap servers available')
-    @unittest.skipIf(tor_port_free, 'no running tor detected')
+    @unittest.skip("There are no onion bootstrap servers available")
+    @unittest.skipIf(tor_port_free, "no running tor detected")
     def test_onionservicesonly(self):
         """ensure bitmessage doesn't try to connect to non-onion nodes
         if onionservicesonly set, wait at least 3 onion nodes
         """
-        config.set('bitmessagesettings', 'socksproxytype', 'SOCKS5')
-        config.set('bitmessagesettings', 'onionservicesonly', 'true')
-        self._load_knownnodes(knownnodes_file + '.bak')
-        if len([
-            node for node in knownnodes.knownNodes[1]
-            if node.host.endswith('.onion')
-        ]) < 3:  # generate fake onion nodes if have not enough
+        config.set("bitmessagesettings", "socksproxytype", "SOCKS5")
+        config.set("bitmessagesettings", "onionservicesonly", "true")
+        self._load_knownnodes(knownnodes_file + ".bak")
+        if (
+            len(
+                [
+                    node
+                    for node in knownnodes.knownNodes[1]
+                    if node.host.endswith(".onion")
+                ]
+            )
+            < 3
+        ):  # generate fake onion nodes if have not enough
             with knownnodes.knownNodesLock:
-                for f in ('a', 'b', 'c', 'd'):
-                    knownnodes.addKnownNode(1, Peer(f * 16 + '.onion', 8444))
-        config.remove_option('bitmessagesettings', 'dontconnect')
+                for f in ("a", "b", "c", "d"):
+                    knownnodes.addKnownNode(1, Peer(f * 16 + ".onion", 8444))
+        config.remove_option("bitmessagesettings", "dontconnect")
         tried_hosts = set()
         for _ in range(360):
             time.sleep(1)
             for peer in connectionpool.pool.outboundConnections:
-                if peer.host.endswith('.onion'):
+                if peer.host.endswith(".onion"):
                     tried_hosts.add(peer.host)
                 else:
-                    if not peer.host.startswith('bootstrap'):
+                    if not peer.host.startswith("bootstrap"):
                         self.fail(
-                            'Found non onion hostname %s in outbound'
-                            'connections!' % peer.host)
+                            "Found non onion hostname %s in outbound"
+                            "connections!" % peer.host
+                        )
                 if len(tried_hosts) > 2:
                     return
-        self.fail('Failed to find at least 3 nodes to connect within 360 sec')
+        self.fail("Failed to find at least 3 nodes to connect within 360 sec")
 
-    @unittest.skipIf(frozen, 'skip fragile test')
+    @unittest.skipIf(frozen, "skip fragile test")
     def test_udp(self):
         """check default udp setting and presence of Announcer thread"""
-        self.assertTrue(
-            config.safeGetBoolean('bitmessagesettings', 'udp'))
+        self.assertTrue(config.safeGetBoolean("bitmessagesettings", "udp"))
         for thread in threading.enumerate():
-            if thread.name == 'Announcer':  # find Announcer thread
+            if thread.name == "Announcer":  # find Announcer thread
                 break
         else:
-            return self.fail('No Announcer thread found')
+            return self.fail("No Announcer thread found")
 
     @staticmethod
     def _decode_msg(data, pattern):
@@ -322,15 +329,16 @@ class TestCore(unittest.TestCase):
         """check encoding/decoding of the version message"""
         dandelion_enabled = True
         # with single stream
-        msg = protocol.assembleVersionMessage('127.0.0.1', 8444, [1], dandelion_enabled)
+        msg = protocol.assembleVersionMessage("127.0.0.1", 8444, [1], dandelion_enabled)
         decoded = self._decode_msg(msg, "IQQiiQlsLv")
         peer, _, ua, streams = self._decode_msg(msg, "IQQiiQlsLv")[4:]
-        self.assertEqual(
-            peer, Node(11 if dandelion_enabled else 3, '127.0.0.1', 8444))
-        self.assertEqual(ua, '/PyBitmessage:' + softwareVersion + '/')
+        self.assertEqual(peer, Node(11 if dandelion_enabled else 3, "127.0.0.1", 8444))
+        self.assertEqual(ua, "/PyBitmessage:" + softwareVersion + "/")
         self.assertEqual(streams, [1])
         # with multiple streams
-        msg = protocol.assembleVersionMessage('127.0.0.1', 8444, [1, 2, 3], dandelion_enabled)
+        msg = protocol.assembleVersionMessage(
+            "127.0.0.1", 8444, [1, 2, 3], dandelion_enabled
+        )
         decoded = self._decode_msg(msg, "IQQiiQlslv")
         peer, _, ua = decoded[4:7]
         streams = decoded[7:]
@@ -338,64 +346,66 @@ class TestCore(unittest.TestCase):
 
     def test_insert_method_msgid(self):
         """Test insert method of helper_sent module with message sending"""
-        fromAddress = 'BM-2cTrmD22fLRrumi3pPLg1ELJ6PdAaTRTdfg'
-        toAddress = 'BM-2cUGaEcGz9Zft1SPAo8FJtfzyADTpEgU9U'
-        message = 'test message'
-        subject = 'test subject'
+        fromAddress = "BM-2cTrmD22fLRrumi3pPLg1ELJ6PdAaTRTdfg"
+        toAddress = "BM-2cUGaEcGz9Zft1SPAo8FJtfzyADTpEgU9U"
+        message = "test message"
+        subject = "test subject"
         result = helper_sent.insert(
-            toAddress=toAddress, fromAddress=fromAddress,
-            subject=subject, message=message
+            toAddress=toAddress,
+            fromAddress=fromAddress,
+            subject=subject,
+            message=message,
         )
-        queryreturn = sqlQuery(
-            '''select msgid from sent where ackdata=?''', result)
-        self.assertNotEqual(queryreturn[0][0] if queryreturn else '', '')
+        queryreturn = sqlQuery("""select msgid from sent where ackdata=?""", result)
+        self.assertNotEqual(queryreturn[0][0] if queryreturn else "", "")
 
         column_type = sqlQuery(
-            '''select typeof(msgid) from sent where ackdata=?''', result)
-        self.assertEqual(column_type[0][0] if column_type else '', 'text')
+            """select typeof(msgid) from sent where ackdata=?""", result
+        )
+        self.assertEqual(column_type[0][0] if column_type else "", "text")
 
-    @unittest.skipIf(frozen, 'not packed test_pattern into the bundle')
+    @unittest.skipIf(frozen, "not packed test_pattern into the bundle")
     def test_old_knownnodes_pickle(self):
         """Testing old (v0.6.2) version knownnodes.dat file"""
         try:
             self._load_knownnodes(
                 os.path.join(
                     os.path.abspath(os.path.dirname(__file__)),
-                    'test_pattern', 'knownnodes.dat'))
+                    "test_pattern",
+                    "knownnodes.dat",
+                )
+            )
         except self.failureException:
             raise
         finally:
-            cleanup(files=('knownnodes.dat',))
+            cleanup(files=("knownnodes.dat",))
 
     @staticmethod
     def delete_address_from_addressbook(address):
         """Clean up addressbook"""
-        sqlQuery('''delete from addressbook where address=?''', address)
+        sqlQuery("""delete from addressbook where address=?""", address)
 
     def test_add_same_address_twice_in_addressbook(self):
         """checking same address is added twice in addressbook"""
-        self.assertTrue(
-            helper_addressbook.insert(label='test1', address=self.addr))
-        self.assertFalse(
-            helper_addressbook.insert(label='test1', address=self.addr))
+        self.assertTrue(helper_addressbook.insert(label="test1", address=self.addr))
+        self.assertFalse(helper_addressbook.insert(label="test1", address=self.addr))
         self.delete_address_from_addressbook(self.addr)
 
     def test_is_address_present_in_addressbook(self):
         """checking is address added in addressbook or not"""
-        helper_addressbook.insert(label='test1', address=self.addr)
+        helper_addressbook.insert(label="test1", address=self.addr)
         queryreturn = sqlQuery(
-            'select count(*) from addressbook where address=?', self.addr)
+            "select count(*) from addressbook where address=?", self.addr
+        )
         self.assertEqual(queryreturn[0][0], 1)
         self.delete_address_from_addressbook(self.addr)
 
     def test_adding_two_same_case_sensitive_addresses(self):
         """Testing same case sensitive address store in addressbook"""
-        address1 = 'BM-2cVWtdUzPwF7UNGDrZftWuHWiJ6xxBpiSP'
-        address2 = 'BM-2CvwTDuZpWf7ungdRzFTwUhwIj6XXbPIsp'
-        self.assertTrue(
-            helper_addressbook.insert(label='test1', address=address1))
-        self.assertTrue(
-            helper_addressbook.insert(label='test2', address=address2))
+        address1 = "BM-2cVWtdUzPwF7UNGDrZftWuHWiJ6xxBpiSP"
+        address2 = "BM-2CvwTDuZpWf7ungdRzFTwUhwIj6XXbPIsp"
+        self.assertTrue(helper_addressbook.insert(label="test1", address=address1))
+        self.assertTrue(helper_addressbook.insert(label="test2", address=address2))
         self.delete_address_from_addressbook(address1)
         self.delete_address_from_addressbook(address2)
 
@@ -408,30 +418,28 @@ def run():
     if frozen:
         try:
             from pybitmessage import tests
-            suite.addTests(loader.loadTestsFromModule(tests))
-        except ImportError:
-            pass
-        try:
-            from pyelliptic import tests
+
             suite.addTests(loader.loadTestsFromModule(tests))
         except ImportError:
             pass
     try:
         import bitmessageqt.tests
-        from xvfbwrapper import Xvfb
+        import importlib
+        xvfbwrapper = importlib.import_module('xvfbwrapper')
+        Xvfb = xvfbwrapper.Xvfb
     except ImportError:
         Xvfb = None
     else:
         qt_tests = loader.loadTestsFromModule(bitmessageqt.tests)
         suite.addTests(qt_tests)
 
-    def keep_exc(ex_cls, exc, tb):  # pylint: disable=unused-argument
+    def keep_exc(ex_cls, exc, tb):
         """Own exception hook for test cases"""
-        excQueue.put(('tests', exc))
+        excQueue.put(("tests", exc))
 
     sys.excepthook = keep_exc
 
-    if Xvfb:
+    if Xvfb is not None:
         vdisplay = Xvfb(width=1024, height=768)
         vdisplay.start()
         atexit.register(vdisplay.stop)

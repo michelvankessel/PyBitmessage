@@ -2,10 +2,8 @@
 
 import inspect
 import re
-from HTMLParser import HTMLParser
-
-from urllib import quote_plus
-from urlparse import urlparse
+from html.parser import HTMLParser
+from urllib.parse import quote_plus, urlparse
 
 
 class SafeHTMLParser(HTMLParser):
@@ -123,10 +121,11 @@ class SafeHTMLParser(HTMLParser):
         self.sanitised += "&" + name + ";"
 
     def feed(self, data):
-        try:
-            data = unicode(data, 'utf-8')
-        except UnicodeDecodeError:
-            data = unicode(data, 'utf-8', errors='replace')
+        if isinstance(data, bytes):
+            try:
+                data = str(data, 'utf-8')
+            except UnicodeDecodeError:
+                data = str(data, 'utf-8', errors='replace')
         HTMLParser.feed(self, data)
         tmp = SafeHTMLParser.replace_pre(data)
         tmp = self.uriregex1.sub(r'<a href="\1">\1</a>', tmp)

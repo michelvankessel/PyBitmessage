@@ -5,15 +5,15 @@ dev/bloomfiltertest.py
 """
 
 import sqlite3
-from os import getenv, path
+from os import path
 from time import time
 
-from pybloom import BloomFilter as BloomFilter1  # pylint: disable=import-error
-from pybloomfilter import BloomFilter as BloomFilter2  # pylint: disable=import-error
+from pybloom import BloomFilter as BloomFilter1
+from pybloomfilter import BloomFilter as BloomFilter2
 
 # Ubuntu: apt-get install python-pybloomfiltermmap
 
-conn = sqlite3.connect(path.join(getenv("HOME"), '.config/PyBitmessage/messages.dat'))
+conn = sqlite3.connect(path.join(path.expanduser('~'), '.config/PyBitmessage/messages.dat'))
 
 conn.text_factory = str
 cur = conn.cursor()
@@ -32,8 +32,8 @@ bf2 = BloomFilter2(capacity=filtersize, error_rate=errorrate)
 
 item = '''SELECT hash FROM inventory'''
 cur.execute(item, '')
-bf1time = 0
-bf2time = 0
+bf1time = 0.0
+bf2time = 0.0
 for row in cur.fetchall():
     rawlen += len(row[0])
     try:

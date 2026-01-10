@@ -1,6 +1,3 @@
-# pylint: disable=unused-argument, import-error, too-many-arguments
-# pylint: disable=unnecessary-comprehension, no-member, no-name-in-module
-
 """
 draft.py
 ==============
@@ -40,7 +37,7 @@ class Draft(Screen):
     def init_ui(self, dt=0):
         """Initialize the UI and load draft messages"""
         self.load_draft()
-        logger.debug(f"UI initialized with dt: {dt}")  # noqa: E999
+        logger.debug(f"UI initialized with dt: {dt}")
 
     def load_draft(self, where="", what=""):
         """Load the list of draft messages"""

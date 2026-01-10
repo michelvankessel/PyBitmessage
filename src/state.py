@@ -1,8 +1,9 @@
-"""
-Global runtime variables.
-"""
+from typing import Any
 
-neededPubkeys = {}
+neededPubkeys: dict = {}
+
+Peer: Any = None
+
 
 extPort = None
 """For UPnP"""
@@ -39,9 +40,9 @@ maximumNumberOfHalfOpenConnections = 0
 
 maximumLengthOfTimeToBotherResendingMessages = 0
 
-ownAddresses = {}
+ownAddresses: dict = {}
 
-discoveredPeers = {}
+discoveredPeers: dict = {}
 
 kivy = False
 
@@ -62,7 +63,7 @@ GUI status icon color
 .. note:: bad style, refactor it
 """
 
-ackdataForWhichImWatching = {}
+ackdataForWhichImWatching: dict = {}
 
 thisapp = None
 """Singleton instance"""
@@ -70,7 +71,7 @@ thisapp = None
 backend_py3_compatible = False
 
 
-class Placeholder(object):  # pylint:disable=too-few-public-methods
+class Placeholder(object):
     """Placeholder class"""
 
     def __init__(self, className):

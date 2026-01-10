@@ -1,4 +1,4 @@
-﻿# pylint: disable=too-many-statements,too-many-branches,protected-access,no-self-use
+﻿
 """
 Complete UPnP port forwarding implementation in separate thread.
 Reference: http://mattscodecave.com/posts/using-python-and-upnp-to-forward-a-port.html
@@ -8,12 +8,13 @@ import re
 import socket
 import time
 from random import randint
-from xml.dom.minidom import Document  # nosec B408
+from typing import cast
+from xml.dom.minidom import Document, Element, Text
 
 from defusedxml.minidom import parseString
-from six.moves import http_client as httplib
-from six.moves.urllib.parse import urlparse
-from six.moves.urllib.request import urlopen
+import http.client as httplib
+from urllib.parse import urlparse
+from urllib.request import urlopen
 
 import queues
 import state
@@ -82,7 +83,7 @@ class UPnPError(Exception):
         logger.error(message)
 
 
-class Router:  # pylint: disable=old-style-class
+class Router:
     """Encapulate routing"""
     name = ""
     path = ""
@@ -103,7 +104,7 @@ class Router:  # pylint: disable=old-style-class
 
         try:
             self.routerPath = urlparse(header['location'])
-            if not self.routerPath or not hasattr(self.routerPath, "hostname"):
+            if not self.routerPath or not self.routerPath.hostname:
                 logger.error("UPnP: no hostname: %s", header['location'])
         except KeyError:
             logger.error("UPnP: missing location header")
@@ -112,20 +113,20 @@ class Router:  # pylint: disable=old-style-class
         parsed_url = urlparse(header['location'])
         if parsed_url.scheme not in ['http', 'https']:
             raise UPnPError("Unsupported URL scheme: %s" % parsed_url.scheme)
-        directory = urlopen(header['location']).read()  # nosec B310
+        directory = urlopen(header['location']).read()
 
         # create a DOM object that represents the `directory` document
-        dom = parseString(directory)
+        dom = parseString(directory.decode('utf-8'))
 
-        self.name = dom.getElementsByTagName('friendlyName')[0].childNodes[0].data
+        self.name = cast(Text, dom.getElementsByTagName('friendlyName')[0].childNodes[0]).data
         # find all 'serviceType' elements
         service_types = dom.getElementsByTagName('serviceType')
 
         for service in service_types:
-            if service.childNodes[0].data.find('WANIPConnection') > 0 or \
-                    service.childNodes[0].data.find('WANPPPConnection') > 0:
-                self.path = service.parentNode.getElementsByTagName('controlURL')[0].childNodes[0].data
-                self.upnp_schema = re.sub(r'[^A-Za-z0-9:-]', '', service.childNodes[0].data.split(':')[-2])
+            if cast(Text, service.childNodes[0]).data.find('WANIPConnection') > 0 or \
+                    cast(Text, service.childNodes[0]).data.find('WANPPPConnection') > 0:
+                self.path = cast(Text, cast(Element, service.parentNode).getElementsByTagName('controlURL')[0].childNodes[0]).data
+                self.upnp_schema = re.sub(r'[^A-Za-z0-9:-]', '', cast(Text, service.childNodes[0]).data.split(':')[-2])
 
     def AddPortMapping(
             self,
@@ -170,14 +171,17 @@ class Router:  # pylint: disable=old-style-class
 
         resp = self.soapRequest(
             self.upnp_schema + ':1', 'GetExternalIPAddress')
-        dom = parseString(resp.read())
-        return dom.getElementsByTagName(
-            'NewExternalIPAddress')[0].childNodes[0].data
+        dom = parseString(resp.read().decode('utf-8'))
+        return cast(Text, dom.getElementsByTagName(
+            'NewExternalIPAddress')[0].childNodes[0]).data
 
     def soapRequest(self, service, action, arguments=None):
         """Make a request to a router"""
 
-        conn = httplib.HTTPConnection(self.routerPath.hostname, self.routerPath.port)
+        if not self.routerPath:
+            raise UPnPError("Router path is not set")
+
+        conn = httplib.HTTPConnection(self.routerPath.hostname or "", self.routerPath.port)
         conn.request(
             'POST',
             self.path,
@@ -192,12 +196,12 @@ class Router:  # pylint: disable=old-style-class
         if resp.status == 500:
             respData = resp.read()
             try:
-                dom = parseString(respData)
+                dom = parseString(respData.decode('utf-8'))
                 errinfo = dom.getElementsByTagName('errorDescription')
                 if errinfo:
                     logger.error("UPnP error: %s", respData)
-                    raise UPnPError(errinfo[0].childNodes[0].data)
-            except:  # noqa:E722
+                    raise UPnPError(cast(Text, errinfo[0].childNodes[0]).data)
+            except Exception:
                 raise UPnPError("Unable to parse SOAP error: %s" % (respData))
         return resp
 
@@ -213,7 +217,7 @@ class uPnPThread(StoppableThread):
 
     def __init__(self):
         super(uPnPThread, self).__init__(name="uPnPThread")
-        self.extPort = config.safeGetInt('bitmessagesettings', 'extport', default=None)
+        self.extPort = config.safeGetInt('bitmessagesettings', 'extport', default=0)
         self.localIP = self.getLocalIP()
         self.routers = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -238,14 +242,13 @@ class uPnPThread(StoppableThread):
             if not bound:
                 time.sleep(1)
 
-        # pylint: disable=attribute-defined-outside-init
         self.localPort = config.getint('bitmessagesettings', 'port')
 
         while state.shutdown == 0 and config.safeGetBoolean('bitmessagesettings', 'upnp'):
             if time.time() - lastSent > self.sendSleep and not self.routers:
                 try:
                     self.sendSearchRouter()
-                except:  # nosec B110 # noqa:E722 # pylint:disable=bare-except
+                except Exception:
                     pass
                 lastSent = time.time()
             try:
@@ -266,7 +269,7 @@ class uPnPThread(StoppableThread):
                                 newRouter.GetExternalIPAddress(),
                                 self.extPort
                             )
-                        except:  # noqa:E722
+                        except Exception:
                             logger.debug('Failed to get external IP')
                         else:
                             with knownnodes.knownNodesLock:
@@ -274,22 +277,22 @@ class uPnPThread(StoppableThread):
                                     1, self_peer, is_self=True)
                         queues.UISignalQueue.put(('updateStatusBar', tr._translate(
                             "MainWindow", 'UPnP port mapping established on port %1'
-                        ).arg(str(self.extPort))))
+                        ).replace('%1', str(self.extPort))))
                         break
             except socket.timeout:
                 pass
-            except:  # noqa:E722
+            except Exception:
                 logger.error("Failure running UPnP router search.", exc_info=True)
             for router in self.routers:
                 if router.extPort is None:
                     self.createPortMapping(router)
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
-        except (IOError, OSError):  # noqa:E722
+        except (IOError, OSError):
             pass
         try:
             self.sock.close()
-        except (IOError, OSError):  # noqa:E722
+        except (IOError, OSError):
             pass
         deleted = False
         for router in self.routers:
@@ -319,8 +322,8 @@ class uPnPThread(StoppableThread):
 
         try:
             logger.debug("Sending UPnP query")
-            self.sock.sendto(ssdpRequest, (uPnPThread.SSDP_ADDR, uPnPThread.SSDP_PORT))
-        except:  # noqa:E722
+            self.sock.sendto(ssdpRequest.encode(), (uPnPThread.SSDP_ADDR, uPnPThread.SSDP_PORT))
+        except Exception:
             logger.exception("UPnP send query failed")
 
     def createPortMapping(self, router):
@@ -334,7 +337,7 @@ class uPnPThread(StoppableThread):
                 elif i == 1 and self.extPort:
                     extPort = self.extPort  # try external port from last time next
                 else:
-                    extPort = randint(32767, 65535)  # nosec B311
+                    extPort = randint(32767, 65535)
                 logger.debug(
                     "Attempt %i, requesting UPnP mapping for %s:%i on external port %i",
                     i,

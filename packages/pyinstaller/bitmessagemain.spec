@@ -16,7 +16,7 @@ sslName = 'OpenSSL-Win%i' % arch
 openSSLPath = os.path.join(cdrivePath, sslName)
 msvcrDllPath = os.path.join(cdrivePath, "windows", "system32")
 outPath = os.path.join(spec_root, "bitmessagemain")
-qtBase = "PyQt4"
+qtBase = "PyQt6"
 
 sys.path.insert(0, srcPath)
 os.chdir(srcPath)
@@ -89,9 +89,9 @@ a.datas += addTranslations()
 a.datas += [('default.ini', os.path.join(srcPath, 'default.ini'), 'DATA')]
 
 excluded_binaries = [
-    'QtOpenGL4.dll',
-    'QtSvg4.dll',
-    'QtXml4.dll',
+    'Qt6OpenGL.dll',
+    'Qt6Svg.dll',
+    'Qt6Xml.dll',
 ]
 a.binaries = TOC([x for x in a.binaries if x[0] not in excluded_binaries])
 

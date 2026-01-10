@@ -6,7 +6,7 @@ import time
 
 import protocol
 import state
-import connectionpool
+from . import connectionpool
 from network import dandelion_ins
 from highlevelcrypto import calculateInventoryHash
 
@@ -131,7 +131,7 @@ class BMObject(object):
             self.checkBroadcast()
         # other objects don't require other types of tests
 
-    def checkMessage(self):  # pylint: disable=no-self-use
+    def checkMessage(self):
         """"Message" object type checks."""
         return
 

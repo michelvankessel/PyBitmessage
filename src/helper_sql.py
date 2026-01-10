@@ -18,12 +18,12 @@ SQLite objects can only be used from one thread.
 
 import threading
 
-from six.moves import queue
+import queue
 
 
-sqlSubmitQueue = queue.Queue()
+sqlSubmitQueue: queue.Queue = queue.Queue()
 """the queue for SQL"""
-sqlReturnQueue = queue.Queue()
+sqlReturnQueue: queue.Queue = queue.Queue()
 """the queue for results"""
 sql_lock = threading.Lock()
 """ lock to prevent queueing a new request until the previous response
@@ -37,6 +37,15 @@ sql_timeout = 60
 """timeout for waiting for sql_ready in seconds"""
 
 
+def _sql_get():
+    while sql_available or not sqlReturnQueue.empty():
+        try:
+            return sqlReturnQueue.get(timeout=0.1)
+        except queue.Empty:
+            continue
+    raise RuntimeError("SQL thread exited")
+
+
 def sqlQuery(sql_statement, *args):
     """
     Query sqlite and return results
@@ -45,7 +54,8 @@ def sqlQuery(sql_statement, *args):
     :param list args: SQL query parameters
     :rtype: list
     """
-    assert sql_available
+    if not sql_available:
+        return []
     sql_lock.acquire()
     sqlSubmitQueue.put(sql_statement)
 
@@ -55,7 +65,10 @@ def sqlQuery(sql_statement, *args):
         sqlSubmitQueue.put(args[0])
     else:
         sqlSubmitQueue.put(args)
-    queryreturn, _ = sqlReturnQueue.get()
+    try:
+        queryreturn, _ = _sql_get()
+    except RuntimeError:
+        queryreturn = []
     sql_lock.release()
 
     return queryreturn
@@ -65,7 +78,8 @@ def sqlExecuteChunked(sql_statement, idCount, *args):
     """Execute chunked SQL statement to avoid argument limit"""
     # SQLITE_MAX_VARIABLE_NUMBER,
     # unfortunately getting/setting isn't exposed to python
-    assert sql_available
+    if not sql_available:
+        return 0
     sqlExecuteChunked.chunkSize = 999
 
     if idCount == 0 or idCount > len(args):
@@ -87,7 +101,10 @@ def sqlExecuteChunked(sql_statement, idCount, *args):
             sqlSubmitQueue.put(
                 args[0:len(args) - idCount] + chunk_slice
             )
-            ret_val = sqlReturnQueue.get()
+            try:
+                ret_val = _sql_get()
+            except RuntimeError:
+                break
             total_row_count += ret_val[1]
         sqlSubmitQueue.put('commit')
     return total_row_count
@@ -95,7 +112,8 @@ def sqlExecuteChunked(sql_statement, idCount, *args):
 
 def sqlExecute(sql_statement, *args):
     """Execute SQL statement (optionally with arguments)"""
-    assert sql_available
+    if not sql_available:
+        return 0
     sql_lock.acquire()
     sqlSubmitQueue.put(sql_statement)
 
@@ -103,7 +121,10 @@ def sqlExecute(sql_statement, *args):
         sqlSubmitQueue.put('')
     else:
         sqlSubmitQueue.put(args)
-    _, rowcount = sqlReturnQueue.get()
+    try:
+        _, rowcount = _sql_get()
+    except RuntimeError:
+        rowcount = 0
     sqlSubmitQueue.put('commit')
     sql_lock.release()
     return rowcount
@@ -120,7 +141,8 @@ def sqlExecuteScript(sql_statement):
 
 def sqlStoredProcedure(procName):
     """Schedule procName to be run"""
-    assert sql_available
+    if not sql_available:
+        return
     sql_lock.acquire()
     sqlSubmitQueue.put(procName)
     if procName == "exit":
@@ -143,11 +165,15 @@ class SqlBulkExecute(object):
     @staticmethod
     def execute(sql_statement, *args):
         """Used for statements that do not return results."""
-        assert sql_available
+        if not sql_available:
+            return
         sqlSubmitQueue.put(sql_statement)
 
         if args == ():
             sqlSubmitQueue.put('')
         else:
             sqlSubmitQueue.put(args)
-        sqlReturnQueue.get()
+        try:
+            _sql_get()
+        except RuntimeError:
+            pass

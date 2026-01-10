@@ -4,5 +4,8 @@ from pybitmessage import state
 if __name__ == '__main__':
     state.kivy = True
     print("Kivy Loading......")
-    from bitmessagemock import main
+    try:
+        from .bitmessagemock import main
+    except (ImportError, ValueError):
+        from bitmessagemock import main  # type: ignore
     main()

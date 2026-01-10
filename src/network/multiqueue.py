@@ -5,12 +5,12 @@ Elements are added into a random subqueue, and retrieval rotates
 import random
 from collections import deque
 
-from six.moves import queue
+import queue
 
 
 class MultiQueue(queue.Queue):
     """A base queue class"""
-    # pylint: disable=redefined-builtin,attribute-defined-outside-init
+
     defaultQueueCount = 10
 
     def __init__(self, maxsize=0, count=0):
@@ -33,7 +33,7 @@ class MultiQueue(queue.Queue):
     # Put a new item in the queue
     def _put(self, item):
         # self.queue.append(item)
-        self.queues[random.randrange(self.queueCount)].append(  # nosec B311
+        self.queues[random.randrange(self.queueCount)].append(
             (item))
 
     # Get an item from the queue

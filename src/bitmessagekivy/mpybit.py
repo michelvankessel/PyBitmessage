@@ -1,8 +1,3 @@
-# pylint: disable=too-many-public-methods, unused-variable, too-many-ancestors
-# pylint: disable=too-few-public-methods, unused-argument
-# pylint: disable=attribute-defined-outside-init, too-many-instance-attributes
-# pylint: disable=broad-exception-caught, no-self-use
-
 """
 Bitmessage android(mobile) interface
 """
@@ -41,7 +36,7 @@ from pybitmessage.bitmessagekivy.get_platform import platform
 from pybitmessage.bitmessagekivy.kivy_state import KivyStateVariables
 from pybitmessage.bitmessagekivy.load_kivy_screens_data import load_screen_json
 from pybitmessage.bitmessagekivy.uikivysignaler import UIkivySignaler
-from pybitmessage.bmconfigparser import config  # noqa: F401
+from pybitmessage.bmconfigparser import config
 from pybitmessage.mockbm.helper_startup import (
     loadConfig, total_encrypted_messages_per_month)
 
@@ -215,7 +210,7 @@ class NavigateApp(MDApp):
             self.root.ids.scr_mngr.current = 'trash'
             try:
                 self.root.ids.id_trash.children[1].active = True
-            except Exception as e:
+            except Exception:
                 self.root.ids.id_trash.children[0].children[1].active = True
         Clock.schedule_once(partial(self.load_screen_callback, instance), LOADER_DELAY)
 
@@ -230,7 +225,7 @@ class NavigateApp(MDApp):
             self.root.ids.id_trash.add_widget(self.data_screen_dict['Trash'].Trash())
             try:
                 self.root.ids.id_trash.children[1].active = False
-            except Exception as e:
+            except Exception:
                 self.root.ids.id_trash.children[0].children[1].active = False
 
     @staticmethod
@@ -344,7 +339,6 @@ class NavigateApp(MDApp):
         img = identiconGeneration.generate(text)
         self.root.ids.content_drawer.ids.top_box.children[0].texture = img.texture
 
-    # pylint: disable=import-outside-toplevel
     def file_manager_open(self):
         """This method open the file manager of local system"""
         if not self.kivy_state_obj.file_manager:
@@ -356,7 +350,7 @@ class NavigateApp(MDApp):
         self.file_manager.previous = False
         self.file_manager.current_path = '/'
         if platform == 'android':
-            # pylint: disable=import-error
+
             from android.permissions import (Permission, check_permission,
                                              request_permissions)
             if check_permission(Permission.WRITE_EXTERNAL_STORAGE) and \

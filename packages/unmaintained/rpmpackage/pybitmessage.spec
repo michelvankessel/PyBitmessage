@@ -9,7 +9,7 @@ Source0: http://yourdomainname.com/src/%{name}_%{version}.orig.tar.gz
 BuildArch: noarch
 Group: Office/Email
 
-Requires: python, PyQt4, openssl-compat-bitcoin-libs, gst123
+Requires: python3, python3-pyqt6, openssl-compat-bitcoin-libs, gst123
 
 
 %description

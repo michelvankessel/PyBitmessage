@@ -1,14 +1,14 @@
 """Composing support request message functions."""
-# pylint: disable=no-member
+
 
 import ctypes
 import ssl
 import sys
 import time
 
-from PyQt4 import QtCore
+from PyQt6 import QtCore
 
-import account
+from . import account
 import defaults
 import network.stats
 import paths
@@ -16,12 +16,11 @@ import proofofwork
 import queues
 import state
 from bmconfigparser import config
-from foldertree import AccountMixin
+from .foldertree import AccountMixin
 from helper_sql import sqlExecute, sqlQuery
 from l10n import getTranslationLanguage
 from openclpow import openclEnabled
-from pyelliptic.openssl import OpenSSL
-from settings import getSOCKSProxyType
+from .settings import getSOCKSProxyType
 from version import softwareVersion
 from tr import _translate
 
@@ -72,14 +71,14 @@ def checkAddressBook(myapp):
     if queryreturn == []:
         sqlExecute(
             'INSERT INTO addressbook VALUES (?,?)',
-            SUPPORT_LABEL.toUtf8(), SUPPORT_ADDRESS)
+            SUPPORT_LABEL, SUPPORT_ADDRESS)
         myapp.rerenderAddressBook()
 
 
 def checkHasNormalAddress():
     for address in config.addresses():
         acct = account.accountClass(address)
-        if acct.type == AccountMixin.NORMAL and config.safeGetBoolean(address, 'enabled'):
+        if acct is not None and acct.type_ == AccountMixin.NORMAL and config.safeGetBoolean(address, 'enabled'):
             return address
     return False
 
@@ -88,7 +87,7 @@ def createAddressIfNeeded(myapp):
     if not checkHasNormalAddress():
         queues.addressGeneratorQueue.put((
             'createRandomAddress', 4, 1,
-            str(SUPPORT_MY_LABEL.toUtf8()),
+            str(SUPPORT_MY_LABEL),
             1, "", False,
             defaults.networkDefaultProofOfWorkNonceTrialsPerByte,
             defaults.networkDefaultPayloadLengthExtraBytes
@@ -107,8 +106,8 @@ def createSupportMessage(myapp):
 
     myapp.ui.lineEditSubject.setText(SUPPORT_SUBJECT)
     addrIndex = myapp.ui.comboBoxSendFrom.findData(
-        address, QtCore.Qt.UserRole,
-        QtCore.Qt.MatchFixedString | QtCore.Qt.MatchCaseSensitive)
+        address, QtCore.Qt.ItemDataRole.UserRole,
+        QtCore.Qt.MatchFlag.MatchFixedString | QtCore.Qt.MatchFlag.MatchCaseSensitive)
     if addrIndex == -1:  # something is very wrong
         return
     myapp.ui.comboBoxSendFrom.setCurrentIndex(addrIndex)
@@ -121,20 +120,29 @@ def createSupportMessage(myapp):
 
     os = sys.platform
     if os == "win32":
-        windowsversion = sys.getwindowsversion()
-        os = "Windows " + str(windowsversion[0]) + "." + str(windowsversion[1])
+        get_win_ver = getattr(sys, 'getwindowsversion', None)
+        if get_win_ver is not None:
+            windowsversion = get_win_ver()
+            os = "Windows " + str(windowsversion[0]) + "." + str(windowsversion[1])
+        else:
+            os = "Windows"
     else:
         try:
             from os import uname
             unixversion = uname()
             os = unixversion[0] + " " + unixversion[2]
-        except:
+        except Exception:
             pass
     architecture = "32" if ctypes.sizeof(ctypes.c_voidp) == 4 else "64"
     pythonversion = sys.version
 
-    opensslversion = "%s (Python internal), %s (external for PyElliptic)" % (
-        ssl.OPENSSL_VERSION, OpenSSL._version)
+    try:
+        import cryptography
+        crypto_ver = cryptography.__version__
+    except ImportError:
+        crypto_ver = "N/A"
+    opensslversion = "%s (Python internal), %s (cryptography library)" % (
+        ssl.OPENSSL_VERSION, crypto_ver)
 
     frozen = "N/A"
     if paths.frozen:
@@ -149,7 +157,8 @@ def createSupportMessage(myapp):
     upnp = config.safeGet('bitmessagesettings', 'upnp', "N/A")
     connectedhosts = len(network.stats.connectedHostsList())
 
-    myapp.ui.textEditMessage.setText(unicode(SUPPORT_MESSAGE, 'utf-8').format(
+    support_msg = SUPPORT_MESSAGE if isinstance(SUPPORT_MESSAGE, str) else str(SUPPORT_MESSAGE)
+    myapp.ui.textEditMessage.setText(support_msg.format(
         version, os, architecture, pythonversion, opensslversion, frozen,
         portablemode, cpow, openclpow, locale, socks, upnp, connectedhosts))
 

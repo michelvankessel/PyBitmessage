@@ -23,7 +23,7 @@ import stem.process
 import stem.version
 
 
-class DebugLogger(object):  # pylint: disable=too-few-public-methods
+class DebugLogger(object):
     """Safe logger wrapper for tor and plugin's logs"""
     def __init__(self):
         self._logger = logging.getLogger('default')
@@ -45,7 +45,6 @@ class DebugLogger(object):  # pylint: disable=too-few-public-methods
             self._logger.log(self._levels.get(level, 10), '(tor) %s', line)
 
 
-# pylint: disable=too-many-branches,too-many-statements
 def connect_plugin(config):
     """
     Run stem proxy configurator
@@ -79,7 +78,7 @@ def connect_plugin(config):
     port = config.safeGetInt('bitmessagesettings', 'socksport', 9050)
     for attempt in range(50):
         if attempt > 0:
-            port = random.randint(32767, 65535)  # nosec B311
+            port = random.randint(32767, 65535)
             tor_config['SocksPort'] = str(port)
         if tor_config.get('DataDirectory'):
             control_port = port + 1

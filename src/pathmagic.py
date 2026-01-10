@@ -8,3 +8,6 @@ def setup():
     os.chdir(app_dir)
     sys.path.insert(0, app_dir)
     return app_dir
+
+
+app_dir = setup()

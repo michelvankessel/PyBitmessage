@@ -1,5 +1,3 @@
-# pylint: disable=import-error, no-name-in-module, too-few-public-methods
-
 """
 Generate QRcode of saved addresses in addressbook.
 """

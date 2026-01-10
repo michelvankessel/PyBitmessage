@@ -25,3 +25,12 @@ coverage.xml
 **coverage.json
 .buildozer
 .tox
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.buildbot/
+.devcontainer/
+.vscode/
+

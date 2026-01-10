@@ -7,7 +7,7 @@ from pybitmessage.helper_sql import sqlQuery
 def search_sql(
         xAddress="toaddress", account=None, folder="inbox", where=None,
         what=None, unreadOnly=False, start_indx=0, end_indx=20):
-    # pylint: disable=too-many-arguments, too-many-branches
+
     """Method helping for searching mails"""
     if what is not None and what != "":
         what = "%" + what + "%"

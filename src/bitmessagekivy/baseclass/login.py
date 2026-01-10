@@ -1,6 +1,3 @@
-# pylint: disable=no-member, too-many-arguments, too-few-public-methods
-# pylint: disable=no-name-in-module, unused-argument, arguments-differ
-
 """
 Login screen appears when the App is first time starts and when new Address is generated.
 """

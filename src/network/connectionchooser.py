@@ -1,13 +1,13 @@
 """
 Select which node to connect to
 """
-# pylint: disable=too-many-branches
+
 import logging
 import random
 
-from six.moves import queue
+import queue
 
-import knownnodes
+from . import knownnodes
 import protocol
 import state
 
@@ -20,7 +20,7 @@ logger = logging.getLogger('default')
 def getDiscoveredPeer():
     """Get a peer from the local peer discovery list"""
     try:
-        peer = random.choice(state.discoveredPeers.keys())  # nosec B311
+        peer = random.choice(list(state.discoveredPeers.keys()))
     except (IndexError, KeyError):
         raise ValueError
     try:
@@ -43,12 +43,12 @@ def chooseConnection(stream):
     except queue.Empty:
         pass
     # with a probability of 0.5, connect to a discovered peer
-    if random.choice((False, True)) and not haveOnion:  # nosec B311
+    if random.choice((False, True)) and not haveOnion:
         # discovered peers are already filtered by allowed streams
         return getDiscoveredPeer()
     for _ in range(50):
-        peer = random.choice(  # nosec B311
-            knownnodes.knownNodes[stream].keys())
+        peer = random.choice(
+            list(knownnodes.knownNodes[stream].keys()))
         try:
             peer_info = knownnodes.knownNodes[stream][peer]
             if peer_info.get('self'):
@@ -74,7 +74,7 @@ def chooseConnection(stream):
         if rating > 1:
             rating = 1
         try:
-            if 0.05 / (1.0 - rating) > random.random():  # nosec B311
+            if 0.05 / (1.0 - rating) > random.random():
                 return peer
         except ZeroDivisionError:
             return peer

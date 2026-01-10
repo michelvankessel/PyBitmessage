@@ -1,5 +1,3 @@
-# pylint: disable=too-few-public-methods
-
 """
 Mock Network
 """
@@ -8,7 +6,8 @@ Mock Network
 class objectracker(object):
     """Mock object tracker"""
 
-    missingObjects = {}
+    from typing import Any
+    missingObjects: dict[bytes, float] = {}
 
 
 class stats(object):

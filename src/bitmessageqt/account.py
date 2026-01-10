@@ -1,31 +1,46 @@
-# pylint: disable=too-many-instance-attributes,attribute-defined-outside-init
 """
 account.py
 ==========
 
 Account related functions.
-
 """
-
-from __future__ import absolute_import
 
 import inspect
 import re
 import sys
 import time
+from typing import Optional, Dict, Union
 
-from PyQt4 import QtGui
+from PyQt6 import QtWidgets
 
 import queues
 from addresses import decodeAddress
 from bmconfigparser import config
+from debug import logger
 from helper_ackPayload import genAckPayload
 from helper_sql import sqlQuery, sqlExecute
 from .foldertree import AccountMixin
 from .utils import str_broadcast_subscribers
 
+# Define specific types for better type safety
+AccountType = Union[
+    "BMAccount",
+    "BroadcastAccount",
+    "SubscriptionAccount",
+    "NoAccount",
+    "GatewayAccount",
+    "MailchuckAccount",
+]
 
-def getSortedSubscriptions(count=False):
+# Type for subscription data structure
+SubscriptionData = Dict[
+    str, Dict[str, Dict[str, Union[str, bool, int]]]
+]  # address -> folder -> {label, enabled, count}
+
+
+def getSortedSubscriptions(
+    count: bool = False,
+) -> SubscriptionData:
     """
     Actually return a grouped dictionary rather than a sorted list
 
@@ -34,42 +49,52 @@ def getSortedSubscriptions(count=False):
     :retuns: dict keys are addresses, values are dicts containing settings
     :rtype: dict, default {}
     """
-    queryreturn = sqlQuery('SELECT label, address, enabled FROM subscriptions ORDER BY label COLLATE NOCASE ASC')
-    ret = {}
+    queryreturn = sqlQuery(
+        "SELECT label, address, enabled FROM subscriptions ORDER BY label COLLATE NOCASE ASC"
+    )
+    ret: SubscriptionData = {}
     for row in queryreturn:
         label, address, enabled = row
+        if isinstance(label, bytes):
+            label = label.decode("utf-8", "ignore")
         ret[address] = {}
         ret[address]["inbox"] = {}
-        ret[address]["inbox"]['label'] = label
-        ret[address]["inbox"]['enabled'] = enabled
-        ret[address]["inbox"]['count'] = 0
+        ret[address]["inbox"]["label"] = label
+        ret[address]["inbox"]["enabled"] = enabled
+        ret[address]["inbox"]["count"] = 0
     if count:
-        queryreturn = sqlQuery('''SELECT fromaddress, folder, count(msgid) as cnt
+        queryreturn = sqlQuery(
+            """SELECT fromaddress, folder, count(msgid) as cnt
             FROM inbox, subscriptions ON subscriptions.address = inbox.fromaddress
             WHERE read = 0 AND toaddress = ?
-            GROUP BY inbox.fromaddress, folder''', str_broadcast_subscribers)
+            GROUP BY inbox.fromaddress, folder""",
+            str_broadcast_subscribers,
+        )
         for row in queryreturn:
             address, folder, cnt = row
             if folder not in ret[address]:
                 ret[address][folder] = {
-                    'label': ret[address]['inbox']['label'],
-                    'enabled': ret[address]['inbox']['enabled']
+                    "label": ret[address]["inbox"]["label"],
+                    "enabled": ret[address]["inbox"]["enabled"],
                 }
-            ret[address][folder]['count'] = cnt
+            ret[address][folder]["count"] = cnt
     return ret
 
 
-def accountClass(address):
+def accountClass(address: Optional[str]) -> Optional[AccountType]:
     """Return a BMAccount for the address"""
+    if address is None:
+        return None
     if not config.has_section(address):
         # .. todo:: This BROADCAST section makes no sense
+        subscription: AccountType
         if address == str_broadcast_subscribers:
             subscription = BroadcastAccount(address)
-            if subscription.type != AccountMixin.BROADCAST:
+            if subscription.type_ != AccountMixin.BROADCAST:
                 return None
         else:
             subscription = SubscriptionAccount(address)
-            if subscription.type != AccountMixin.SUBSCRIPTION:
+            if subscription.type_ != AccountMixin.SUBSCRIPTION:
                 # e.g. deleted chan
                 return NoAccount(address)
         return subscription
@@ -80,78 +105,81 @@ def accountClass(address):
                 return cls(address)
         # general gateway
         return GatewayAccount(address)
-    except:
+    except Exception:
         pass
     # no gateway
     return BMAccount(address)
 
 
-class AccountColor(AccountMixin):  # pylint: disable=too-few-public-methods
+class AccountColor(AccountMixin):
     """Set the type of account"""
 
-    def __init__(self, address, address_type=None):
+    def __init__(
+        self, address: Optional[str] = None, address_type: Optional[int] = None
+    ) -> None:
         self.isEnabled = True
         self.address = address
         if address_type is None:
-            if address is None:
-                self.type = AccountMixin.ALL
-            elif config.safeGetBoolean(self.address, 'mailinglist'):
-                self.type = AccountMixin.MAILINGLIST
-            elif config.safeGetBoolean(self.address, 'chan'):
-                self.type = AccountMixin.CHAN
-            elif sqlQuery(
-                    '''select label from subscriptions where address=?''', self.address):
-                self.type = AccountMixin.SUBSCRIPTION
-            else:
-                self.type = AccountMixin.NORMAL
+            self.setType()
         else:
-            self.type = address_type
+            self.type_ = address_type
 
 
-class BMAccount(object):
+class BMAccount(AccountMixin):
     """Encapsulate a Bitmessage account"""
 
-    def __init__(self, address=None):
+    def __init__(self, address: Optional[str] = None) -> None:
         self.address = address
-        self.type = AccountMixin.NORMAL
-        if config.has_section(address):
-            if config.safeGetBoolean(self.address, 'chan'):
-                self.type = AccountMixin.CHAN
-            elif config.safeGetBoolean(self.address, 'mailinglist'):
-                self.type = AccountMixin.MAILINGLIST
-        elif self.address == str_broadcast_subscribers:
-            self.type = AccountMixin.BROADCAST
-        else:
-            queryreturn = sqlQuery(
-                '''select label from subscriptions where address=?''', self.address)
-            if queryreturn:
-                self.type = AccountMixin.SUBSCRIPTION
+        self.setType()
+        self.subject: Union[str, bytes] = ""
+        self.message: Union[str, bytes] = ""
+        self.toAddress: str = ""
+        self.fromAddress: str = ""
+        self.fromLabel: str = ""
+        self.toLabel: str = ""
 
-    def getLabel(self, address=None):
+    def getLabel(self, address: Optional[str] = None) -> str:
         """Get a label for this bitmessage account"""
         if address is None:
             address = self.address
-        label = config.safeGet(address, 'label', address)
+
+        # Handle case where address is None
+        if address is None:
+            return ""
+
+        label = config.safeGet(address, "label", address)
         queryreturn = sqlQuery(
-            '''select label from addressbook where address=?''', address)
+            """select label from addressbook where address=?""", address
+        )
         if queryreturn != []:
             for row in queryreturn:
-                label, = row
+                (label,) = row
+                if isinstance(label, bytes):
+                    label = label.decode('utf-8', 'replace')
         else:
             queryreturn = sqlQuery(
-                '''select label from subscriptions where address=?''', address)
+                """select label from subscriptions where address=?""", address
+            )
             if queryreturn != []:
                 for row in queryreturn:
-                    label, = row
-        return label
+                    (label,) = row
+                    if isinstance(label, bytes):
+                        label = label.decode('utf-8', 'replace')
+        return label if label else address
 
-    def parseMessage(self, toAddress, fromAddress, subject, message):
+    def parseMessage(
+        self,
+        toAddress: str,
+        fromAddress: str,
+        subject: Union[str, bytes],
+        message: Union[str, bytes],
+    ) -> None:
         """Set metadata and address labels on self"""
 
         self.toAddress = toAddress
         self.fromAddress = fromAddress
-        if isinstance(subject, unicode):
-            self.subject = str(subject)
+        if isinstance(subject, str):
+            self.subject = subject
         else:
             self.subject = subject
         self.message = message
@@ -162,30 +190,32 @@ class BMAccount(object):
 class NoAccount(BMAccount):
     """Override the __init__ method on a BMAccount"""
 
-    def __init__(self, address=None):  # pylint: disable=super-init-not-called
+    def __init__(self, address=None):
         self.address = address
-        self.type = AccountMixin.NORMAL
+        self.type_ = AccountMixin.NORMAL
 
-    def getLabel(self, address=None):
+    def getLabel(self, address: Optional[str] = None) -> str:
         if address is None:
             address = self.address
-        return address
+        return address if address else ""
 
 
 class SubscriptionAccount(BMAccount):
     """Encapsulate a subscription account"""
+
     pass
 
 
 class BroadcastAccount(BMAccount):
     """Encapsulate a broadcast account"""
+
     pass
 
 
 class GatewayAccount(BMAccount):
     """Encapsulate a gateway account"""
 
-    gatewayName = None
+    gatewayName: Optional[str] = None
     ALL_OK = 0
     REGISTRATION_DENIED = 1
 
@@ -195,13 +225,17 @@ class GatewayAccount(BMAccount):
     def send(self):
         """Override the send method for gateway accounts"""
 
-        # pylint: disable=unused-variable
-        status, addressVersionNumber, streamNumber, ripe = decodeAddress(self.toAddress)
-        stealthLevel = config.safeGetInt('bitmessagesettings', 'ackstealthlevel')
-        ackdata = genAckPayload(streamNumber, stealthLevel)
+        result = decodeAddress(self.toAddress)
+        if not result or len(result) != 4:
+            logger.error("Failed to decode address. Result: %s", result)
+            return  # or raise an exception
+        status, version, stream, ripe = result
+
+        stealthLevel = config.safeGetInt("bitmessagesettings", "ackstealthlevel")
+        ackdata = genAckPayload(stream, stealthLevel)
         sqlExecute(
-            '''INSERT INTO sent VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-            '',
+            """INSERT INTO sent VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            "",
             self.toAddress,
             ripe,
             self.fromAddress,
@@ -211,15 +245,27 @@ class GatewayAccount(BMAccount):
             int(time.time()),  # sentTime (this will never change)
             int(time.time()),  # lastActionTime
             0,  # sleepTill time. This will get set when the POW gets done.
-            'msgqueued',
+            "msgqueued",
             0,  # retryNumber
-            'sent',  # folder
+            "sent",  # folder
             2,  # encodingtype
             # not necessary to have a TTL higher than 2 days
-            min(config.getint('bitmessagesettings', 'ttl'), 86400 * 2)
+            min(config.getint("bitmessagesettings", "ttl"), 86400 * 2),
         )
 
-        queues.workerQueue.put(('sendmessage', self.toAddress))
+        queues.workerQueue.put(("sendmessage", self.toAddress))
+
+    def register(self, email):
+        """Register with gateway - base implementation"""
+        pass
+
+    def unregister(self):
+        """Unregister from gateway - base implementation"""
+        pass
+
+    def status(self):
+        """Get gateway status - base implementation"""
+        pass
 
 
 class MailchuckAccount(GatewayAccount):
@@ -237,9 +283,32 @@ class MailchuckAccount(GatewayAccount):
         super(MailchuckAccount, self).__init__(address)
         self.feedback = self.ALL_OK
 
-    def createMessage(self, toAddress, fromAddress, subject, message):
+    def createMessage(
+        self,
+        toAddress: str,
+        fromAddress: str,
+        subject: Union[str, bytes],
+        message: Union[str, bytes],
+    ) -> None:
         """createMessage specific to a MailchuckAccount"""
-        self.subject = toAddress + " " + subject
+        # Ensure subject is string for concatenation
+        subject_str = subject.decode() if isinstance(subject, bytes) else subject
+
+        # Type narrowing: guarantee subject is a string for concatenation
+        if isinstance(subject_str, str):
+            subject_final = subject_str
+        elif isinstance(subject_str, (bytearray, memoryview)):
+            subject_final = str(subject_str)
+        else:
+            # Fallback for any other type
+            subject_final = str(subject_str)
+
+        # Type assertion for Pylance guarantee
+        assert isinstance(subject_final, str), (
+            f"subject_final must be str, got {type(subject_final)}"
+        )
+
+        self.subject = toAddress + " " + subject_final
         self.toAddress = self.relayAddress
         self.fromAddress = fromAddress
         self.message = message
@@ -273,7 +342,7 @@ class MailchuckAccount(GatewayAccount):
 
         self.toAddress = self.registrationAddress
         self.subject = "config"
-        self.message = QtGui.QApplication.translate(
+        self.message = QtWidgets.QApplication.translate(
             "Mailchuck",
             """# You can use this to configure your email gateway account
 # Uncomment the setting you want to use
@@ -314,26 +383,54 @@ class MailchuckAccount(GatewayAccount):
 # specified. As this scheme uses deterministic public keys, you will receive
 # the money directly. To turn it off again, set "feeamount" to 0. Requires
 # subscription.
-""")
+""",
+        )
         self.fromAddress = self.address
 
-    def parseMessage(self, toAddress, fromAddress, subject, message):
+    def parseMessage(
+        self,
+        toAddress: str,
+        fromAddress: str,
+        subject: Union[str, bytes],
+        message: Union[str, bytes],
+    ) -> None:
         """parseMessage specific to a MailchuckAccount"""
 
-        super(MailchuckAccount, self).parseMessage(toAddress, fromAddress, subject, message)
+        super(MailchuckAccount, self).parseMessage(
+            toAddress, fromAddress, subject, message
+        )
+
+        # Ensure subject is string for regex operations
+        subject_str = subject.decode() if isinstance(subject, bytes) else subject
+
+        # Type narrowing: guarantee subject is a string for regex operations
+        if isinstance(subject_str, str):
+            subject_final = subject_str
+        elif isinstance(subject_str, (bytearray, memoryview)):
+            subject_final = str(subject_str)
+        else:
+            # Fallback for any other type
+            subject_final = str(subject_str)
+
+        # Type assertion for Pylance guarantee
+        assert isinstance(subject_final, str), (
+            f"subject_final must be str, got {type(subject_final)}"
+        )
+
         if fromAddress == self.relayAddress:
-            matches = self.regExpIncoming.search(subject)
+            matches = self.regExpIncoming.search(subject_final)
             if matches is not None:
                 self.subject = ""
                 if not matches.group(1) is None:
                     self.subject += matches.group(1)
                 if not matches.group(3) is None:
                     self.subject += matches.group(3)
-                if not matches.group(2) is None:
+                if not matches.group(2) is not None:
                     self.fromLabel = matches.group(2)
                     self.fromAddress = matches.group(2)
+
         if toAddress == self.relayAddress:
-            matches = self.regExpOutgoing.search(subject)
+            matches = self.regExpOutgoing.search(subject_final)
             if matches is not None:
                 if not matches.group(2) is None:
                     self.subject = matches.group(2)
@@ -341,6 +438,10 @@ class MailchuckAccount(GatewayAccount):
                     self.toLabel = matches.group(1)
                     self.toAddress = matches.group(1)
         self.feedback = self.ALL_OK
-        if fromAddress == self.registrationAddress and self.subject == "Registration Request Denied":
+        if (
+            fromAddress == self.registrationAddress
+            and self.subject == "Registration Request Denied"
+        ):
             self.feedback = self.REGISTRATION_DENIED
-        return self.feedback
+        # Return None to match parent class signature
+        return None

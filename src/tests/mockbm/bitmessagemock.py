@@ -1,5 +1,3 @@
-# pylint: disable=no-name-in-module, import-error
-
 """
 Bitmessage mock
 """
@@ -10,7 +8,7 @@ from pybitmessage.mpybit import NavigateApp
 from pybitmessage import state
 
 
-class MockMain(object):  # pylint: disable=too-few-public-methods
+class MockMain(object):
     """Mock main function"""
 
     def __init__(self):

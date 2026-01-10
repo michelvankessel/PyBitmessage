@@ -1,10 +1,10 @@
 """
 A thread to handle network concerns
 """
-import network.asyncore_pollchoose as asyncore
-import connectionpool
+from . import asyncore_pollchoose as asyncore
+from . import connectionpool
 from queues import excQueue
-from threads import StoppableThread
+from .threads import StoppableThread
 
 
 class BMNetworkThread(StoppableThread):
@@ -12,8 +12,10 @@ class BMNetworkThread(StoppableThread):
     name = "Asyncore"
 
     def run(self):
+        print(f"DEBUG: BMNetworkThread run() started. Name: {self.name} Stopped: {self._stopped}")
         try:
             while not self._stopped:
+                # print("DEBUG: Calling connectionpool.pool.loop()")
                 connectionpool.pool.loop()
         except Exception as e:
             excQueue.put((self.name, e))
@@ -21,20 +23,20 @@ class BMNetworkThread(StoppableThread):
 
     def stopThread(self):
         super(BMNetworkThread, self).stopThread()
-        for i in connectionpool.pool.listeningSockets.values():
+        for i in list(connectionpool.pool.listeningSockets.values()):
             try:
                 i.close()
-            except:  # nosec B110 # pylint:disable=bare-except
+            except Exception:
                 pass
-        for i in connectionpool.pool.outboundConnections.values():
+        for i in list(connectionpool.pool.outboundConnections.values()):
             try:
                 i.close()
-            except:  # nosec B110 # pylint:disable=bare-except
+            except Exception:
                 pass
-        for i in connectionpool.pool.inboundConnections.values():
+        for i in list(connectionpool.pool.inboundConnections.values()):
             try:
                 i.close()
-            except:  # nosec B110 # pylint:disable=bare-except
+            except Exception:
                 pass
 
         # just in case

@@ -1,8 +1,8 @@
 coverage
 psutil
 pycryptodome
-PyQt5;python_version>="3.7" and platform_machine=="x86_64"
-mock;python_version<="2.7"
+PyQt6>=6.0.0
 python_prctl;platform_system=="Linux"
-six
-xvfbwrapper<0.2.10;platform_system=="Linux"
+distro
+packaging
+cryptography

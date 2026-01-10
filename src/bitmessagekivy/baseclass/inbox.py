@@ -1,7 +1,3 @@
-# pylint: disable=unused-import, too-many-public-methods, unused-variable, too-many-ancestors
-# pylint: disable=no-name-in-module, too-few-public-methods, import-error, unused-argument, too-many-arguments
-# pylint: disable=attribute-defined-outside-init, global-variable-not-assigned, too-many-instance-attributes
-
 """
 Kivy UI for inbox screen
 """
@@ -23,7 +19,7 @@ class Inbox(Screen):
 
     def __init__(self, *args, **kwargs):
         """Initialize Kivy variables and set up the UI"""
-        super().__init__(*args, **kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(*args, **kwargs)
         self.kivy_running_app = App.get_running_app()
         self.kivy_state = kivy_state_variables()
         self.image_dir = load_image_path()

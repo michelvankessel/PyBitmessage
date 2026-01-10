@@ -2,13 +2,13 @@
 Process data incoming from network
 """
 import errno
-import Queue
+import queue
 import socket
 
-import connectionpool
+from network import connectionpool
 from network.advanceddispatcher import UnknownStateError
 from network import receiveDataQueue
-from threads import StoppableThread
+from .threads import StoppableThread
 
 
 class ReceiveQueueThread(StoppableThread):
@@ -21,7 +21,7 @@ class ReceiveQueueThread(StoppableThread):
         while not self._stopped:
             try:
                 dest = receiveDataQueue.get(block=True, timeout=1)
-            except Queue.Empty:
+            except queue.Empty:
                 continue
 
             if self._stopped:
@@ -50,6 +50,6 @@ class ReceiveQueueThread(StoppableThread):
                     connection.set_state("close", 0)
                 else:
                     self.logger.error('Socket error: %s', err)
-            except:  # noqa:E722
+            except Exception:
                 self.logger.error('Error processing', exc_info=True)
             receiveDataQueue.task_done()

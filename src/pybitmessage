@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 
 import os
 import pkg_resources
@@ -8,4 +8,6 @@ script_file = os.path.join(dist.location, dist.key, 'bitmessagemain.py')
 new_globals = globals()
 new_globals.update(__file__=script_file)
 
-execfile(script_file, new_globals)
+with open(script_file, "rb") as source_file:
+    code = compile(source_file.read(), script_file, "exec")
+exec(code, new_globals)

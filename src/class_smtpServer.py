@@ -25,7 +25,6 @@ SMTPDOMAIN = "bmaddr.lan"
 LISTENPORT = 8425
 
 logger = logging.getLogger('default')
-# pylint: disable=attribute-defined-outside-init
 
 
 class SmtpServerChannelException(Exception):
@@ -60,7 +59,7 @@ class smtpServerChannel(smtpd.SMTPChannel):
                 self.push('235 2.7.0 Authentication successful')
             else:
                 raise SmtpServerChannelException("Auth fail")
-        except:  # noqa:E722
+        except Exception:
             self.push('501 Authentication fail')
 
     def smtp_DATA(self, arg):
@@ -82,7 +81,7 @@ class smtpServerPyBitmessage(smtpd.SMTPServer):
 
     def send(self, fromAddress, toAddress, subject, message):
         """Send a bitmessage"""
-        # pylint: disable=arguments-differ
+
         streamNumber, ripe = decodeAddress(toAddress)[2:]
         stealthLevel = config.safeGetInt('bitmessagesettings', 'ackstealthlevel')
         ackdata = genAckPayload(streamNumber, stealthLevel)
@@ -121,14 +120,14 @@ class smtpServerPyBitmessage(smtpd.SMTPServer):
 
     def process_message(self, peer, mailfrom, rcpttos, data):
         """Process an email"""
-        # pylint: disable=too-many-locals, too-many-branches
+
         p = re.compile(".*<([^>]+)>")
         if not hasattr(self.channel, "auth") or not self.channel.auth:
             logger.error('Missing or invalid auth')
             return
         try:
             self.msg_headers = Parser().parsestr(data)
-        except:  # noqa:E722
+        except Exception:
             logger.error('Invalid headers')
             return
 
@@ -154,7 +153,7 @@ class smtpServerPyBitmessage(smtpd.SMTPServer):
 
         try:
             msg_subject = self.decode_header('subject')[0]
-        except:  # noqa:E722
+        except Exception:
             msg_subject = "Subject missing..."
 
         msg_tmp = email.message_from_string(data)

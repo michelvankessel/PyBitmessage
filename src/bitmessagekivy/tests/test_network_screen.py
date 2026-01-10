@@ -1,4 +1,3 @@
-# pylint: disable=too-few-public-methods
 """
     Kivy Networkstat UI test
 """

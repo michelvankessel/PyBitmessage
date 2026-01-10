@@ -21,21 +21,30 @@ from class_singleCleaner import singleCleaner
 from class_singleWorker import singleWorker
 from class_sqlThread import sqlThread
 
-try:
-    import prctl
-except ImportError:
+import sys
+
+if sys.platform == "linux":
+    try:
+        import prctl
+    except ImportError:
+        prctl = None
+else:
+    prctl = None
+
+if prctl is None:
     def set_thread_name(name):
         """Set a name for the thread for python internal use."""
         threading.current_thread().name = name
 else:
     def set_thread_name(name):
         """Set the thread name for external use (visible from the OS)."""
+        assert prctl is not None
         prctl.set_name(name)
 
     def _thread_name_hack(self):
         set_thread_name(self.name)
         threading.Thread.__bootstrap_original__(self)
-    # pylint: disable=protected-access
+
     threading.Thread.__bootstrap_original__ = threading.Thread._Thread__bootstrap
     threading.Thread._Thread__bootstrap = _thread_name_hack
 

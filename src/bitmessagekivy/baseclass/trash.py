@@ -1,6 +1,3 @@
-# pylint: disable=unused-argument, consider-using-f-string, import-error, attribute-defined-outside-init
-# pylint: disable=unnecessary-comprehension, no-member, no-name-in-module, too-few-public-methods
-
 """
     Trash screen
 """

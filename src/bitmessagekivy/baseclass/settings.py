@@ -1,4 +1,3 @@
-# pylint: disable=unused-argument, no-name-in-module, too-few-public-methods
 """
 Settings screen UI
 """

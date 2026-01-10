@@ -1,22 +1,22 @@
 """
 Set proxy if avaiable otherwise exception
 """
-# pylint: disable=protected-access
+
 import logging
 import socket
 import time
 
-import asyncore_pollchoose as asyncore
-from advanceddispatcher import AdvancedDispatcher
+from . import asyncore_pollchoose as asyncore
+from .advanceddispatcher import AdvancedDispatcher
 from bmconfigparser import config
-from node import Peer
+from .node import Peer
 
 logger = logging.getLogger('default')
 
 
 class ProxyError(Exception):
     """Base proxy exception class"""
-    errorCodes = ("Unknown error",)
+    errorCodes: tuple[str, ...] = ("Unknown error",)
 
     def __init__(self, code=-1):
         self.code = code

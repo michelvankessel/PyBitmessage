@@ -14,7 +14,7 @@ class TestLog(unittest.TestCase):
         sys.hexversion < 0x3000000, 'assertLogs is new in version 3.4')
     def test_LogOutput(self):
         """Use proofofwork.LogOutput to log output of a shell command"""
-        with self.assertLogs('default') as cm:  # pylint: disable=no-member
+        with self.assertLogs('default') as cm:
             with proofofwork.LogOutput('+'):
                 subprocess.call(['echo', 'HELLO'])
 

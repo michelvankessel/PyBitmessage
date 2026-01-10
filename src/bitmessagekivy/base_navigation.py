@@ -1,8 +1,8 @@
-# pylint: disable=unused-argument, no-name-in-module, too-few-public-methods
 """
     Base class for Navigation Drawer
 """
 
+from typing import Any
 from kivy.lang import Observable
 
 from kivy.properties import (
@@ -27,7 +27,7 @@ from pybitmessage.bmconfigparser import config
 
 class BaseLanguage(Observable):
     """UI Language"""
-    observers = []
+    observers: list[Any] = []
     lang = None
 
     def __init__(self, defaultlang):

@@ -1,6 +1,3 @@
-# pylint: disable=unused-argument, import-error, no-member, attribute-defined-outside-init
-# pylint: disable=no-name-in-module, too-few-public-methods, too-many-instance-attributes
-
 """
 myaddress.py
 ==============

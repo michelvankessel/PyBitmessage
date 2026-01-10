@@ -1,5 +1,3 @@
-# pylint: disable=no-else-return, too-many-return-statements
-
 """To check the platform"""
 
 from sys import platform as _sys_platform

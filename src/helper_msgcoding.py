@@ -2,8 +2,8 @@
 Message encoding end decoding functions
 """
 
-import string
 import zlib
+from typing import Any
 
 import messagetypes
 from bmconfigparser import config
@@ -11,12 +11,15 @@ from debug import logger
 from tr import _translate
 
 try:
-    import msgpack
+    msgpack: Any = __import__("msgpack")
 except ImportError:
     try:
-        import umsgpack as msgpack
+        msgpack = __import__("umsgpack")
     except ImportError:
-        import fallback.umsgpack.umsgpack as msgpack
+        try:
+            msgpack = __import__("fallback.umsgpack.umsgpack", fromlist=["umsgpack"])
+        except ImportError:
+            msgpack = None
 
 BITMESSAGE_ENCODING_IGNORE = 0
 BITMESSAGE_ENCODING_TRIVIAL = 1
@@ -35,7 +38,7 @@ class MsgDecodeException(Exception):
 
 
 class DecompressionSizeException(MsgDecodeException):
-    # pylint: disable=super-init-not-called
+
     """Decompression resulted in too much data (attack protection)"""
     def __init__(self, size):
         self.size = size
@@ -71,12 +74,14 @@ class MsgEncode(object):
 
     def encodeSimple(self, message):
         """Handle simple encoding"""
-        self.data = 'Subject:%(subject)s\nBody:%(body)s' % message
+        self.data = ('Subject:%(subject)s\nBody:%(body)s' % message).encode('utf-8')
         self.length = len(self.data)
 
     def encodeTrivial(self, message):
         """Handle trivial encoding"""
         self.data = message['body']
+        if isinstance(self.data, str):
+            self.data = self.data.encode('utf-8')
         self.length = len(self.data)
 
 
@@ -134,7 +139,7 @@ class MsgDecode(object):
             raise MsgDecodeException("Malformed message")
         try:
             msgObj.process()
-        except:  # noqa:E722
+        except Exception:
             raise MsgDecodeException("Malformed message")
         if msgType == "message":
             self.subject = msgObj.subject
@@ -142,7 +147,9 @@ class MsgDecode(object):
 
     def decodeSimple(self, data):
         """Handle simple encoding"""
-        bodyPositionIndex = string.find(data, '\nBody:')
+        if isinstance(data, bytes):
+            data = data.decode('utf-8', 'replace')
+        bodyPositionIndex = data.find('\nBody:')
         if bodyPositionIndex > 1:
             subject = data[8:bodyPositionIndex]
             # Only save and show the first 500 characters of the subject.

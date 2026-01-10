@@ -4,8 +4,8 @@ Basic infrastructure for asynchronous socket service clients and servers.
 # -*- Mode: Python -*-
 #   Id: asyncore.py,v 2.51 2000/09/07 22:29:26 rushing Exp
 #   Author: Sam Rushing <rushing@nightmare.com>
-# pylint: disable=too-many-branches,too-many-lines,global-statement
-# pylint: disable=redefined-builtin,no-self-use
+
+
 import os
 import select
 import socket
@@ -13,31 +13,20 @@ import random
 import sys
 import time
 import warnings
+import errno
 from errno import (
     EADDRINUSE, EAGAIN, EALREADY, EBADF, ECONNABORTED, ECONNREFUSED,
     ECONNRESET, EHOSTUNREACH, EINPROGRESS, EINTR, EINVAL, EISCONN, ENETUNREACH,
     ENOTCONN, ENOTSOCK, EPIPE, ESHUTDOWN, ETIMEDOUT, EWOULDBLOCK, errorcode
 )
 from threading import current_thread
+from typing import Any
 
 
-try:
-    from errno import WSAEWOULDBLOCK
-except (ImportError, AttributeError):
-    WSAEWOULDBLOCK = EWOULDBLOCK
-try:
-    from errno import WSAENOTSOCK
-except (ImportError, AttributeError):
-    WSAENOTSOCK = ENOTSOCK
-try:
-    from errno import WSAECONNRESET
-except (ImportError, AttributeError):
-    WSAECONNRESET = ECONNRESET
-try:
-    # Desirable side-effects on Windows; imports winsock error numbers
-    from errno import WSAEADDRINUSE  # pylint: disable=unused-import
-except (ImportError, AttributeError):
-    WSAEADDRINUSE = EADDRINUSE
+WSAEWOULDBLOCK = getattr(errno, 'WSAEWOULDBLOCK', EWOULDBLOCK)
+WSAENOTSOCK = getattr(errno, 'WSAENOTSOCK', ENOTSOCK)
+WSAECONNRESET = getattr(errno, 'WSAECONNRESET', ECONNRESET)
+WSAEADDRINUSE = getattr(errno, 'WSAEADDRINUSE', EADDRINUSE)
 
 
 _DISCONNECTED = frozenset((
@@ -47,10 +36,7 @@ _DISCONNECTED = frozenset((
 OP_READ = 1
 OP_WRITE = 2
 
-try:
-    socket_map
-except NameError:
-    socket_map = {}
+socket_map: dict[int, Any] = {}
 
 
 def _strerror(err):
@@ -98,6 +84,7 @@ def write(obj):
 
     if not can_send():
         return
+    # print(f"DEBUG: ASYNCORE WRITE DISPATCH: {obj}")
     try:
         obj.handle_write_event()
     except _reraised_exceptions:
@@ -233,13 +220,13 @@ def select_poller(timeout=0.0, map=None):
             if err.args[0] in (WSAENOTSOCK, ):
                 return
 
-        for fd in random.sample(r, len(r)):  # nosec B311
+        for fd in random.sample(r, len(r)):
             obj = map.get(fd)
             if obj is None:
                 continue
             read(obj)
 
-        for fd in random.sample(w, len(w)):  # nosec B311
+        for fd in random.sample(w, len(w)):
             obj = map.get(fd)
             if obj is None:
                 continue
@@ -297,7 +284,7 @@ def poll_poller(timeout=0.0, map=None):
         except socket.error as err:
             if err.args[0] in (EBADF, WSAENOTSOCK, EINTR):
                 return
-        for fd, flags in random.sample(r, len(r)):  # nosec B311
+        for fd, flags in random.sample(r, len(r)):
             obj = map.get(fd)
             if obj is None:
                 continue
@@ -357,7 +344,7 @@ def epoll_poller(timeout=0.0, map=None):
             if err.args[0] != EINTR:
                 raise
             r = []
-        for fd, flags in random.sample(r, len(r)):  # nosec B311
+        for fd, flags in random.sample(r, len(r)):
             obj = map.get(fd)
             if obj is None:
                 continue
@@ -368,7 +355,6 @@ def epoll_poller(timeout=0.0, map=None):
 
 def kqueue_poller(timeout=0.0, map=None):
     """A poller which uses kqueue(), BSD specific."""
-    # pylint: disable=no-member,too-many-statements
 
     if map is None:
         map = socket_map
@@ -420,7 +406,7 @@ def kqueue_poller(timeout=0.0, map=None):
 
         events = kqueue_poller.pollster.control(updates, selectables, timeout)
         if len(events) > 1:
-            events = random.sample(events, len(events))  # nosec B311
+            events = random.sample(events, len(events))
 
         for event in events:
             fd = event.ident
@@ -483,7 +469,6 @@ def loop(timeout=30.0, use_poll=False, map=None, count=None, poller=None):
 
 class dispatcher(object):
     """Dispatcher for socket objects"""
-    # pylint: disable=too-many-public-methods,too-many-instance-attributes
 
     debug = False
     connected = False
@@ -546,7 +531,7 @@ class dispatcher(object):
 
     def add_channel(self, map=None):
         """Add a channel"""
-        # pylint: disable=attribute-defined-outside-init
+
         if map is None:
             map = self._map
         map[self._fileno] = self
@@ -564,12 +549,12 @@ class dispatcher(object):
             try:
                 kqueue_poller.pollster.control([select.kevent(
                     fd, select.KQ_FILTER_READ, select.KQ_EV_DELETE)], 0)
-            except(AttributeError, KeyError, TypeError, IOError, OSError):
+            except (AttributeError, KeyError, TypeError, IOError, OSError):
                 pass
             try:
                 kqueue_poller.pollster.control([select.kevent(
                     fd, select.KQ_FILTER_WRITE, select.KQ_EV_DELETE)], 0)
-            except(AttributeError, KeyError, TypeError, IOError, OSError):
+            except (AttributeError, KeyError, TypeError, IOError, OSError):
                 pass
             try:
                 epoll_poller.pollster.unregister(fd)
@@ -589,7 +574,7 @@ class dispatcher(object):
     def create_socket(
             self, family=socket.AF_INET, socket_type=socket.SOCK_STREAM):
         """Create a socket"""
-        # pylint: disable=attribute-defined-outside-init
+
         self.family_and_type = family, socket_type
         sock = socket.socket(family, socket_type)
         sock.setblocking(0)
@@ -726,6 +711,8 @@ class dispatcher(object):
     # cheap inheritance, used to pass all other attribute
     # references to the underlying socket object.
     def __getattr__(self, attr):
+        if attr == 'socket':
+            raise AttributeError("socket not initialized")
         try:
             retattr = getattr(self.socket, attr)
         except AttributeError:
@@ -951,7 +938,7 @@ def close_all(map=None, ignore_all=False):
 if os.name == 'posix':
     import fcntl
 
-    class file_wrapper:  # pylint: disable=old-style-class
+    class file_wrapper:
         """
         Here we override just enough to make a file look
         like a socket for the purposes of asyncore.

@@ -1,7 +1,7 @@
 import hashlib
 import os
 
-from PyQt4 import QtGui
+from PyQt6 import QtGui
 
 import state
 from addresses import addBMIfNotPresent
@@ -31,6 +31,10 @@ def identiconize(address):
     # the identicons to decrease the risk of attacks where someone creates
     # an address to mimic someone else's identicon.
     identiconsuffix = config.get('bitmessagesettings', 'identiconsuffix')
+    if identiconsuffix is None:
+        identiconsuffix = ""
+    if identicon_lib is None:
+        identicon_lib = ""
     if identicon_lib[:len('qidenticon')] == 'qidenticon':
         # originally by:
         # :Author:Shin Adachi <shn@glucose.jp>
@@ -38,7 +42,7 @@ def identiconize(address):
         # stripped from PIL and uses QT instead (by sendiulo, same license)
         import qidenticon
         icon_hash = hashlib.md5(
-            addBMIfNotPresent(address) + identiconsuffix).hexdigest()
+            (addBMIfNotPresent(address) + identiconsuffix).encode('utf-8')).hexdigest()
         use_two_colors = identicon_lib[:len('qidenticon_two')] == 'qidenticon_two'
         opacity = int(
             identicon_lib not in (
@@ -51,12 +55,15 @@ def identiconize(address):
         # filename = './images/identicons/'+hash+'.png'
         # image.save(filename)
         idcon = QtGui.QIcon()
-        idcon.addPixmap(image, QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        idcon.addPixmap(image, QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         return idcon
     elif identicon_lib == 'pydenticon':
         # Here you could load pydenticon.py
         # (just put it in the "src" folder of your Bitmessage source)
-        from pydenticon import Pydenticon
+        try:
+            from pydenticon import Pydenticon
+        except ImportError:
+            return QtGui.QIcon()
         # It is not included in the source, because it is licensed under GPLv3
         # GPLv3 is a copyleft license that would influence our licensing
         # Find the source here:
@@ -67,10 +74,10 @@ def identiconize(address):
             addBMIfNotPresent(address) + identiconsuffix, size * 3)
         rendering = idcon_render._render()
         data = rendering.convert("RGBA").tostring("raw", "RGBA")
-        qim = QtGui.QImage(data, size, size, QtGui.QImage.Format_ARGB32)
+        qim = QtGui.QImage(data, size, size, QtGui.QImage.Format.Format_ARGB32)
         pix = QtGui.QPixmap.fromImage(qim)
         idcon = QtGui.QIcon()
-        idcon.addPixmap(pix, QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        idcon.addPixmap(pix, QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
         return idcon
 
 
@@ -81,11 +88,11 @@ def avatarize(address):
     falls back to identiconize(address)
     """
     idcon = QtGui.QIcon()
-    icon_hash = hashlib.md5(addBMIfNotPresent(address)).hexdigest()
+    icon_hash = hashlib.md5(addBMIfNotPresent(address).encode('utf-8')).hexdigest()
     if address == str_broadcast_subscribers:
         # don't hash [Broadcast subscribers]
         icon_hash = address
-    # https://www.riverbankcomputing.com/static/Docs/PyQt4/qimagereader.html#supportedImageFormats
+    # https://www.riverbankcomputing.com/static/Docs/PyQt6/qimagereader.html#supportedImageFormats
     # QImageReader.supportedImageFormats ()
     extensions = [
         'PNG', 'GIF', 'JPG', 'JPEG', 'SVG', 'BMP', 'MNG', 'PBM', 'PGM', 'PPM',
@@ -105,11 +112,11 @@ def avatarize(address):
         lower_default = state.appdata + 'avatars/' + 'default.' + ext.lower()
         upper_default = state.appdata + 'avatars/' + 'default.' + ext.upper()
         if os.path.isfile(lower_default):
-            default = lower_default
+            # default = lower_default
             idcon.addFile(lower_default)
             return idcon
         elif os.path.isfile(upper_default):
-            default = upper_default
+            # default = upper_default
             idcon.addFile(upper_default)
             return idcon
     # If no avatar is found

@@ -16,7 +16,7 @@ _theme = {
 }
 
 
-def connect_plugin(category, label=None):  # pylint: disable=unused-argument
+def connect_plugin(category, label=None):
     """This function implements the entry point."""
     try:
         _canberra.play(0, pycanberra.CA_PROP_EVENT_ID, _theme[category], None)

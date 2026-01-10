@@ -10,13 +10,10 @@ from helper_ackPayload import genAckPayload
 from helper_sql import sqlExecute, sqlQuery
 
 
-# pylint: disable=too-many-arguments
 def insert(msgid=None, toAddress='[Broadcast subscribers]', fromAddress=None, subject=None,
            message=None, status='msgqueued', ripe=None, ackdata=None, sentTime=None,
            lastActionTime=None, sleeptill=0, retryNumber=0, encoding=2, ttl=None, folder='sent'):
     """Perform an insert into the `sent` table"""
-    # pylint: disable=unused-variable
-    # pylint: disable-msg=too-many-locals
 
     valid_addr = True
     if not ripe or not ackdata:

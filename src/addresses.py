@@ -1,17 +1,12 @@
 """
 Operations with addresses
 """
-# pylint: disable=inconsistent-return-statements
 
 import logging
 from binascii import hexlify, unhexlify
 from struct import pack, unpack
 
-try:
-    from highlevelcrypto import double_sha512
-except ImportError:
-    from .highlevelcrypto import double_sha512
-
+from highlevelcrypto import double_sha512
 
 logger = logging.getLogger('default')
 
@@ -176,8 +171,6 @@ def decodeAddress(address):
     returns (status, address version number, stream number,
     data (almost certainly a ripe hash))
     """
-    # pylint: disable=too-many-return-statements,too-many-statements
-    # pylint: disable=too-many-branches
 
     address = str(address).strip()
 

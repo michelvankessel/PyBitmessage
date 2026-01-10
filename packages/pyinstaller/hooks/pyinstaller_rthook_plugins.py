@@ -12,6 +12,8 @@ os.environ['PATH'] += ';' + ';'.join([
 
 try:
     import pybitmessage.plugins.menu_qrcode
-    import pybitmessage.plugins.proxyconfig_stem  # noqa:F401
+    import pybitmessage.plugins.proxyconfig_stem
+    # Silence unused import warnings (F401)
+    _ = (pybitmessage.plugins.menu_qrcode, pybitmessage.plugins.proxyconfig_stem)
 except ImportError:
     pass

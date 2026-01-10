@@ -28,19 +28,68 @@ def search_sql(
     :return: all messages where <where> field contains <what>
     :rtype: list[list]
     """
-    # pylint: disable=too-many-branches
-    if what:
-        what = '%' + what + '%'
-        if where == _translate("MainWindow", "To"):
-            where = 'toaddress'
-        elif where == _translate("MainWindow", "From"):
-            where = 'fromaddress'
-        elif where == _translate("MainWindow", "Subject"):
-            where = 'subject'
-        elif where == _translate("MainWindow", "Message"):
-            where = 'message'
-        else:
-            where = 'toaddress || fromaddress || subject || message'
+    where_map = {
+        _translate("MainWindow", "To"): "toaddress",
+        _translate("MainWindow", "From"): "fromaddress",
+        _translate("MainWindow", "Subject"): "subject",
+        _translate("MainWindow", "Message"): "message",
+    }
+    where = where_map.get(where, where)
+
+    if folder == 'trash':
+        # Union query for trash
+        results = []
+        # Inbox trash
+        sqlStatementBase = 'SELECT toaddress, fromaddress, subject, folder, msgid, received, read FROM inbox '
+        sqlStatementParts = []
+        sqlArguments = []
+        if account is not None:
+            if xAddress == 'both':
+                sqlStatementParts.append('(fromaddress = ? OR toaddress = ?)')
+                sqlArguments.append(account)
+                sqlArguments.append(account)
+            else:
+                sqlStatementParts.append(xAddress + ' = ? ')
+                sqlArguments.append(account)
+
+        sqlStatementParts.append("folder = 'trash'")
+
+        if what:
+            sqlStatementParts.append('%s LIKE ?' % (where))
+            sqlArguments.append(what)
+        if unreadOnly:
+            sqlStatementParts.append('read = 0')
+
+        if sqlStatementParts:
+            sqlStatementBase += 'WHERE ' + ' AND '.join(sqlStatementParts)
+
+        results.extend(sqlQuery(sqlStatementBase, sqlArguments))
+        # Sent trash
+        # For sent items, we need to map columns to match inbox structure:
+        # sent: status -> folder (dummy), ackdata -> msgid, lastactiontime -> received, 1 -> read
+        sqlStatementBase = "SELECT toaddress, fromaddress, subject, 'trash', ackdata, lastactiontime, 1 FROM sent "
+        sqlStatementParts = []
+        sqlArguments = []
+        if account is not None:
+            if xAddress == 'both':
+                sqlStatementParts.append('(fromaddress = ? OR toaddress = ?)')
+                sqlArguments.append(account)
+                sqlArguments.append(account)
+            else:
+                sqlStatementParts.append(xAddress + ' = ? ')
+                sqlArguments.append(account)
+
+        sqlStatementParts.append("folder = 'trash'")
+
+        if what:
+            sqlStatementParts.append('%s LIKE ?' % (where))
+            sqlArguments.append(what)
+
+        if sqlStatementParts:
+            sqlStatementBase += 'WHERE ' + ' AND '.join(sqlStatementParts)
+
+        results.extend(sqlQuery(sqlStatementBase, sqlArguments))
+        return results
 
     sqlStatementBase = 'SELECT toaddress, fromaddress, subject, ' + (
         'status, ackdata, lastactiontime FROM sent ' if folder == 'sent'

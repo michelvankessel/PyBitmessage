@@ -1,7 +1,3 @@
-# pylint: disable=unused-argument, consider-using-f-string, import-error, attribute-defined-outside-init
-# pylint: disable=unnecessary-comprehension, no-member, no-name-in-module, too-few-public-methods
-# pylint: disable=broad-except
-
 """
 MailDetail screen for inbox, sent, draft and trash.
 """
@@ -74,7 +70,7 @@ class IconRightSampleWidget(IRightBodyTouch, MDIconButton):
     """IconRightSampleWidget class for Kivy UI."""
 
 
-class MailDetail(Screen):  # pylint: disable=too-many-instance-attributes
+class MailDetail(Screen):
     """MailDetail Screen class for Kivy UI."""
 
     to_addr = StringProperty()
@@ -91,7 +87,7 @@ class MailDetail(Screen):  # pylint: disable=too-many-instance-attributes
 
     def __init__(self, *args, **kwargs):
         """Initialize MailDetail screen."""
-        super().__init__(*args, **kwargs)  # pylint: disable=missing-super-argument
+        super().__init__(*args, **kwargs)
         self.kivy_state = kivy_state_variables()
         Clock.schedule_once(self.init_ui, 0)
 
@@ -113,8 +109,10 @@ class MailDetail(Screen):  # pylint: disable=too-many-instance-attributes
 
     def assign_mail_details(self, data):
         """Assign mail details from query result."""
-        subject = data[0][2].decode() if isinstance(data[0][2], bytes) else data[0][2]
-        body = data[0][3].decode() if isinstance(data[0][3], bytes) else data[0][3]
+        raw_subject = data[0][2]
+        subject = raw_subject.decode() if isinstance(raw_subject, bytes) else raw_subject
+        raw_body = data[0][3]
+        body = raw_body.decode() if isinstance(raw_body, bytes) else raw_body
         self.to_addr = data[0][0] if len(data[0][0]) > 4 else ' '
         self.from_addr = data[0][1]
 
@@ -131,7 +129,7 @@ class MailDetail(Screen):  # pylint: disable=too-many-instance-attributes
             if self.page_type == 'draft'
             else os.path.join(
                 self.kivy_state.image_dir, 'text_images',
-                f'{avatar_image_first_letter(self.subject.strip())}.png'  # noqa: E999
+                f'{avatar_image_first_letter(self.subject.strip())}.png'
             )
         )
         self.timeinseconds = data[0][4] if self.page_type == 'inbox' else data[0][6]

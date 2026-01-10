@@ -1,5 +1,3 @@
-# pylint: disable=too-few-public-methods
-
 from .telenium_process import TeleniumTestProcess
 
 

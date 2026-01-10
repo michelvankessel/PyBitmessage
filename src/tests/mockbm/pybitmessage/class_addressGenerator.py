@@ -2,7 +2,7 @@
 A thread for creating addresses
 """
 
-from six.moves import queue
+import queue
 
 from pybitmessage import state
 from pybitmessage import queues
@@ -47,7 +47,7 @@ class addressGenerator(StoppableThread):
             queues.addressGeneratorQueue.put(("stopThread", "data"))
         except queue.Full:
             self.logger.warning('addressGeneratorQueue is Full')
-        super(addressGenerator, self).stopThread()  # pylint: disable=super-with-arguments
+        super(addressGenerator, self).stopThread()
 
     def run(self):
         """

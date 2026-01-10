@@ -1,13 +1,7 @@
 """Test cases for helper_sql"""
 
 import unittest
-
-try:
-    # Python 3
-    from unittest.mock import patch
-except ImportError:
-    # Python 2
-    from mock import patch
+from unittest.mock import patch
 
 import pybitmessage.helper_sql as helper_sql
 
@@ -123,7 +117,7 @@ class TestHelperSql(unittest.TestCase):
     def test_sqlstored_procedure(self, mock_task_done, mock_sqlsubmitqueue_put):
         """Test sqlStoredProcedure with a stored procedure name"""
         helper_sql.sqlStoredProcedure("exit")
-        self.assertTrue(mock_task_done.called_once)
+        mock_task_done.assert_called_once()
         mock_sqlsubmitqueue_put.assert_called_with("terminate")
 
     @classmethod
