@@ -96,5 +96,5 @@ python3 setup.py sdist bdist_wheel    # Package build
 | Type safety (type: ignore) | ✅ Phase 1 Complete (0 violations) |
 | Linting (flake8/mypy/pyright) | ✅ Clean (0 errors) |
 | F-string conversion | ⚠️ 96 pending |
-| Pathlib migration | ⚠️ 80 remaining (70/150 done in Phase 2 Prio 1 & 2) |
+| Pathlib migration | ⚠️ 73 remaining (77/150 done in Phase 2 Prio 1 & 2) |
 | Type hints | ⚠️ Systematic adoption needed |

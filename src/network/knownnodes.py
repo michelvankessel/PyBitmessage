@@ -5,11 +5,10 @@ Manipulations with knownNodes dictionary.
 
 import json
 import logging
-import os
 import pickle
 import threading
 import time
-
+from pathlib import Path
 from collections.abc import Iterable
 
 import state
@@ -90,9 +89,7 @@ def saveKnownNodes(dirName=None):
     if dirName is None:
         dirName = state.appdata
     with knownNodesLock:
-        with open(
-            os.path.join(dirName, "knownnodes.dat"), "w", encoding="utf-8"
-        ) as output:
+        with open(Path(dirName) / "knownnodes.dat", "w", encoding="utf-8") as output:
             json_serialize_knownnodes(output)
 
 

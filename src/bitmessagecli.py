@@ -20,7 +20,7 @@ import os
 import socket
 import sys
 import time
-
+from pathlib import Path
 
 import xmlrpc.client as xmlrpclib
 
@@ -123,9 +123,9 @@ def lookupAppdataFolder():
             sys.exit(1)
 
     elif "win32" in sys.platform or "win64" in sys.platform:
-        dataFolder = os.path.join(os.environ["APPDATA"], APPNAME) + "\\"
+        dataFolder = str(Path(os.environ["APPDATA"]) / APPNAME) + "\\"
     else:
-        dataFolder = os.path.expanduser(os.path.join("~", ".config/" + APPNAME + "/"))
+        dataFolder = str(Path.home() / ".config/" + APPNAME + "/")
     return dataFolder
 
 
@@ -758,12 +758,12 @@ def saveFile(fileName, fileData):
     fileName = fileName.replace(">", "~")
     fileName = fileName.replace("|", "~")
 
-    directory = os.path.abspath("attachments")
+    directory = Path("attachments").resolve()
 
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    if not directory.exists():
+        directory.mkdir(parents=True)
 
-    filePath = os.path.join(directory, fileName)
+    filePath = directory / fileName
 
     with open(filePath, "wb+") as path_to_file:
         path_to_file.write(base64.b64decode(fileData))
@@ -793,7 +793,7 @@ def attachment():
                     % filePath
                 )
 
-        invSize = os.path.getsize(filePath)
+        invSize = Path(filePath).stat().st_size
         invSize = invSize / 1024  # Converts to kilobytes
         round(invSize, 2)  # Rounds to two decimal places
 
