@@ -59,8 +59,8 @@ python3 setup.py sdist bdist_wheel    # Package build
 ## Anti-Patterns (This Project)
 
 - **7 `type: ignore` violations** in api.py, depends.py, bmconfigparser.py, knownnodes.py - fix underlying issue
-- **204 `os.path` usages** - migrate to `pathlib.Path` (priority: paths.py, storage/filesystem.py)
-- **~100 `.format()` calls** - convert to f-strings (priority: bitmessageqt/mainwindow.py)
+- **150 `os.path` usages** - migrate to `pathlib.Path` (priority: paths.py, storage/filesystem.py)
+- **96 `.format()` calls** - convert to f-strings (priority: bitmessageqt/mainwindow.py)
 - **Multiple UI entry points**: bitmessagemain.py dispatches to bitmessageqt, bitmessagecurses, or Kivy
 - **Non-standard layout**: Tests in `src/tests/`, not root; source in `src/` (flat), not `src/pybitmessage/`
 
@@ -92,6 +92,6 @@ python3 setup.py sdist bdist_wheel    # Package build
 | PyQt6 migration | ✅ Complete |
 | Legacy syntax removed | ✅ Complete |
 | Future imports | ✅ Removed |
-| F-string conversion | ⚠️ ~200 pending |
-| Pathlib migration | ⚠️ ~200 pending |
+| F-string conversion | ⚠️ 96 pending |
+| Pathlib migration | ⚠️ 150 pending |
 | Type hints | ⚠️ Systematic adoption needed |

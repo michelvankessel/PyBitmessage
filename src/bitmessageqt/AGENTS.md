@@ -22,8 +22,8 @@ src/bitmessageqt/
 
 ## Anti-Patterns (This Module)
 
-- **25+ .format() calls** (mainwindow.py) - convert to f-strings
-- **11 os.path usages** (mainwindow.py) - migrate to pathlib
+- **37 .format() calls** (mainwindow.py) - convert to f-strings
+- **13 os.path usages** (mainwindow.py) - migrate to pathlib
 - **FIXME: newlocale, impossible condition** (mainwindow.py)
 - **FIXME: rewrite loops, reuse utils** (mainwindow.py)
 - **TODO: move to l10n, popMenu** (mainwindow.py)

@@ -21,7 +21,7 @@ src/bitmessagekivy/
 ├── tests/             # Kivy-specific tests (16 files)
 │   ├── test_*.py      # Screen-specific test modules
 │   └── telenium_process.py # Telenium test runner
-├── mpybit.py          # Main Kivy app class (9 os.path usages)
+├── mpybit.py          # Main Kivy app class (20 os.path usages)
 ├── kivy_helper_search.py # Search utilities
 ├── kivy_state.py      # Kivy app state management
 ├── base_navigation.py # Navigation drawer logic
@@ -55,7 +55,7 @@ PYTHONPATH=src python3.13 src/mockbm/kivy_main.py
 
 ## Anti-Patterns (This Module)
 
-- **9 os.path usages** (mpybit.py) - migrate to pathlib
+- **20 os.path usages** (mpybit.py) - migrate to pathlib
 - **18 .format() calls** in tests - convert to f-strings
 - **TODO: get_free_credits, sc18 screen** (payment.py)
 - **TODO: checkLabel_valid, checkAddress_valid** (popup.kv)
@@ -75,7 +75,7 @@ PYTHONPATH=src python3.13 src/mockbm/kivy_main.py
 
 ## Known Issues (FIXME)
 
-- `mpybit.py`: 9 os.path.join() calls need pathlib migration
+- `mpybit.py`: 20 os.path.join() calls need pathlib migration
 - Test files: 18 .format() calls need f-string conversion
 - Payment screen: incomplete get_free_credits implementation
 - Address validation: TODO in popup.kv templates

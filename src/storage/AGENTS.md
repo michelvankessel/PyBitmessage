@@ -50,7 +50,7 @@ CREATE TABLE inventory (
 
 ## Anti-Patterns (This Module)
 
-- **11 os.path usages** in filesystem.py - migrate to pathlib.Path
+- **13 os.path usages** in filesystem.py - migrate to pathlib.Path
 - No type hints in filesystem.py (sqlite.py has partial coverage)
 - FilesystemInventory uses hex strings for directory names (inefficient)
 
