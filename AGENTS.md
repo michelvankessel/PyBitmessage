@@ -1,200 +1,97 @@
 # PyBitmessage Agent Guidelines
 
-## Build/Test/Lint Commands
+**Branch:** `(based on working dir)` | **Generated:** 2026-01-10
 
-### Running Tests
+## Overview
+
+PyBitmessage: P2P encrypted messaging protocol client (Python 3.13, PyQt6). Multi-interface architecture (GUI, TUI, daemon, mobile Kivy).
+
+## Structure
+
+```
+./src/
+├── network/          # P2P protocol (connections, addr, inv, bmproto)
+├── storage/          # SQLite + filesystem persistence
+├── bitmessageqt/     # PyQt6 GUI (mainwindow, dialogs, settings)
+├── bitmessagekivy/   # Kivy mobile UI
+├── bitmessagecurses/ # Curses TUI
+├── plugins/          # Optional features (audio, notification, QR)
+├── tests/            # Core test suite
+├── backend/          # Address generation worker
+├── messagetypes/     # Protocol message definitions
+└── bitmessagemain.py # Startup orchestrator (NOT __main__.py)
+```
+
+## Commands
 
 ```bash
-# Run all tests (recommended)
-PYTHONPATH=src python3.13 tests.py
+# Tests
+PYTHONPATH=src python3.13 tests.py                        # All tests
+python3.13 -m unittest pybitmessage.tests.test_addresses # Specific module
+python3.13 -m unittest pybitmessage.tests.test_addresses.TestAddresses.test_decode  # Single test
 
-# Run specific test module
-python3.13 -m unittest pybitmessage.tests.test_addresses
+# Lint
+bandit -r src/                  # Security
+mypy src/                       # Type check (work in progress)
+flake8 src/ --max-line-length=180
 
-# Run a single test case
-python3.13 -m unittest pybitmessage.tests.test_addresses.TestAddresses.test_decode
-
-# Run with verbose output
-PYTHONPATH=src python3.13 -m unittest discover -s pybitmessage/tests -v
+# Build
+pip install -e .                # Dev install
+python3 setup.py build_ext --inplace  # C extension (bitmsghash)
+python3 setup.py sdist bdist_wheel    # Package build
 ```
 
-### Linting and Code Quality
+## Conventions
 
-```bash
-# Security analysis
-bandit -r src/
+| Category | Rule | Notes |
+|----------|------|-------|
+| **Python** | 3.13+ only | No Python 2 compatibility |
+| **GUI** | PyQt6 only | No PyQt4/5 code |
+| **Style** | flake8 max-line-length=180 | setup.cfg |
+| **Imports** | stdlib → third-party → local | Blank line between groups |
+| **Naming** | snake_case func/var, PascalCase class, UPPER_SNAKE_CONST | |
+| **Logging** | `logger = logging.getLogger('default')` | Module-level |
+| **Exceptions** | Custom exceptions end in `Error` | e.g., `varintEncodeError` |
+| **Type hints** | Full annotations | Use `TYPE_CHECKING` guard |
+| **Forbidden** | `type: ignore`, empty `except:`, `.format()` in new code | |
+| **Architecture** | No impl in `__init__.py`, UI/core separation | |
 
-# Type checking (work in progress)
-mypy src/
+## Anti-Patterns (This Project)
 
-# Run the test runner directly
-python3.13 tests_runner.py
-```
+- **7 `type: ignore` violations** in api.py, depends.py, bmconfigparser.py, knownnodes.py - fix underlying issue
+- **204 `os.path` usages** - migrate to `pathlib.Path` (priority: paths.py, storage/filesystem.py)
+- **~100 `.format()` calls** - convert to f-strings (priority: bitmessageqt/mainwindow.py)
+- **Multiple UI entry points**: bitmessagemain.py dispatches to bitmessageqt, bitmessagecurses, or Kivy
+- **Non-standard layout**: Tests in `src/tests/`, not root; source in `src/` (flat), not `src/pybitmessage/`
 
-### Build Commands
+## Where to Look
 
-```bash
-# Development installation
-pip install -e .
+| Task | Location |
+|------|----------|
+| P2P protocol | `network/ bmproto.py, connectionpool.py, addrthread.py` |
+| Database | `storage/ sqlite.py, storage.py` |
+| PyQt6 GUI | `bitmessageqt/ mainwindow.py, dialogs.py` |
+| Kivy mobile | `bitmessagekivy/ baseclass/` |
+| Plugins | `plugins/ menu_qrcode.py, notification_*.py` |
+| Address handling | `addresses.py, helper_startup.py` |
+| API server | `api.py` (XML-RPC, security TODO) |
+| Tests | `src/tests/ test_*.py` + `tests_runner.py` (randomized order) |
 
-# Build C extension (bitmsghash)
-python3 setup.py build_ext --inplace
+## Known Issues (FIXME)
 
-# Full package build
-python3 setup.py sdist bdist_wheel
-```
+- `addresses.py`: encodeBase58 should take binary data
+- `networkstatus.py`: Hardcoded stream number
+- `class_singleWorker.py`: Inventory deletion, objectPayload signing
+- `api.py`: XML vulnerabilities, HACK: cookie handling
 
----
+## Upgrade Status
 
-## Code Style Guidelines
-
-### Modernization Requirements
-
-1. **Python 3.13 only**: No legacy Python 2.x code.
-2. **PyQt6 only**: No PyQt4/5 compatibility code.
-3. **Use f-strings**: Prefer `f"{var}"` over `.format()` or `%` formatting.
-4. **Use pathlib**: Replace `os.path` with `pathlib.Path` where feasible.
-5. **Add type hints**: Annotate function signatures for clarity and mypy compatibility.
-6. **Defensive Coding**: **DO NOT use `type: ignore`**. Fix the underlying issue or create a stub.
-
-### Imports
-
-- **Order**: Standard library → Third-party → Local/absolute imports (blank line between groups)
-- **Style**: Use absolute imports (`from module import name`)
-- **Avoid**: Relative imports (`from .module import name`) unless necessary
-
-```python
-# Correct order
-import logging
-import os
-from binascii import hexlify, unhexlify
-from struct import pack, unpack
-
-import highlevelcrypto
-from addresses import decodeAddress, encodeVarint
-```
-
-### Naming Conventions
-
-- **Functions/variables**: `snake_case`
-- **Classes**: `PascalCase`
-- **Constants**: `UPPER_SNAKE_CASE`
-- **Private attributes**: `_leading_underscore`
-
-```python
-# Examples
-class varintEncodeError(Exception): ...
-def encode_varint(integer): ...
-ALPHABET = "123456789..."
-logger = logging.getLogger('default')
-```
-
-### Docstrings
-
-Use Google-style docstrings with `Args:` and `Returns:` sections:
-
-```python
-def encodeBase58(num):
-    """Encode a number in Base X
-
-    Args:
-      num: The number to encode
-      alphabet: The alphabet to use for encoding
-
-    Returns:
-      The encoded string or None if num < 0
-    """
-```
-
-### Type Hints
-
-Use modern Python 3.13 type hints:
-
-```python
-# Simple types
-def process_address(address: str) -> bool: ...
-
-# Complex types
-myECCryptorObjects: dict[bytes, Any] = {}
-MyECSubscriptionCryptorObjects: dict[bytes, Any] = {}
-
-# Type checking import guard
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from module import SomeType
-```
-
-### Error Handling
-
-- **Custom exceptions**: Name ending with `Error` (e.g., `varintEncodeError`)
-- **Never suppress errors**: No empty `except:` blocks
-- **Specific exceptions**: Catch only the exceptions you handle
-
-```python
-class varintEncodeError(Exception):
-    """Exception class for encoding varint"""
-    pass
-
-try:
-    result = operation()
-except ValueError:
-    return 0  # Handle specific error
-```
-
-### Logging
-
-Use the module-level logger pattern:
-
-```python
-logger = logging.getLogger('default')
-
-# In functions
-logger.info('Loading config files from %s', path)
-logger.error("Error in function: %s", detail)
-```
-
-### String Formatting
-
-**Prefer f-strings** for all new code:
-
-```python
-# Preferred (new code)
-f"Loading config from {path}"
-
-# Acceptable (existing code - don't convert unless modifying)
-"Loading config from %s" % path
-"Loading config from {}".format(path)
-```
-
-### Architecture Patterns
-
-- **Keep UI logic separate** from core functionality
-- **Never put implementation in `__init__.py` files**
-- **Use absolute imports** for all cross-module references
-- **Maintain separation** between network, storage, and UI layers
-- **Import pathmagic first** in test files when needed:
-
-```python
-from pybitmessage import pathmagic
-pathmagic.setup()
-```
-
-### Module Structure
-
-- **Source location**: `src/` directory (not `pybitmessage/` root)
-- **Package structure**: `pybitmessage.{module}` imports
-- **Test location**: `src/tests/` for core tests, `src/bitmessagekivy/tests/` for UI tests
-- **Entry points**: Defined in `setup.py` under `console_scripts`
-
----
-
-## Current Upgrade Status
-
-- ✅ **Python 3.13+ target**: Complete
-- ✅ **PyQt6 migration**: Complete
-- ✅ **Legacy syntax removed**: No Python 2 `print`, `unicode`, `xrange`
-- ✅ **Future imports removed**: 0 remaining
-- ✅ **Six library removed**: 0 occurrences
-- ⚠️ **F-string conversion**: Pending (~200 occurrences)
-- ⚠️ **Pathlib migration**: Pending (~200 `os.path` occurrences)
-- ⚠️ **Type hints**: Systematic adoption needed
+| Item | Status |
+|------|--------|
+| Python 3.13+ | ✅ Complete |
+| PyQt6 migration | ✅ Complete |
+| Legacy syntax removed | ✅ Complete |
+| Future imports | ✅ Removed |
+| F-string conversion | ⚠️ ~200 pending |
+| Pathlib migration | ⚠️ ~200 pending |
+| Type hints | ⚠️ Systematic adoption needed |
