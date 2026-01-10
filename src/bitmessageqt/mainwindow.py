@@ -3572,7 +3572,13 @@ class MyForm(settingsmixin.SMainWindow):
 
         self.setSendFromComboBox(toAddressAtCurrentInboxRow)
 
-        quotedText = self.quoted_text(str(messageAtCurrentInboxRow))
+        # Decode message if it's bytes (fixes "b''" appearing in replies)
+        if isinstance(messageAtCurrentInboxRow, bytes):
+            messageString = messageAtCurrentInboxRow.decode('utf-8', 'replace')
+        else:
+            messageString = str(messageAtCurrentInboxRow)
+
+        quotedText = self.quoted_text(messageString)
         widget["message"].setPlainText(quotedText)
         if acct.subject[0:3] in ("Re:", "RE:"):
             widget["subject"].setText(tableWidget.item(currentInboxRow, 2).label)

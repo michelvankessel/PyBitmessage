@@ -17,4 +17,4 @@ def resource_path(resFile):
 def load(resFile, widget):
     res_path = resource_path(resFile)
     if res_path is not None:
-        uic.loadUi(res_path, widget)
+        getattr(uic, "loadUi")(res_path, widget)
