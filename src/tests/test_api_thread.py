@@ -46,7 +46,9 @@ class TestAPIThread(TestPartialRun):
         cls.thread.daemon = True
         cls.thread.start()
         time.sleep(3)
-        cls.api = xmlrpc_client.ServerProxy("http://username:password@127.0.0.1:8442/")
+        port = cls.config.getint("bitmessagesettings", "apiport")
+        cls.api = xmlrpc_client.ServerProxy(
+            "http://username:password@127.0.0.1:%i/" % port)
 
     def test_connection(self):
         """API command 'helloWorld'"""

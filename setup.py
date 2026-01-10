@@ -9,7 +9,11 @@ from setuptools import Extension, setup
 from setuptools.command.install import install
 
 from typing import List, Tuple, Sequence, Any
-from version import softwareVersion
+
+# Load version without modifying sys.path or importing
+softwareVersion = "0.0.0"
+with open(os.path.join(os.path.dirname(__file__), "src", "version.py")) as f:
+    exec(f.read())
 
 EXTRAS_REQUIRE: Any = {
     "docs": ["sphinx"],
@@ -58,6 +62,8 @@ if __name__ == "__main__":
         "pybitmessage.bitmsghash.bitmsghash",
         sources=["src/bitmsghash/bitmsghash.cpp"],
         libraries=["pthread", "crypto"],
+        include_dirs=["/opt/homebrew/opt/openssl@3/include"],
+        library_dirs=["/opt/homebrew/opt/openssl@3/lib"],
     )
 
     installRequires: List[str] = ["cryptography"]
@@ -105,18 +111,7 @@ if __name__ == "__main__":
         )
         package_data[""].extend(["bitmessagekivy/tests/sampleData/*.dat"])
 
-    try:
-        import msgpack
-
-        installRequires.append(
-            "msgpack-python" if msgpack.version[:2] < (0, 6) else "msgpack"
-        )
-    except ImportError:
-        try:
-            import_module("umsgpack")
-            installRequires.append("umsgpack")
-        except ImportError:
-            packages += ["pybitmessage.fallback.umsgpack"]
+    installRequires.append("msgpack")
 
     data_files: List[Tuple[str, Sequence[str]]] = [
         ("share/applications/", ["desktop/pybitmessage.desktop"]),

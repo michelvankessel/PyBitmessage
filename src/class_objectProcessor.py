@@ -927,18 +927,20 @@ class objectProcessor(threading.Thread):
                         decryptedData = cryptorObject.decrypt(
                             data[readPosition:], hmac_prefix=data[:readPosition]
                         )
-                        # This is the RIPE hash of the sender's pubkey.
-                        # We need this below to compare to the RIPE hash
-                        # of the sender's address to verify that it was
-                        # encrypted by with their key rather than some
-                        # other key.
-                        toRipe = key
-                        initialDecryptionSuccessful = True
-                        logger.info(
-                            "EC decryption successful using key associated"
-                            " with ripe hash: %s",
-                            hexlify(key),
-                        )
+                        # We must check if decryption actually succeeded (returned data)
+                        if decryptedData:
+                            # This is the RIPE hash of the sender's pubkey.
+                            # We need this below to compare to the RIPE hash
+                            # of the sender's address to verify that it was
+                            # encrypted by with their key rather than some
+                            # other key.
+                            toRipe = key
+                            initialDecryptionSuccessful = True
+                            logger.info(
+                                "EC decryption successful using key associated"
+                                " with ripe hash: %s",
+                                hexlify(key),
+                            )
                 except Exception:
                     logger.debug("cryptorObject.decrypt Exception:", exc_info=True)
             if not initialDecryptionSuccessful:

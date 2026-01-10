@@ -18,7 +18,7 @@ else:
         vdisplay = Xvfb(width=1024, height=768)
         vdisplay.start()
         atexit.register(vdisplay.stop)
-    except OSError:
+    except (OSError, RuntimeError):
         # Xvfb not available on this platform (e.g., macOS)
         Xvfb = None
 

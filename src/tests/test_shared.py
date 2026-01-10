@@ -91,7 +91,7 @@ class TestShared(unittest.TestCase):
     def test_reloadBroadcastSendersForWhichImWatching(self, mock_sql_query):
         """Test for reload Broadcast Senders For Which Im Watching"""
         mock_sql_query.return_value = [
-            (addr,) for addr in sample_subscription_addresses + [sample_address]
+            (addr.encode(),) for addr in sample_subscription_addresses + [sample_address]
         ]
         # before reload
         self.assertEqual(len(MyECSubscriptionCryptorObjects), 0)
@@ -105,8 +105,12 @@ class TestShared(unittest.TestCase):
             MyECSubscriptionCryptorObjects.get(sample_subscription_tag)
         )
 
-    def test_reloadMyAddressHashes(self):
+    @patch("pybitmessage.shared.config.sections")
+    def test_reloadMyAddressHashes(self, mock_sections):
         """Test for reloadMyAddressHashes"""
+        # Mock sections to return only our sample address
+        mock_sections.return_value = [sample_address]
+
         self.assertEqual(len(myAddressesByHash), 0)
         self.assertEqual(len(myAddressesByTag), 0)
 
@@ -133,7 +137,7 @@ class TestShared(unittest.TestCase):
             config.set(
                 sample_address, 'privencryptionkey',
                 encodeWalletImportFormat(
-                    unhexlify(sample_privencryptionkey)).decode()
+                    unhexlify(sample_privencryptionkey))
             )  # the key is not for the sample_address, but it doesn't matter
             config.save()
 
