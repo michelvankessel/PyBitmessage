@@ -192,6 +192,9 @@ class CryptographyECC:
                 )
 
     def encrypt(self, data, pubkey_bin):
+        # Defensively convert inputs to bytes
+        if isinstance(data, memoryview):
+            data = bytes(data)
         # pyelliptic style ECIES
         # 1. Ephemeral key
         ephem_priv = ec.generate_private_key(self.curve, default_backend())
@@ -375,6 +378,8 @@ class CryptographyECC:
         return result
 
     def sign(self, data, digest_alg=None):
+        if isinstance(data, memoryview):
+            data = bytes(data)
         if not self.private_key:
             raise ValueError("Private key required for signing")
         if digest_alg == hashes.SHA256:
@@ -384,6 +389,10 @@ class CryptographyECC:
         return self.private_key.sign(data, ec.ECDSA(alg))
 
     def verify(self, signature, data, digest_alg=None):
+        if isinstance(signature, memoryview):
+            signature = bytes(signature)
+        if isinstance(data, memoryview):
+            data = bytes(data)
         if not self.public_key:
             raise ValueError("Public key required for verification")
         if digest_alg == hashes.SHA256:
@@ -447,6 +456,10 @@ class SymmetricCryptor:
         self.key = key
 
     def decrypt(self, data, hmac_prefix=b""):
+        if isinstance(data, memoryview):
+            data = bytes(data)
+        if isinstance(hmac_prefix, memoryview):
+            hmac_prefix = bytes(hmac_prefix)
         # Data format: IV + PubKey + Ciphertext + MAC
         # Note: For Symmetric/Tag encryption, there is no Ephemeral Pubkey.
         # But 'data' structure usually includes it?
