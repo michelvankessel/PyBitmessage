@@ -671,13 +671,24 @@ class MyForm(settingsmixin.SMainWindow):
         )
         for row in queryreturn:
             toaddress, folder, cnt = row
+            if isinstance(toaddress, bytes):
+                toaddress = toaddress.decode("utf-8")
+            if isinstance(folder, bytes):
+                folder = folder.decode("utf-8")
             total += cnt
             if toaddress in db and folder in db[toaddress]:
                 db[toaddress][folder] = cnt
+                # Also set "new" folder if "inbox" has items, assuming they map
+                if folder == "inbox":
+                    db[toaddress]["new"] = cnt
         if treeWidget == self.ui.treeWidgetYourIdentities:
             db[None] = {}
             db[None]["inbox"] = total
             db[None]["new"] = total
+            db[None]["sent"] = 0
+            db[None]["trash"] = 0
+            # Ensure proper calculation for All Accounts
+            enabled[None] = True
             db[None]["sent"] = 0
             db[None]["trash"] = 0
             enabled[None] = True
@@ -1229,6 +1240,10 @@ class MyForm(settingsmixin.SMainWindow):
         normalUnread = {}
         broadcastsUnread = {}
         for addr, fld, count in queryReturn:
+            if isinstance(addr, bytes):
+                addr = addr.decode("utf-8")
+            if isinstance(fld, bytes):
+                fld = fld.decode("utf-8")
             try:
                 normalUnread[addr][fld] = count
             except KeyError:
@@ -1252,6 +1267,10 @@ class MyForm(settingsmixin.SMainWindow):
                 str_broadcast_subscribers,
             )
             for addr, fld, count in queryReturn:
+                if isinstance(addr, bytes):
+                    addr = addr.decode("utf-8")
+                if isinstance(fld, bytes):
+                    fld = fld.decode("utf-8")
                 try:
                     broadcastsUnread[addr][fld] = count
                 except KeyError:
@@ -3383,14 +3402,15 @@ class MyForm(settingsmixin.SMainWindow):
             #     modified += 1
             self.updateUnreadStatus(tableWidget, currentRow, msgid, False)
 
-        # for 1081
-        idCount = len(msgids)
-        # rowcount =
-        sqlExecuteChunked(
-            """UPDATE inbox SET read=0 WHERE msgid IN ({0}) AND read=1""",
-            idCount,
-            *msgids,
-        )
+        msgidsList = list(msgids)
+        chunkSize = 900
+        for i in range(0, len(msgidsList), chunkSize):
+            chunk = msgidsList[i:i + chunkSize]
+            placeholders = ",".join("?" * len(chunk))
+            sqlExecute(
+                f"UPDATE inbox SET read=0 WHERE read=1 AND msgid IN ({placeholders})",
+                *chunk,
+            )
 
         self.propagateUnreadCount()
         # tableWidget.selectRow(currentRow + 1)

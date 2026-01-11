@@ -195,13 +195,28 @@ class Ui_FolderWidget(QtWidgets.QTreeWidgetItem, AccountMixin):
             if role == QtCore.Qt.ItemDataRole.ForegroundRole:
                 return self.folderBrush()
             if role == QtCore.Qt.ItemDataRole.DisplayRole:
-                return self._getLabel()
+                label = self._getLabel()
+                if self.unreadCount > 0:
+                    return f"{label} ({self.unreadCount})"
+                return label
+            if role == QtCore.Qt.ItemDataRole.FontRole:
+                font = QtGui.QFont()
+                font.setBold(self.unreadCount > 0)
+                return font
         # Use QTreeWidgetItem.data() which takes (column, role)
         try:
             return QtWidgets.QTreeWidgetItem.data(self, column, role)
         except (AttributeError, TypeError):
             # Defensive fallback for missing data
             return None
+
+    def setUnreadCount(self, cnt: int) -> None:
+        super(Ui_FolderWidget, self).setUnreadCount(cnt)
+        label = self._getLabel()
+        if self.unreadCount > 0:
+            self.setText(0, f"{label} ({self.unreadCount})")
+        else:
+            self.setText(0, label)
 
     # inbox, sent, thrash first, rest alphabetically
     def __lt__(self, other: Any) -> bool:
@@ -258,6 +273,10 @@ class Ui_AddressWidget(QtWidgets.QTreeWidgetItem, AccountMixin):
         self.setType()
         parent.insertChild(pos, self)
 
+    def setUnreadCount(self, cnt: int) -> None:
+        super(Ui_AddressWidget, self).setUnreadCount(cnt)
+        self.setText(0, self._getAddressBracket(self.unreadCount > 0))
+
     def _getLabel(self) -> str:
         if self.address is None:
             return _translate("MainWindow", "All accounts")
@@ -273,9 +292,10 @@ class Ui_AddressWidget(QtWidgets.QTreeWidgetItem, AccountMixin):
 
     def _getAddressBracket(self, unreadCount: bool = False) -> str:
         label = self._getLabel()
+        count_str = f" ({self.unreadCount})" if self.unreadCount > 0 else ""
         if self.address is not None:
-            return f"{label} ({self.address})"
-        return label
+            return f"{label} ({self.address}){count_str}"
+        return f"{label}{count_str}"
 
     def data(self, column: int, role: int) -> Any:
         """Override internal QT method for returning object data"""
@@ -291,6 +311,10 @@ class Ui_AddressWidget(QtWidgets.QTreeWidgetItem, AccountMixin):
                 return self.accountBrush()
             elif role == QtCore.Qt.ItemDataRole.DisplayRole:
                 return self._getAddressBracket(self.unreadCount > 0)
+            elif role == QtCore.Qt.ItemDataRole.FontRole:
+                font = QtGui.QFont()
+                font.setBold(self.unreadCount > 0)
+                return font
         return QtWidgets.QTreeWidgetItem.data(self, column, role)
 
     def setData(self, column: int, role: int, value: Any) -> None:
