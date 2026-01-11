@@ -93,6 +93,38 @@ fixture = TestAddress(address="BM-xxxx", label="Test", stream=1)
 - **Hardcoded paths**: Some tests assume specific directory structure (migrated to pathlib)
 - **Integration leaks**: core.py tests require full PyBitmessage initialization
 
+## GPU/OpenCL Tests
+
+### Test Status
+
+| Test | Status | Requirements |
+|------|--------|--------------|
+| `test_openclpow.py` | SKIPPED | OpenCL GPU (NVIDIA/AMD) |
+| `test_proofofwork.py::TestProofofwork` | SKIPPED by default | `BITMESSAGE_TEST_POW=1` env var |
+
+### Running Extended PoW Tests
+
+```bash
+# Extended proof-of-work tests (computationally expensive)
+BITMESSAGE_TEST_POW=1 uv run pytest src/tests/test_proofofwork.py::TestProofofwork -v
+
+# OpenCL GPU tests (requires OpenCL-capable GPU)
+uv run pytest src/tests/test_openclpow.py -v
+```
+
+### macOS Metal GPU Limitation
+
+OpenCL was deprecated on macOS in favor of Metal. The `test_openclpow.py` test requires an OpenCL-capable GPU, which:
+
+- Works on: Linux/Windows with NVIDIA or AMD GPUs
+- Doesn't work on: macOS with integrated Metal GPU (Apple Silicon, Intel Mac)
+
+**Future Enhancement**: GPU acceleration could be ported to Metal using:
+- `pyobjc` with Metal compute shaders
+- PyTorch with MPS (Metal Performance Shaders) backend
+
+This would require rewriting the PoW kernel in Metal Shading Language and using a Metal Python binding. This is a significant feature addition beyond test fixes.
+
 ## Where to Look
 
 | Component | Test Files |

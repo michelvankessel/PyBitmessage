@@ -66,7 +66,7 @@ if __name__ == "__main__":
         library_dirs=["/opt/homebrew/opt/openssl@3/lib"],
     )
 
-    installRequires: List[str] = ["cryptography"]
+    installRequires: List[str] = ["cryptography", "pycryptodome"]
     packages: List[str] = [
         "pybitmessage",
         "pybitmessage.bitmessageqt",
@@ -141,10 +141,8 @@ if __name__ == "__main__":
         license="MIT",
         url="https://bitmessage.org",
         install_requires=installRequires,
-
         extras_require=EXTRAS_REQUIRE,
         classifiers=[
-
             "Operating System :: OS Independent",
             "Programming Language :: Python :: 3 :: Only",
             "Programming Language :: Python :: 3.13 :: Only",

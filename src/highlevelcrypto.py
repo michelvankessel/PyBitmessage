@@ -14,7 +14,7 @@ from binascii import hexlify
 from Crypto.Hash import RIPEMD160 as RIPEMD160Hash
 import arithmetic as a
 
-logger = logging.getLogger('default')
+logger = logging.getLogger("default")
 
 
 try:
@@ -22,6 +22,7 @@ try:
     from cryptography.hazmat.primitives.asymmetric import ec
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     from cryptography.hazmat.backends import default_backend
+
     HAS_CRYPTOGRAPHY = True
 except ImportError:
     HAS_CRYPTOGRAPHY = False
@@ -57,7 +58,7 @@ def decodeWalletImportFormat(WIFstring):
     Decodes WIF string. Returns the raw private key bytes.
     """
     if isinstance(WIFstring, bytes):
-        WIFstring = WIFstring.decode('ascii')
+        WIFstring = WIFstring.decode("ascii")
     try:
         privkey_bin = a.b58check_to_bin(WIFstring, 128)
     except Exception:
@@ -88,16 +89,16 @@ def random_keys():
     priv = ec.generate_private_key(ec.SECP256K1(), default_backend())
     pub = priv.public_key().public_bytes(
         encoding=serialization.Encoding.X962,
-        format=serialization.PublicFormat.UncompressedPoint
+        format=serialization.PublicFormat.UncompressedPoint,
     )
     # Bitmessage expects privkey in secret bytes format
-    priv_bytes = priv.private_numbers().private_value.to_bytes(32, 'big')
+    priv_bytes = priv.private_numbers().private_value.to_bytes(32, "big")
     return priv_bytes, pub
 
 
 def deterministic_keys(seed, nonce):
     """Generates deterministic keys from seed and nonce"""
-    payload = seed + a.encode(int.from_bytes(nonce, 'big'), 256)
+    payload = seed + a.encode(int.from_bytes(nonce, "big"), 256)
     privkey = hashlib.sha512(payload).digest()[:32]
     return privkey, pointMult(privkey)
 
@@ -152,17 +153,18 @@ def pointMult(secret):
         raise ImportError("cryptography library is required")
 
     priv = ec.derive_private_key(
-        int.from_bytes(secret, 'big'), ec.SECP256K1(), default_backend()
+        int.from_bytes(secret, "big"), ec.SECP256K1(), default_backend()
     )
     # cryptography's public_bytes for uncompressed point (0x04 prefix)
     return priv.public_key().public_bytes(
         encoding=serialization.Encoding.X962,
-        format=serialization.PublicFormat.UncompressedPoint
+        format=serialization.PublicFormat.UncompressedPoint,
     )
 
 
 class CryptographyECC:
     """A compatibility layer for pyelliptic.ECC using the cryptography library"""
+
     def __init__(self, pubkey=None, raw_privkey=None, curve="secp256k1"):
         if curve != "secp256k1":
             raise ValueError("Only secp256k1 is supported currently")
@@ -171,7 +173,7 @@ class CryptographyECC:
         self.public_key = None
         if raw_privkey:
             self.private_key = ec.derive_private_key(
-                int.from_bytes(raw_privkey, 'big'), self.curve, default_backend()
+                int.from_bytes(raw_privkey, "big"), self.curve, default_backend()
             )
             self.public_key = self.private_key.public_key()
         if pubkey:
@@ -181,9 +183,7 @@ class CryptographyECC:
                 x = pubkey[4:36]
                 y = pubkey[38:70]
                 self.public_key = ec.EllipticCurvePublicNumbers(
-                    int.from_bytes(x, 'big'),
-                    int.from_bytes(y, 'big'),
-                    self.curve
+                    int.from_bytes(x, "big"), int.from_bytes(y, "big"), self.curve
                 ).public_key(default_backend())
             else:
                 # assume raw X9.62 format (0x04 + x + y)
@@ -205,9 +205,7 @@ class CryptographyECC:
             x = pubkey_bin[4:36]
             y = pubkey_bin[38:70]
             recipient_pub = ec.EllipticCurvePublicNumbers(
-                int.from_bytes(x, 'big'),
-                int.from_bytes(y, 'big'),
-                self.curve
+                int.from_bytes(x, "big"), int.from_bytes(y, "big"), self.curve
             ).public_key(default_backend())
         else:
             recipient_pub = ec.EllipticCurvePublicKey.from_encoded_point(
@@ -230,6 +228,7 @@ class CryptographyECC:
         cipher = Cipher(algorithms.AES(key_e), modes.CBC(iv), backend=default_backend())
         encryptor = cipher.encryptor()
         from cryptography.hazmat.primitives import padding
+
         padder = padding.PKCS7(128).padder()
         padded_data = padder.update(data) + padder.finalize()
         ciphertext = encryptor.update(padded_data) + encryptor.finalize()
@@ -237,8 +236,8 @@ class CryptographyECC:
         # 7. Construct Result
         # Ephemeral pubkey in pyelliptic format
         pub_numbers = ephem_pub.public_numbers()
-        x_bytes = pub_numbers.x.to_bytes(32, 'big')
-        y_bytes = pub_numbers.y.to_bytes(32, 'big')
+        x_bytes = pub_numbers.x.to_bytes(32, "big")
+        y_bytes = pub_numbers.y.to_bytes(32, "big")
         ephem_pub_bin = b"\x02\xca\x00 " + x_bytes + b"\x00 " + y_bytes
 
         payload = iv + ephem_pub_bin + ciphertext
@@ -290,9 +289,11 @@ class CryptographyECC:
                     length = 0
 
                 if length > 0:
-                    ephem_bytes = data[16:16 + length]
+                    ephem_bytes = data[16 : 16 + length]
                     # This method was added in cryptography 2.5
-                    ephem_pub = ec.EllipticCurvePublicKey.from_encoded_point(self.curve, ephem_bytes)
+                    ephem_pub = ec.EllipticCurvePublicKey.from_encoded_point(
+                        self.curve, ephem_bytes
+                    )
                     pub_len = length  # Only set pub_len if parsing succeeds
             except (ValueError, AttributeError):
                 # Fallback if invalid point or method missing
@@ -305,12 +306,10 @@ class CryptographyECC:
             x = ephem_pub_bin[4:36]
             y = ephem_pub_bin[38:70]
             ephem_pub = ec.EllipticCurvePublicNumbers(
-                int.from_bytes(x, 'big'),
-                int.from_bytes(y, 'big'),
-                self.curve
+                int.from_bytes(x, "big"), int.from_bytes(y, "big"), self.curve
             ).public_key(default_backend())
 
-        ciphertext = data[16 + pub_len:-32]
+        ciphertext = data[16 + pub_len : -32]
         mac = data[-32:]
 
         # 3. ECDH
@@ -369,6 +368,7 @@ class CryptographyECC:
 
         # 7. Unpad
         from cryptography.hazmat.primitives import padding
+
         unpadder = padding.PKCS7(128).unpadder()
         try:
             result = unpadder.update(padded_data) + unpadder.finalize()
@@ -423,7 +423,7 @@ def makeCryptor(privkey, curve="secp256k1"):
     elif isinstance(privkey, str) and len(privkey) == 64:
         # Hex string (64 chars = 32 bytes)
         private_key = a.changebase(privkey, 16, 256, minlen=32)
-    elif isinstance(privkey, str) and privkey[0] in ('5', 'K', 'L'):
+    elif isinstance(privkey, str) and privkey[0] in ("5", "K", "L"):
         # WIF format
         private_key = decodeWalletImportFormat(privkey)
     else:
@@ -446,12 +446,14 @@ def makeSymCryptor(key):
         raise ImportError("cryptography library is required")
     # key is passed as hex string
     from binascii import unhexlify
+
     key_bin = unhexlify(key)
     return SymmetricCryptor(key_bin)
 
 
 class SymmetricCryptor:
     """Handles Symmetric Encryption (AES-CBC + HMAC) using a known secret"""
+
     def __init__(self, key):
         self.key = key
 
@@ -511,7 +513,9 @@ class SymmetricCryptor:
                 try:
                     h.verify(mac)
                     verified = True
-                    logger.info("HMAC Verified (Symmetric) via FALLBACK (Object Header inclusive).")
+                    logger.info(
+                        "HMAC Verified (Symmetric) via FALLBACK (Object Header inclusive)."
+                    )
                 except Exception:
                     pass
             # Attempt 3: Object Header Only (First 20 bytes)
@@ -522,12 +526,16 @@ class SymmetricCryptor:
                 try:
                     h.verify(mac)
                     verified = True
-                    print("DEBUG_DECRYPT: HMAC Verified (Symmetric) via SECOND FALLBACK (Object Header only).")
+                    print(
+                        "DEBUG_DECRYPT: HMAC Verified (Symmetric) via SECOND FALLBACK (Object Header only)."
+                    )
                 except Exception:
                     pass
 
         if not verified:
-            print(f"DEBUG_DECRYPT: HMAC Verification FAILED (Symmetric). Prefix: {hexlify(hmac_prefix).decode() if hmac_prefix else 'None'}")
+            print(
+                f"DEBUG_DECRYPT: HMAC Verification FAILED (Symmetric). Prefix: {hexlify(hmac_prefix).decode() if hmac_prefix else 'None'}"
+            )
             print("DEBUG_DECRYPT: Strict HMAC Enforcement: Aborting (Bypass Inactive).")
             raise RuntimeError("Fail to verify data (Symmetric)")
 
@@ -538,6 +546,7 @@ class SymmetricCryptor:
 
         # 5. Unpad
         from cryptography.hazmat.primitives import padding
+
         unpadder = padding.PKCS7(128).unpadder()
         try:
             result = unpadder.update(padded_data) + unpadder.finalize()

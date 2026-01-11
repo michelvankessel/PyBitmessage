@@ -10,7 +10,7 @@ from .common import skip_python3
 
 def setUpModule():
     skip_python3()
-    os.environ['BITMESSAGE_HOME'] = tempfile.gettempdir()
+    os.environ["BITMESSAGE_HOME"] = tempfile.gettempdir()
 
 
 class TestSqlThread(unittest.TestCase):
@@ -31,7 +31,8 @@ class TestSqlThread(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         from pybitmessage.helper_sql import sqlStoredProcedure
-        sqlStoredProcedure('exit')
+
+        sqlStoredProcedure("exit")
         for thread in threading.enumerate():
             if thread.name == "SQL":
                 thread.join()
@@ -44,4 +45,5 @@ class TestSqlThread(unittest.TestCase):
         encoded_str = encodeAddress(4, 1, "21122112211221122112")
         query = sqlQuery('SELECT enaddr(4, 1, "21122112211221122112")')
         self.assertEqual(
-            query[0][-1], encoded_str, "test case fail for create_function")
+            query[0][-1], encoded_str, "test case fail for create_function"
+        )

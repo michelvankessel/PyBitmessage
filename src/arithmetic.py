@@ -1,8 +1,24 @@
 """
 Arithmetic Expressions
 """
+
 import hashlib
 import re
+
+# Try pycryptodome first for RIPEMD160 (works on all OpenSSL versions)
+try:
+    from Crypto.Hash import RIPEMD160 as _RIPEMD160
+
+    def _ripemd160(data: bytes) -> bytes:
+        """RIPEMD160 hash using pycryptodome (works on OpenSSL 3)"""
+        return _RIPEMD160.new(data).digest()
+
+except ImportError:
+    # Fallback to hashlib (may fail on OpenSSL 3)
+    def _ripemd160(data: bytes) -> bytes:
+        """RIPEMD160 hash using hashlib (requires OpenSSL with RIPEMD160)"""
+        return hashlib.new("ripemd160", data).digest()
+
 
 P = 2**256 - 2**32 - 2**9 - 2**8 - 2**7 - 2**6 - 2**4 - 1
 A = 0
@@ -25,13 +41,13 @@ def inv(a, n):
 def get_code_string(base):
     """Returns string according to base value"""
     if base == 2:
-        return b'01'
+        return b"01"
     if base == 10:
-        return b'0123456789'
+        return b"0123456789"
     if base == 16:
-        return b'0123456789abcdef'
+        return b"0123456789abcdef"
     if base == 58:
-        return b'123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+        return b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
     if base == 256:
         return bytes(range(256))
 
@@ -41,7 +57,7 @@ def get_code_string(base):
 def encode(val, base, minlen=0):
     """Returns the encoded string"""
     code_string = get_code_string(base)
-    result = b''
+    result = b""
     while val > 0:
         val, i = divmod(val, base)
         result = code_string[i:i + 1] + result
@@ -53,7 +69,7 @@ def encode(val, base, minlen=0):
 def decode(string, base):
     """Returns the decoded string"""
     if isinstance(string, str):
-        string = string.encode('ascii')
+        string = string.encode("ascii")
     code_string = get_code_string(base)
     result = 0
     if base == 16:
@@ -117,13 +133,12 @@ def hex_to_point(h):
 
 def point_to_hex(p):
     """Converting point value to hexadecimal"""
-    return b'04' + encode(p[0], 16, 64) + encode(p[1], 16, 64)
+    return b"04" + encode(p[0], 16, 64) + encode(p[1], 16, 64)
 
 
 def multiply(privkey, pubkey):
     """Multiplying keys"""
-    return point_to_hex(base10_multiply(
-        hex_to_point(pubkey), decode(privkey, 16)))
+    return point_to_hex(base10_multiply(hex_to_point(pubkey), decode(privkey, 16)))
 
 
 def privtopub(privkey):
@@ -141,9 +156,7 @@ def add(p1, p2):
 def hash_160(string):
     """Hashed version of public key"""
     intermed = hashlib.sha256(string).digest()
-    ripemd160 = hashlib.new('ripemd160')
-    ripemd160.update(intermed)
-    return ripemd160.digest()
+    return _ripemd160(intermed)
 
 
 def dbl_sha256(string):
@@ -154,11 +167,11 @@ def dbl_sha256(string):
 def bin_to_b58check(inp, magicbyte=0):
     """Convert binary to base58check"""
     if isinstance(inp, str):
-        inp = inp.encode('latin1')
+        inp = inp.encode("latin1")
     inp_fmtd = bytes([magicbyte]) + inp
-    leadingzbytes = len(re.match(b'^\x00*', inp_fmtd).group(0))
+    leadingzbytes = len(re.match(b"^\x00*", inp_fmtd).group(0))
     checksum = dbl_sha256(inp_fmtd)[:4]
-    return '1' * leadingzbytes + changebase(inp_fmtd + checksum, 256, 58).decode()
+    return "1" * leadingzbytes + changebase(inp_fmtd + checksum, 256, 58).decode()
 
 
 def b58check_to_bin(inp, magicbyte=None, validate_checksum=False):
@@ -170,14 +183,14 @@ def b58check_to_bin(inp, magicbyte=None, validate_checksum=False):
         validate_checksum: If True, validate checksum (default: False for compatibility)
     """
     if isinstance(inp, str):
-        inp = inp.encode('ascii')
+        inp = inp.encode("ascii")
     leadingzbytes = 0
     for b in inp:
         if b == 49:  # ord('1')
             leadingzbytes += 1
         else:
             break
-    data = b'\x00' * leadingzbytes + changebase(inp, 58, 256)
+    data = b"\x00" * leadingzbytes + changebase(inp, 58, 256)
     if validate_checksum and dbl_sha256(data[:-4])[:4] != data[-4:]:
         raise ValueError("Invalid checksum")
     if magicbyte is not None and data[0] != magicbyte:
