@@ -2447,9 +2447,9 @@ class MyForm(settingsmixin.SMainWindow):
                                 )
                             )
                             return
-                        status, addressVersionNumber, streamNumber = decodeAddress(
-                            toAddress
-                        )[:3]
+                    status, addressVersionNumber, streamNumber = decodeAddress(
+                        toAddress
+                    )[:3]
                     if status != "success":
                         try:
                             toAddress = str(toAddress)

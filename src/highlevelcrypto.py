@@ -289,7 +289,7 @@ class CryptographyECC:
                     length = 0
 
                 if length > 0:
-                    ephem_bytes = data[16 : 16 + length]
+                    ephem_bytes = data[16:16 + length]
                     # This method was added in cryptography 2.5
                     ephem_pub = ec.EllipticCurvePublicKey.from_encoded_point(
                         self.curve, ephem_bytes
@@ -309,7 +309,7 @@ class CryptographyECC:
                 int.from_bytes(x, "big"), int.from_bytes(y, "big"), self.curve
             ).public_key(default_backend())
 
-        ciphertext = data[16 + pub_len : -32]
+        ciphertext = data[16 + pub_len:-32]
         mac = data[-32:]
 
         # 3. ECDH

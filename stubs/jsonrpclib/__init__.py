@@ -1,6 +1,7 @@
 """jsonrpclib stub package for type checking"""
 from typing import Any
 
+
 class SimpleJSONRPCServer:
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...
     def handle_request(self) -> None: ...
