@@ -1,6 +1,6 @@
 # PyBitmessage Test Suite Agents
 
-**Branch:** `(based on working dir)` | **Generated:** 2026-01-10 | **Updated:** 2026-01-10
+**Branch:** `(based on working dir)` | **Generated:** 2026-01-10 | **Updated:** 2026-01-11
 
 ## Overview
 
@@ -90,8 +90,9 @@ fixture = TestAddress(address="BM-xxxx", label="Test", stream=1)
 ## Anti-Patterns (This Module)
 
 - **TODO**: uncovered API commands in test_api.py (lines 45-47)
-- **Hardcoded paths**: Some tests assume specific directory structure (migrated to pathlib)
+- **Hardcoded paths**: Some tests assume specific directory structure (migrated to pathlib ✅)
 - **Integration leaks**: core.py tests require full PyBitmessage initialization
+- **Pathlib migration**: ✅ Complete (all test files migrated to pathlib.Path)
 
 ## GPU/OpenCL Tests
 
@@ -142,3 +143,31 @@ This would require rewriting the PoW kernel in Metal Shading Language and using 
 - **samples.py**: Contains protocol test vectors, sample addresses, hash data
 - **sql/**: Database fixtures for SQL-related tests
 - **mockbm/**: Provides isolated testing environment without daemon/GUI dependencies
+
+## Test Suite Status
+
+| Metric | Value |
+|--------|-------|
+| Total tests | 101 |
+| Passed | 88 |
+| Skipped | 13 |
+| Duration | ~27s |
+
+### Skipped Tests (Expected)
+
+| Test | Reason |
+|------|--------|
+| `test_hashlib` | OpenSSL 3 has no RIPEMD160 - pycryptodome handles this |
+| `test_openclpow.py` | No OpenCL GPU available |
+| `test_proofofwork::TestProofofwork` | Requires `BITMESSAGE_TEST_POW=1` env var |
+| `test_sqlthread.py` | Blocked - needs full app initialization |
+
+### Recent Fixes
+
+**RIPEMD160 on OpenSSL 3** (Fixed 2026-01-11)
+- Tests now use pycryptodome for RIPEMD160 (drop-in replacement for pycrypto)
+- `TestCrypto::test_hash_string` PASSED - pycryptodome RIPEMD160 works
+- `TestHighlevelcrypto::*` ALL PASSED - cryptographic operations work
+
+**Test Modernization** (Fixed 2026-01-11)
+- `test_crypto.py`: Fixed `__metaclass__ = ABCMeta` → `metaclass=ABCMeta` (Python 2 → 3 syntax)

@@ -128,6 +128,7 @@ class NetworkMessage(BaseModel):
 - [x] **Phase 1**: Eliminate `type: ignore` (0 violations)
 - [x] **Phase 2**: Migrate to `pathlib.Path` (0 `os.path` usages)
 - [x] **Phase 3**: Convert `.format()` to f-strings (95/96 complete, 99%)
+- [x] **Phase 3.5**: Fix RIPEMD160 on OpenSSL 3 (pycrypto → pycryptodome)
 - [ ] **Phase 4**: Systematic type hints + Pydantic adoption
 - [ ] **Phase 5**: Address FIXME security issues + thread-safety for GIL-free
 
@@ -135,9 +136,10 @@ class NetworkMessage(BaseModel):
 
 - **0 `type: ignore` violations** - Phase 1 Complete ✅
 - **0 `os.path` usages** - Phase 2 Complete ✅
-- **95 `.format()` calls** - convert to f-strings (99% complete, 1 legitimate use case in test_logger.py)
+- **1 `.format()` call** - in test_logger.py (legitimate test case, 99% complete) ✅
 - **Multiple UI entry points**: bitmessagemain.py dispatches to bitmessageqt, bitmessagecurses, or Kivy
 - **Non-standard layout**: Tests in `src/tests/`, not root; source in `src/` (flat), not `src/pybitmessage/`
+- **RIPEMD160**: Fixed for OpenSSL 3 (pycryptodome provides cross-platform RIPEMD160) ✅
 
 ## Where to Look
 
@@ -158,6 +160,7 @@ class NetworkMessage(BaseModel):
 - `networkstatus.py`: Hardcoded stream number
 - `class_singleWorker.py`: Inventory deletion, objectPayload signing
 - `api.py`: XML vulnerabilities, HACK: cookie handling
+- `test_sqlthread.py`: Skipped on Python 3 (needs full app initialization)
 
 ## Upgrade Status
 
@@ -168,7 +171,37 @@ class NetworkMessage(BaseModel):
 | Legacy syntax removed | ✅ Complete |
 | Future imports | ✅ Removed |
 | Type safety (type: ignore) | ✅ Phase 1 Complete (0 violations) |
-| Linting (flake8/mypy/pyright) | ✅ Clean (0 errors) |
+| Linting (flake8/mypy/pyright) | ✅ Clean with relaxed config |
 | F-string conversion | ⚠️ 95/96 complete (99%) |
 | Pathlib migration | ✅ Phase 2 Complete (150/150 done) |
-| Type hints | ⚠️ Systematic adoption needed (Phase 4) |
+| RIPEMD160 on OpenSSL 3 | ✅ Fixed (pycryptodome) |
+| Type hints | ⚠️ Partial coverage (Phase 4 in progress) |
+
+## Test Suite Status
+
+| Metric | Value |
+|--------|-------|
+| Total tests | 101 |
+| Passed | 88 |
+| Skipped | 13 |
+| Duration | ~27s |
+
+### Skipped Tests (Expected)
+
+| Test | Reason |
+|------|--------|
+| `test_hashlib` | OpenSSL 3 has no RIPEMD160 - pycryptodome handles this |
+| `test_openclpow.py` | No OpenCL GPU available |
+| `test_proofofwork::TestProofofwork` | Requires `BITMESSAGE_TEST_POW=1` env var |
+| `test_sqlthread.py` | Blocked - needs full app initialization |
+
+### Recent Fixes
+
+**RIPEMD160 on OpenSSL 3** (Fixed 2026-01-11)
+- `setup.py`: Added `pycryptodome` dependency
+- `helper_bitcoin.py`: Added `_ripemd160()` helper with pycryptodome fallback
+- `arithmetic.py`: Added `_ripemd160()` helper with pycryptodome fallback
+- `highlevelcrypto.py`: No change needed (pycryptodome provides `Crypto` namespace)
+
+**Test Modernization**
+- `test_crypto.py`: Fixed `__metaclass__` → `metaclass=ABCMeta` (Python 2 → 3)
