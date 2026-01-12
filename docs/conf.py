@@ -20,7 +20,7 @@ version = import_module('version')
 # -- Project information -----------------------------------------------------
 
 project = u'PyBitmessage'
-copyright = u'2019-2022, The Bitmessage Team'
+copyright = u'2019-2026, The Bitmessage Team'
 author = u'The Bitmessage Team'
 
 # The short X.Y version
@@ -214,7 +214,6 @@ autodoc_mock_imports = [
     'logging',
     'msgpack',
     'numpy',
-    'pkg_resources',
     'pycanberra',
     'pyopencl',
     'PyQt6',
@@ -268,7 +267,7 @@ def linkcode_resolve(domain, info):
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/2.7/': None}
+intersphinx_mapping = {'https://docs.python.org/3/': None}
 
 # -- Options for todo extension ----------------------------------------------
 

@@ -460,7 +460,7 @@ inv messages advertising all of the valid objects of which you are aware.
      - This is a normal network node.
    * - 2
      - NODE_SSL
-     - This node supports SSL/TLS in the current connect (python < 2.7.9 only
+     - This node supports SSL/TLS in the current connect (legacy Python versions only)
        supports a SSL client, so in that case it would only have this on when
        the connection is a client).
    * - 3

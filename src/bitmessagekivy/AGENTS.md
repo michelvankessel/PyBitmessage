@@ -44,7 +44,7 @@ uv run pytest src/bitmessagekivy/tests/
 uv run pytest src/bitmessagekivy/tests/test_inbox.py
 
 # Mobile app entry point
-uv run python3.13 src/mockbm/kivy_main.py
+uv run src/mockbm/kivy_main.py
 ```
 
 ## Conventions

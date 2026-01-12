@@ -28,7 +28,7 @@ PyBitmessage: P2P encrypted messaging protocol client (Python 3.13, PyQt6). Mult
 # Tests
 uv run pytest src/tests/                       # All tests
 uv run pytest src/tests/test_addresses.py     # Specific module
-uv run python3.13 -m unittest pybitmessage.tests.test_addresses.TestAddresses.test_decode  # Single test
+uv run python -m unittest pybitmessage.tests.test_addresses.TestAddresses.test_decode  # Single test
 
 # Lint
 uv run bandit -r src/              # Security
@@ -37,9 +37,9 @@ uv run pyright src/                # Alternative type checker
 uv run flake8 src/ --max-line-length=180
 
 # Build
-pip install -e .                   # Dev install
-python3 setup.py build_ext --inplace  # C extension (bitmsghash)
-python3 setup.py sdist bdist_wheel    # Package build
+uv pip install -e .                   # Dev install
+uv run python setup.py build_ext --inplace  # C extension (bitmsghash)
+uv run python setup.py sdist bdist_wheel    # Package build
 ```
 
 ## Conventions
@@ -198,10 +198,12 @@ class NetworkMessage(BaseModel):
 ### Recent Fixes
 
 **RIPEMD160 on OpenSSL 3** (Fixed 2026-01-11)
+
 - `setup.py`: Added `pycryptodome` dependency
 - `helper_bitcoin.py`: Added `_ripemd160()` helper with pycryptodome fallback
 - `arithmetic.py`: Added `_ripemd160()` helper with pycryptodome fallback
 - `highlevelcrypto.py`: No change needed (pycryptodome provides `Crypto` namespace)
 
 **Test Modernization**
+
 - `test_crypto.py`: Fixed `__metaclass__` → `metaclass=ABCMeta` (Python 2 → 3)

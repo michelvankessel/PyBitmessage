@@ -44,7 +44,7 @@ The appimages should be in the dist dir.
 Go to the directory with PyBitmessage source code and run:
 
 ```bash
-python3.13 checkdeps.py
+uv run checkdeps.py
 ```
 
 If there are missing dependencies, it will explain what is missing. You need to repeat calling the script until no mandatory dependencies are missing.
@@ -56,8 +56,8 @@ PyBitmessage now requires **Python 3.13** and **PyQt6**.
 #### For Debian-based (Ubuntu, others)
 
 ```bash
-sudo apt install python3.13 python3.13-dev python3.13-venv openssl libssl-dev
-pip install PyQt6 msgpack
+sudo apt install python3 python3-dev python3-venv openssl libssl-dev
+uv pip install PyQt6 msgpack
 ```
 
 #### For Arch Linux
@@ -70,30 +70,50 @@ sudo pacman -S python python-pyqt6 openssl
 
 ```bash
 brew install python@3.13 openssl@3
-pip3.13 install PyQt6 msgpack
+uv pip install PyQt6 msgpack
 ```
 
-## Installation with setuptools
+## Run with uv (Recommended for Modern Development)
 
-This is the recommended way to install PyBitmessage.
-
-### As user (Recommended)
+This project is compatible with `uv` for fast dependency management.
 
 ```bash
-python3.13 -m pip install . --user
-# Then run:
-pybitmessage
+# Run the application
+uv run src/bitmessagemain.py
+
+# Run tests
+uv run tests.py
 ```
 
-## Development Environment (using venv)
+## Legacy / Manual Installation
 
-It is highly recommended to use a virtual environment for development.
+### Install Dependencies
 
 ```bash
-python3.13 -m venv .venv
+uv pip install PyQt6 msgpack
+```
+
+### Install PyBitmessage
+
+```bash
+uv pip install .
+```
+
+### Install from Requirements
+
+```bash
+uv pip install -r requirements.txt
+```
+
+## Development Environment
+
+It is highly recommended to use `uv` for development.
+
+```bash
+uv venv --python 3.13
 source .venv/bin/activate
-pip install -r requirements.txt
-python src/bitmessagemain.py
+uv pip install -r requirements.txt
+uv run src/bitmessagemain.py
 ```
 
 ## Running Tests
@@ -101,7 +121,7 @@ python src/bitmessagemain.py
 To verify the installation, run the test suite:
 
 ```bash
-python tests.py
+uv run tests.py
 ```
 
 ## Alternative way to run PyBitmessage

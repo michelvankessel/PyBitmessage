@@ -24,6 +24,7 @@ src/plugins/
 ## Entry Points
 
 Defined in setup.py:
+
 - `bitmessage.gui.menu` - Context menu extensions
 - `bitmessage.notification.message` - Desktop notifications  
 - `bitmessage.notification.sound` - Audio alerts
@@ -45,4 +46,4 @@ Defined in setup.py:
 
 ## Dependencies
 
-Plugins require extras: `[qrcode]`, `[gir]`, `[notify2]`, `[sound]`, `[xdg]`, `[tor]`. Install via `pip install pybitmessage[qrcode,tor]` etc.
+Plugins require extras: `[qrcode]`, `[gir]`, `[notify2]`, `[sound]`, `[xdg]`, `[tor]`. Install via `uv pip install pybitmessage[qrcode,tor]` etc.

@@ -189,6 +189,7 @@ class BMConnectionPool(object):
         port = config.safeGetInt("bitmessagesettings", "port")
         # correct port even if it changed
         ls = TCPServer(host=bind, port=port)
+        logger.info(f"DEBUG: Bound listening socket to {bind}:{port}")
         self.listeningSockets[ls.destination] = ls
 
     def startUDPSocket(self, bind=None):
@@ -255,6 +256,19 @@ class BMConnectionPool(object):
             not in config.safeGet("bitmessagesettings", "onionhostname", "")
         ):
             acceptConnections = False
+            logger.debug(
+                "Incoming connections DISABLED: SOCKS enabled, sockslisten=False, and no onion hostname set."
+            )
+
+        established_count = sum(1 for c in self.outboundConnections.values() if c.connected and c.fullyEstablished)
+        logger.debug(
+            "accept=%s, spawn=%s, listen=%s, outbound=%s, established=%s",
+            acceptConnections,
+            spawnConnections,
+            len(self.listeningSockets),
+            len(self.outboundConnections),
+            established_count,
+        )
 
         if spawnConnections:
             if not knownnodes.knownNodesActual:
@@ -295,20 +309,24 @@ class BMConnectionPool(object):
                 if self.trustedPeer and self.trustedPeer in self.outboundConnections:
                     pass  # Already connected to trustedPeer, skip loop
                 else:
-                    if self.trustedPeer:
-                        pass
-                        # Debug why it wasn't found in outboundConnections
-                        # print(f">>> TRUSTEDPEER NOT FOUND OUTBOUND: peer={self.trustedPeer} id={id(self.trustedPeer)}")
-                        # print(f">>> OUTBOUND KEYS: {[str(k) + ' id=' + str(id(k)) for k in self.outboundConnections.keys()]}")
-
                     # If trustedPeer is set, still try to connect to others if we have slots
                     loop_range = state.maximumNumberOfHalfOpenConnections - pending
+                    logger.debug(
+                        "Attempting to spawn %s new connections. Pending: %s, MaxHalfOpen: %s",
+                        loop_range,
+                        pending,
+                        state.maximumNumberOfHalfOpenConnections,
+                    )
                     for i in range(loop_range):
                         try:
                             chosen = self.trustedPeer or chooseConnection(
                                 random.choice(self.streams)
                             )
                         except ValueError:
+                            logger.debug(
+                                "chooseConnection failed - No known nodes? Stream: %s",
+                                self.streams,
+                            )
                             continue
 
                         # print(f">>> CONNECTION LOOP: trying {chosen.host}:{chosen.port}, "

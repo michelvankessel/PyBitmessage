@@ -13,6 +13,7 @@ Requirements
 ------------
 
 - **Python 3.13+** (required)
+- **uv** (strongly recommended for dependency management)
 - **PyQt6** (for GUI)
 - **OpenSSL 3.x** (compatible)
 
@@ -32,7 +33,7 @@ Running Tests
 -------------
 
 ```bash
-PYTHONPATH=src python3.13 tests.py
+uv run tests.py
 ```
 
 References

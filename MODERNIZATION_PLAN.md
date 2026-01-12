@@ -4,6 +4,14 @@
 
 ---
 
+## Tooling Standardization
+
+- **Dependency Management**: `uv` (replaces pip/venv manual management)
+- **Test Runner**: `uv run pytest`
+- **Linting**: `uv run flake8`, `uv run mypy`
+
+---
+
 ## Defensive Coding Strategy
 
 PyBitmessage follows a **defensive coding** approach to ensure security, reliability, and maintainability in a P2P encrypted messaging system where security is paramount.
@@ -250,6 +258,7 @@ Week 4:  Phase 2 complete ✅
 ## Dependencies & Blockers
 
 ### Current Status
+
 1. **Phase 1**: Blocked by jsonrpclib stub availability
 2. **Phase 2**: ✅ Complete
 3. **Phase 3**: Can run parallel with remaining work
@@ -257,6 +266,7 @@ Week 4:  Phase 2 complete ✅
 5. **Phase 5**: Can run in parallel
 
 ### Prerequisites Met
+
 - Python 3.13+ (✅)
 - mypy configured (✅)
 - Test coverage baseline (✅ 88 tests passing)

@@ -171,7 +171,7 @@ for lhs, rhs in EXTRAS_REQUIRE.items():
                 ]
             )
             print(
-                "Optional dependency `pip install .[{}]` would require `{}`"
+                "Optional dependency `uv pip install .[{}]` would require `{}`"
                 " to be run as root".format(lhs, rhs_cmd)
             )
 

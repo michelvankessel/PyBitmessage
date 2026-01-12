@@ -110,20 +110,23 @@ class SettingsDialog(QtWidgets.QDialog):
         if self.config.safeGetBoolean("bitmessagesettings", "dontconnect"):
             self.firstrun = False
         try:
-            import pkg_resources
+            import importlib.metadata
         except ImportError:
             pass
         else:
             # Append proxy types defined in plugins
             # FIXME: this should be a function in mod:`plugin`
-            for ep in pkg_resources.iter_entry_points("bitmessage.proxyconfig"):
-                try:
-                    ep.load()
-                except Exception:  # it should add only functional plugins
-                    # many possible exceptions, which are don't matter
-                    pass
-                else:
-                    self.comboBoxProxyType.addItem(ep.name)
+            try:
+                for ep in importlib.metadata.entry_points(group="bitmessage.proxyconfig"):
+                    try:
+                        ep.load()
+                    except Exception:  # it should add only functional plugins
+                        # many possible exceptions, which are don't matter
+                        pass
+                    else:
+                        self.comboBoxProxyType.addItem(ep.name)
+            except Exception:
+                pass
 
         self.lineEditMaxOutboundConnections.setValidator(
             QtGui.QIntValidator(0, 8, self.lineEditMaxOutboundConnections)

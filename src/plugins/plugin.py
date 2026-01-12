@@ -69,32 +69,11 @@ def get_plugins(group, point="", name=None, fallback=None):
         except Exception as e:
             logger.debug("Error accessing entry points: %s", e)
 
+        except Exception as e:
+            logger.debug("Error accessing entry points: %s", e)
+
     except ImportError:
-        # Fallback to pkg_resources for older Python versions
-        logger.debug("importlib.metadata not available, falling back to pkg_resources")
-
-        try:
-            import pkg_resources
-
-            for ep in pkg_resources.iter_entry_points("bitmessage." + group):
-                if name and ep.name == name or not point or ep.name.startswith(point):
-                    try:
-                        plugin = ep.load().connect_plugin
-                        if ep.name == fallback:
-                            _fallback = plugin
-                        else:
-                            yield plugin
-                    except (
-                        AttributeError,
-                        ImportError,
-                        ValueError,
-                        pkg_resources.DistributionNotFound,
-                        pkg_resources.UnknownExtra,
-                    ):
-                        logger.debug("Problem while loading %s", ep.name, exc_info=True)
-                        continue
-        except ImportError:
-            logger.warning("No plugin system available")
+        logger.warning("importlib.metadata not available and pkg_resources fallback removed")
 
     if _fallback:
         yield _fallback

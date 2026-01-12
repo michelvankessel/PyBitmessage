@@ -809,9 +809,18 @@ class dispatcher(object):
 
     def handle_accept(self):
         """Handle an accept event"""
-        pair = self.accept()
+        try:
+            pair = self.accept()
+        except socket.error as e:
+            self.log_info(f'accept() failed: {e}', 'warning')
+            return
         if pair is not None:
-            self.handle_accepted(*pair)
+            sock, addr = pair
+            self.log_info(f'Accepted connection from {addr}', 'info')
+            self.handle_accepted(sock, addr)
+        else:
+            # self.log_info('accept() returned None', 'debug')
+            pass
 
     def handle_expt(self):
         """Log that the subclass does not implement handle_expt"""

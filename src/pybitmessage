@@ -1,10 +1,21 @@
 #!/usr/bin/python3
 
 import os
-import pkg_resources
+import importlib.metadata
+import pathlib
 
-dist = pkg_resources.get_distribution('pybitmessage')
-script_file = os.path.join(dist.location, dist.key, 'bitmessagemain.py')
+# pkg_resources.get_distribution('pybitmessage').location equivalent
+# We need to find where the package is installed and locate bitmessagemain.py
+try:
+    dist_files = importlib.metadata.files('pybitmessage')
+    # Find bitmessagemain.py in the file list
+    target_file = next(f for f in dist_files if f.name == 'bitmessagemain.py')
+    script_file = str(target_file.locate())
+except (importlib.metadata.PackageNotFoundError, StopIteration):
+    # Fallback or error if not found
+    # If running from source, this script might not be used, but let's handle it gracefully
+    print("Error: Could not locate bitmessagemain.py in installed package.")
+    exit(1)
 new_globals = globals()
 new_globals.update(__file__=script_file)
 

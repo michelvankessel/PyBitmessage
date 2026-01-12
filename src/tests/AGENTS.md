@@ -31,10 +31,10 @@ uv run pytest src/tests/
 uv run pytest src/tests/test_addresses.py
 
 # Run with unittest
-python3.13 -m unittest pybitmessage.tests.test_addresses
+uv run python -m unittest pybitmessage.tests.test_addresses
 
 # Custom runner with random order
-python3.13 tests_runner.py
+uv run python tests_runner.py
 ```
 
 ## Conventions
@@ -48,6 +48,7 @@ python3.13 tests_runner.py
 ## Defensive Coding in Tests
 
 ### Pathlib Migration Status
+
 - ✅ **common.py**: 4/4 os.path usages migrated
 - ✅ **core.py**: 1/1 os.path usage migrated
 - ✅ **test_process.py**: 2/2 os.path usages migrated
@@ -121,6 +122,7 @@ OpenCL was deprecated on macOS in favor of Metal. The `test_openclpow.py` test r
 - Doesn't work on: macOS with integrated Metal GPU (Apple Silicon, Intel Mac)
 
 **Future Enhancement**: GPU acceleration could be ported to Metal using:
+
 - `pyobjc` with Metal compute shaders
 - PyTorch with MPS (Metal Performance Shaders) backend
 
@@ -165,9 +167,11 @@ This would require rewriting the PoW kernel in Metal Shading Language and using 
 ### Recent Fixes
 
 **RIPEMD160 on OpenSSL 3** (Fixed 2026-01-11)
+
 - Tests now use pycryptodome for RIPEMD160 (drop-in replacement for pycrypto)
 - `TestCrypto::test_hash_string` PASSED - pycryptodome RIPEMD160 works
 - `TestHighlevelcrypto::*` ALL PASSED - cryptographic operations work
 
 **Test Modernization** (Fixed 2026-01-11)
+
 - `test_crypto.py`: Fixed `__metaclass__ = ABCMeta` → `metaclass=ABCMeta` (Python 2 → 3 syntax)

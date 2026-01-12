@@ -533,14 +533,12 @@ class objectProcessor(threading.Thread):
                             " with ripe hash: %s.",
                             hexlify(key).decode(),
                         )
-            except Exception as e:
-                print(f"DEBUG_DECRYPT: Error processing key {hexlify(key).decode()}: {e}")
+            except Exception:
                 # pass
+                pass
         if not initialDecryptionSuccessful:
             # This is not a message bound for me.
-            print(
-                f"DEBUG_DECRYPT: Failed to decrypt message. Time spent: {time.time() - messageProcessingStartTime}"
-            )
+
             return logger.info(
                 "Length of time program spent failing to decrypt this"
                 " message: %s seconds.",

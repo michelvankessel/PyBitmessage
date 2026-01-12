@@ -248,6 +248,22 @@ class uPnPThread(StoppableThread):
             if time.time() - lastSent > self.sendSleep and not self.routers:
                 try:
                     self.sendSearchRouter()
+                except (OSError, socket.error):
+                    logger.warning("UPnP send failed. Recreating socket...")
+                    try:
+                        self.sock.close()
+                    except Exception:
+                        pass
+                    try:
+                        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                        self.localIP = self.getLocalIP()  # Refresh IP
+                        self.sock.bind((self.localIP, 0))
+                        self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+                        self.sock.settimeout(5)
+                        logger.info("UPnP socket recreated with local IP: %s", self.localIP)
+                    except Exception:
+                        logger.error("Failed to recreate UPnP socket", exc_info=True)
+
                 except Exception:
                     pass
                 lastSent = time.time()
@@ -261,6 +277,7 @@ class uPnPThread(StoppableThread):
                         if router.routerPath == newRouter.routerPath:
                             break
                     else:
+                        logger.info(f"DEBUG: Found NEW UPnP router at {ip}. Attempting to create port mapping...")
                         logger.debug("Found UPnP router at %s", ip)
                         self.routers.append(newRouter)
                         self.createPortMapping(newRouter)
