@@ -787,7 +787,7 @@ p, li { white-space: pre-wrap; }
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab_3">
+      <widget class="QWidget" name="chans">
        <attribute name="icon">
         <iconset resource="bitmessage_icons.qrc">
          <normaloff>:/newPrefix/images/can-icon-16px.png</normaloff>:/newPrefix/images/can-icon-16px.png</iconset>

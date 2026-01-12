@@ -203,15 +203,17 @@ def checkSensitiveFilePermissions(filename):
     try:
         # Skip known problems for non-Win32 filesystems
         # without POSIX permissions.
-        fstype = subprocess.check_output(
-            ["/usr/bin/stat", "-f", "-c", "%T", filename], stderr=subprocess.STDOUT
-        )
-        if "fuseblk" in fstype:
-            logger.info(
-                "Skipping file permissions check for %s. Filesystem fuseblk detected.",
-                filename,
+        # This check is specific to Linux 'fuseblk' and fails on macOS
+        if sys.platform != "darwin":
+            fstype = subprocess.check_output(
+                ["/usr/bin/stat", "-f", "-c", "%T", filename], stderr=subprocess.STDOUT
             )
-            return True
+            if "fuseblk" in fstype:
+                logger.info(
+                    "Skipping file permissions check for %s. Filesystem fuseblk detected.",
+                    filename,
+                )
+                return True
     except Exception:
         # Swallow exception here, but we might run into trouble later!
         logger.error("Could not determine filesystem type. %s", filename)

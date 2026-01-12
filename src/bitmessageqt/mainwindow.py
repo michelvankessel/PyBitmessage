@@ -2014,7 +2014,7 @@ class MyForm(settingsmixin.SMainWindow):
                 pass
 
     def __icon_activated(self, reason):
-        if reason == QtWidgets.QSystemTrayIcon.Trigger:
+        if reason == QtWidgets.QSystemTrayIcon.ActivationReason.Trigger:
             self.actionShow.setChecked(not self.actionShow.isChecked())
             self.appIndicatorShowOrHideWindow()
 

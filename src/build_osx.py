@@ -18,15 +18,22 @@ translations_path = QtCore.QLibraryInfo.path(
 DATA_FILES: List[Tuple[str, Sequence[str]]] = [
     ("", ["sslkeys", "images", "default.ini"]),
     ("sql", glob("sql/*.sql")),
-    ("bitmsghash", ["bitmsghash/bitmsghash.cl", "bitmsghash/bitmsghash.so"]),
+    (
+        "bitmsghash",
+        glob("bitmsghash/bitmsghash*.so") + glob("bitmsghash/bitmsghash.cl"),
+    ),
     ("translations", glob("translations/*.qm")),
     ("ui", glob("bitmessageqt/*.ui")),
-    ("translations", list(Path(translations_path).glob("qt_??.qm"))),
-    ("translations", list(Path(translations_path).glob("qt_??_??.qm"))),
+    ("translations", [str(p) for p in Path(translations_path).glob("qt_??.qm")]),
+    ("translations", [str(p) for p in Path(translations_path).glob("qt_??_??.qm")]),
 ]
 
 OPTIONS: Dict[str, Any] = {
-    "py2app": {"includes": ["sip", "PyQt6._qt"], "iconfile": "images/bitmessage.icns"}
+    "py2app": {
+        "includes": ["PyQt6._qt"],
+        "iconfile": "images/bitmessage.icns",
+        "prescripts": ["suppress_warning.py"],
+    }
 }
 
 setup(
