@@ -10,7 +10,6 @@
     ],
     "exclude": [
         "**/pybitmessage",
-        "**/docs",
         "**/.venv",
         "**/.tox",
         "**/build",
