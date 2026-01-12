@@ -8,6 +8,8 @@ import pathlib
 # We need to find where the package is installed and locate bitmessagemain.py
 try:
     dist_files = importlib.metadata.files('pybitmessage')
+    if dist_files is None:
+        raise importlib.metadata.PackageNotFoundError
     # Find bitmessagemain.py in the file list
     target_file = next(f for f in dist_files if f.name == 'bitmessagemain.py')
     script_file = str(target_file.locate())

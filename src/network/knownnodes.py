@@ -155,7 +155,6 @@ def readKnownNodes():
         logger.debug("Failed to read nodes from knownnodes.dat", exc_info=True)
         createDefaultKnownNodes()
 
-    
     # your own onion address, if setup
     onionhostname = config.safeGet("bitmessagesettings", "onionhostname")
     if onionhostname and ".onion" in onionhostname:

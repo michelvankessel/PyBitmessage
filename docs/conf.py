@@ -14,7 +14,7 @@ from importlib import import_module
 sys.path.insert(0, os.path.abspath('../src'))
 
 # Dynamically import version module after path modification
-version = import_module('version')
+version_module = import_module('version')
 
 
 # -- Project information -----------------------------------------------------
@@ -24,7 +24,7 @@ copyright = u'2019-2026, The Bitmessage Team'
 author = u'The Bitmessage Team'
 
 # The short X.Y version
-version = str(version.softwareVersion)
+version = str(version_module.softwareVersion)
 
 # The full version, including alpha/beta/rc tags
 release = version
@@ -127,7 +127,7 @@ htmlhelp_basename = 'PyBitmessagedoc'
 
 # -- Options for LaTeX output ------------------------------------------------
 
-latex_elements = {
+latex_elements: dict[str, str] = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',
