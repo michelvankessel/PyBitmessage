@@ -9,7 +9,7 @@ import arithmetic
 
 # Try pycryptodome first for RIPEMD160 (works on all OpenSSL versions)
 try:
-    from Crypto.Hash import RIPEMD160 as _RIPEMD160
+    from Crypto.Hash import RIPEMD160 as _RIPEMD160  # nosec B413
 
     def _ripemd160(data: bytes) -> bytes:
         """RIPEMD160 hash using pycryptodome (works on OpenSSL 3)"""

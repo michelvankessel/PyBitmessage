@@ -70,8 +70,15 @@ from struct import pack, unpack
 
 import configparser
 import http.client as http_client
-import xmlrpc.client
-import xmlrpc.server as xmlrpc_server
+import xmlrpc.client  # nosec B411
+import xmlrpc.server as xmlrpc_server  # nosec B411
+
+try:
+    import defusedxml.xmlrpc
+
+    defusedxml.xmlrpc.monkey_patch()
+except ImportError:
+    pass
 
 
 import helper_inbox
@@ -585,8 +592,10 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
 
     @staticmethod
     def _blackwhitelist_entries(kind="black"):
+        if kind not in ("black", "white"):
+            raise ValueError("Invalid list kind")
         queryreturn = sqlQuery(
-            "SELECT label, address FROM %slist WHERE enabled = 1" % kind
+            "SELECT label, address FROM %slist WHERE enabled = 1" % kind  # nosec B608
         )
         data = [
             {
@@ -598,24 +607,30 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         return {"addresses": data}
 
     def _blackwhitelist_add(self, address, label, kind="black"):
+        if kind not in ("black", "white"):
+            raise ValueError("Invalid list kind")
         label = self._decode(label, "base64")
         address = addBMIfNotPresent(address)
         self._verifyAddress(address)
         queryreturn = sqlQuery(
-            "SELECT address FROM %slist WHERE address=?" % kind, address
+            "SELECT address FROM %slist WHERE address=?" % kind,  # nosec B608
+            address,
         )
         if queryreturn != []:
             sqlExecute(
-                "UPDATE %slist SET label=?, enabled=1 WHERE address=?" % kind, address
+                "UPDATE %slist SET label=?, enabled=1 WHERE address=?" % kind,  # nosec B608
+                address,
             )
         else:
-            sqlExecute("INSERT INTO %slist VALUES (?,?,1)" % kind, label, address)
+            sqlExecute("INSERT INTO %slist VALUES (?,?,1)" % kind, label, address)  # nosec B608
         queues.UISignalQueue.put(("rerenderBlackWhiteList", ""))
 
     def _blackwhitelist_del(self, address, kind="black"):
+        if kind not in ("black", "white"):
+            raise ValueError("Invalid list kind")
         address = addBMIfNotPresent(address)
         self._verifyAddress(address)
-        sqlExecute("DELETE FROM %slist WHERE address=?" % kind, address)
+        sqlExecute("DELETE FROM %slist WHERE address=?" % kind, address)  # nosec B608
         queues.UISignalQueue.put(("rerenderBlackWhiteList", ""))
 
     # Request Handlers

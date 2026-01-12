@@ -28,7 +28,7 @@ from .samples import (
 
 RIPEMD160: Any
 try:
-    from Crypto.Hash import RIPEMD160
+    from Crypto.Hash import RIPEMD160  # nosec B413
 except ImportError:
     RIPEMD160 = None
 

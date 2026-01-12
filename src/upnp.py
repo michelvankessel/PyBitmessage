@@ -1,4 +1,3 @@
-﻿
 """
 Complete UPnP port forwarding implementation in separate thread.
 Reference: http://mattscodecave.com/posts/using-python-and-upnp-to-forward-a-port.html
@@ -31,16 +30,18 @@ def createRequestXML(service, action, arguments=None):
     doc = Document()
 
     # create the envelope element and set its attributes
-    envelope = doc.createElementNS('', 's:Envelope')
-    envelope.setAttribute('xmlns:s', 'http://schemas.xmlsoap.org/soap/envelope/')
-    envelope.setAttribute('s:encodingStyle', 'http://schemas.xmlsoap.org/soap/encoding/')
+    envelope = doc.createElementNS("", "s:Envelope")
+    envelope.setAttribute("xmlns:s", "http://schemas.xmlsoap.org/soap/envelope/")
+    envelope.setAttribute(
+        "s:encodingStyle", "http://schemas.xmlsoap.org/soap/encoding/"
+    )
 
     # create the body element
-    body = doc.createElementNS('', 's:Body')
+    body = doc.createElementNS("", "s:Body")
 
     # create the function element and set its attribute
-    fn = doc.createElementNS('', 'u:%s' % action)
-    fn.setAttribute('xmlns:u', 'urn:schemas-upnp-org:service:%s' % service)
+    fn = doc.createElementNS("", "u:%s" % action)
+    fn.setAttribute("xmlns:u", "urn:schemas-upnp-org:service:%s" % service)
 
     # setup the argument element names and values
     # using a list of tuples to preserve order
@@ -85,6 +86,7 @@ class UPnPError(Exception):
 
 class Router:
     """Encapulate routing"""
+
     name = ""
     path = ""
     address = None
@@ -92,88 +94,112 @@ class Router:
     extPort = None
 
     def __init__(self, ssdpResponse, address):
-
         self.address = address
 
-        row = ssdpResponse.split('\r\n')
+        row = ssdpResponse.split("\r\n")
         header = {}
         for i in range(1, len(row)):
-            part = row[i].split(': ')
+            part = row[i].split(": ")
             if len(part) == 2:
                 header[part[0].lower()] = part[1]
 
         try:
-            self.routerPath = urlparse(header['location'])
+            self.routerPath = urlparse(header["location"])
             if not self.routerPath or not self.routerPath.hostname:
-                logger.error("UPnP: no hostname: %s", header['location'])
+                logger.error("UPnP: no hostname: %s", header["location"])
         except KeyError:
             logger.error("UPnP: missing location header")
 
         # get the profile xml file and read it into a variable
-        parsed_url = urlparse(header['location'])
-        if parsed_url.scheme not in ['http', 'https']:
+        parsed_url = urlparse(header["location"])
+        if parsed_url.scheme not in ["http", "https"]:
             raise UPnPError("Unsupported URL scheme: %s" % parsed_url.scheme)
-        directory = urlopen(header['location']).read()
+        directory = urlopen(header["location"]).read()  # nosec B310
 
         # create a DOM object that represents the `directory` document
-        dom = parseString(directory.decode('utf-8'))
+        dom = parseString(directory.decode("utf-8"))
 
-        self.name = cast(Text, dom.getElementsByTagName('friendlyName')[0].childNodes[0]).data
+        self.name = cast(
+            Text, dom.getElementsByTagName("friendlyName")[0].childNodes[0]
+        ).data
         # find all 'serviceType' elements
-        service_types = dom.getElementsByTagName('serviceType')
+        service_types = dom.getElementsByTagName("serviceType")
 
         for service in service_types:
-            if cast(Text, service.childNodes[0]).data.find('WANIPConnection') > 0 or \
-                    cast(Text, service.childNodes[0]).data.find('WANPPPConnection') > 0:
-                self.path = cast(Text, cast(Element, service.parentNode).getElementsByTagName('controlURL')[0].childNodes[0]).data
-                self.upnp_schema = re.sub(r'[^A-Za-z0-9:-]', '', cast(Text, service.childNodes[0]).data.split(':')[-2])
+            if (
+                cast(Text, service.childNodes[0]).data.find("WANIPConnection") > 0
+                or cast(Text, service.childNodes[0]).data.find("WANPPPConnection") > 0
+            ):
+                self.path = cast(
+                    Text,
+                    cast(Element, service.parentNode)
+                    .getElementsByTagName("controlURL")[0]
+                    .childNodes[0],
+                ).data
+                self.upnp_schema = re.sub(
+                    r"[^A-Za-z0-9:-]",
+                    "",
+                    cast(Text, service.childNodes[0]).data.split(":")[-2],
+                )
 
     def AddPortMapping(
-            self,
-            externalPort,
-            internalPort,
-            internalClient,
-            protocol,
-            description,
-            leaseDuration=0,
-            enabled=1,
+        self,
+        externalPort,
+        internalPort,
+        internalClient,
+        protocol,
+        description,
+        leaseDuration=0,
+        enabled=1,
     ):
         """Add UPnP port mapping"""
 
-        resp = self.soapRequest(self.upnp_schema + ':1', 'AddPortMapping', [
-            ('NewRemoteHost', ''),
-            ('NewExternalPort', str(externalPort)),
-            ('NewProtocol', protocol),
-            ('NewInternalPort', str(internalPort)),
-            ('NewInternalClient', internalClient),
-            ('NewEnabled', str(enabled)),
-            ('NewPortMappingDescription', str(description)),
-            ('NewLeaseDuration', str(leaseDuration))
-        ])
+        resp = self.soapRequest(
+            self.upnp_schema + ":1",
+            "AddPortMapping",
+            [
+                ("NewRemoteHost", ""),
+                ("NewExternalPort", str(externalPort)),
+                ("NewProtocol", protocol),
+                ("NewInternalPort", str(internalPort)),
+                ("NewInternalClient", internalClient),
+                ("NewEnabled", str(enabled)),
+                ("NewPortMappingDescription", str(description)),
+                ("NewLeaseDuration", str(leaseDuration)),
+            ],
+        )
         self.extPort = externalPort
-        logger.info("Successfully established UPnP mapping for %s:%i on external port %i",
-                    internalClient, internalPort, externalPort)
+        logger.info(
+            "Successfully established UPnP mapping for %s:%i on external port %i",
+            internalClient,
+            internalPort,
+            externalPort,
+        )
         return resp
 
     def DeletePortMapping(self, externalPort, protocol):
         """Delete UPnP port mapping"""
 
-        resp = self.soapRequest(self.upnp_schema + ':1', 'DeletePortMapping', [
-            ('NewRemoteHost', ''),
-            ('NewExternalPort', str(externalPort)),
-            ('NewProtocol', protocol),
-        ])
+        resp = self.soapRequest(
+            self.upnp_schema + ":1",
+            "DeletePortMapping",
+            [
+                ("NewRemoteHost", ""),
+                ("NewExternalPort", str(externalPort)),
+                ("NewProtocol", protocol),
+            ],
+        )
         logger.info("Removed UPnP mapping on external port %i", externalPort)
         return resp
 
     def GetExternalIPAddress(self):
         """Get the external address"""
 
-        resp = self.soapRequest(
-            self.upnp_schema + ':1', 'GetExternalIPAddress')
-        dom = parseString(resp.read().decode('utf-8'))
-        return cast(Text, dom.getElementsByTagName(
-            'NewExternalIPAddress')[0].childNodes[0]).data
+        resp = self.soapRequest(self.upnp_schema + ":1", "GetExternalIPAddress")
+        dom = parseString(resp.read().decode("utf-8"))
+        return cast(
+            Text, dom.getElementsByTagName("NewExternalIPAddress")[0].childNodes[0]
+        ).data
 
     def soapRequest(self, service, action, arguments=None):
         """Make a request to a router"""
@@ -181,23 +207,26 @@ class Router:
         if not self.routerPath:
             raise UPnPError("Router path is not set")
 
-        conn = httplib.HTTPConnection(self.routerPath.hostname or "", self.routerPath.port)
+        conn = httplib.HTTPConnection(
+            self.routerPath.hostname or "", self.routerPath.port
+        )
         conn.request(
-            'POST',
+            "POST",
             self.path,
             createRequestXML(service, action, arguments),
             {
-                'SOAPAction': '"urn:schemas-upnp-org:service:%s#%s"' % (service, action),
-                'Content-Type': 'text/xml'
-            }
+                "SOAPAction": '"urn:schemas-upnp-org:service:%s#%s"'
+                % (service, action),
+                "Content-Type": "text/xml",
+            },
         )
         resp = conn.getresponse()
         conn.close()
         if resp.status == 500:
             respData = resp.read()
             try:
-                dom = parseString(respData.decode('utf-8'))
-                errinfo = dom.getElementsByTagName('errorDescription')
+                dom = parseString(respData.decode("utf-8"))
+                errinfo = dom.getElementsByTagName("errorDescription")
                 if errinfo:
                     logger.error("UPnP error: %s", respData)
                     raise UPnPError(cast(Text, errinfo[0].childNodes[0]).data)
@@ -217,7 +246,7 @@ class uPnPThread(StoppableThread):
 
     def __init__(self):
         super(uPnPThread, self).__init__(name="uPnPThread")
-        self.extPort = config.safeGetInt('bitmessagesettings', 'extport', default=0)
+        self.extPort = config.safeGetInt("bitmessagesettings", "extport", default=0)
         self.localIP = self.getLocalIP()
         self.routers = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -242,9 +271,11 @@ class uPnPThread(StoppableThread):
             if not bound:
                 time.sleep(1)
 
-        self.localPort = config.getint('bitmessagesettings', 'port')
+        self.localPort = config.getint("bitmessagesettings", "port")
 
-        while state.shutdown == 0 and config.safeGetBoolean('bitmessagesettings', 'upnp'):
+        while state.shutdown == 0 and config.safeGetBoolean(
+            "bitmessagesettings", "upnp"
+        ):
             if time.time() - lastSent > self.sendSleep and not self.routers:
                 try:
                     self.sendSearchRouter()
@@ -258,9 +289,13 @@ class uPnPThread(StoppableThread):
                         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                         self.localIP = self.getLocalIP()  # Refresh IP
                         self.sock.bind((self.localIP, 0))
-                        self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+                        self.sock.setsockopt(
+                            socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2
+                        )
                         self.sock.settimeout(5)
-                        logger.info("UPnP socket recreated with local IP: %s", self.localIP)
+                        logger.info(
+                            "UPnP socket recreated with local IP: %s", self.localIP
+                        )
                     except Exception:
                         logger.error("Failed to recreate UPnP socket", exc_info=True)
 
@@ -268,7 +303,9 @@ class uPnPThread(StoppableThread):
                     pass
                 lastSent = time.time()
             try:
-                while state.shutdown == 0 and config.safeGetBoolean('bitmessagesettings', 'upnp'):
+                while state.shutdown == 0 and config.safeGetBoolean(
+                    "bitmessagesettings", "upnp"
+                ):
                     resp, (ip, _) = self.sock.recvfrom(1000)
                     if resp is None:
                         continue
@@ -277,24 +314,30 @@ class uPnPThread(StoppableThread):
                         if router.routerPath == newRouter.routerPath:
                             break
                     else:
-                        logger.info(f"DEBUG: Found NEW UPnP router at {ip}. Attempting to create port mapping...")
+                        logger.info(
+                            f"DEBUG: Found NEW UPnP router at {ip}. Attempting to create port mapping..."
+                        )
                         logger.debug("Found UPnP router at %s", ip)
                         self.routers.append(newRouter)
                         self.createPortMapping(newRouter)
                         try:
                             self_peer = Peer(
-                                newRouter.GetExternalIPAddress(),
-                                self.extPort
+                                newRouter.GetExternalIPAddress(), self.extPort
                             )
                         except Exception:
-                            logger.debug('Failed to get external IP')
+                            logger.debug("Failed to get external IP")
                         else:
                             with knownnodes.knownNodesLock:
-                                knownnodes.addKnownNode(
-                                    1, self_peer, is_self=True)
-                        queues.UISignalQueue.put(('updateStatusBar', tr._translate(
-                            "MainWindow", 'UPnP port mapping established on port %1'
-                        ).replace('%1', str(self.extPort))))
+                                knownnodes.addKnownNode(1, self_peer, is_self=True)
+                        queues.UISignalQueue.put(
+                            (
+                                "updateStatusBar",
+                                tr._translate(
+                                    "MainWindow",
+                                    "UPnP port mapping established on port %1",
+                                ).replace("%1", str(self.extPort)),
+                            )
+                        )
                         break
             except socket.timeout:
                 pass
@@ -317,7 +360,12 @@ class uPnPThread(StoppableThread):
                 deleted = True
                 self.deletePortMapping(router)
         if deleted:
-            queues.UISignalQueue.put(('updateStatusBar', tr._translate("MainWindow", 'UPnP port mapping removed')))
+            queues.UISignalQueue.put(
+                (
+                    "updateStatusBar",
+                    tr._translate("MainWindow", "UPnP port mapping removed"),
+                )
+            )
         logger.debug("UPnP thread done")
 
     def getLocalIP(self):
@@ -331,15 +379,20 @@ class uPnPThread(StoppableThread):
     def sendSearchRouter(self):
         """Querying for UPnP services"""
 
-        ssdpRequest = "M-SEARCH * HTTP/1.1\r\n" + \
-            "HOST: %s:%d\r\n" % (uPnPThread.SSDP_ADDR, uPnPThread.SSDP_PORT) + \
-            "MAN: \"ssdp:discover\"\r\n" + \
-            "MX: %d\r\n" % (uPnPThread.SSDP_MX, ) + \
-            "ST: %s\r\n" % (uPnPThread.SSDP_ST, ) + "\r\n"
+        ssdpRequest = (
+            "M-SEARCH * HTTP/1.1\r\n"
+            + "HOST: %s:%d\r\n" % (uPnPThread.SSDP_ADDR, uPnPThread.SSDP_PORT)
+            + 'MAN: "ssdp:discover"\r\n'
+            + "MX: %d\r\n" % (uPnPThread.SSDP_MX,)
+            + "ST: %s\r\n" % (uPnPThread.SSDP_ST,)
+            + "\r\n"
+        )
 
         try:
             logger.debug("Sending UPnP query")
-            self.sock.sendto(ssdpRequest.encode(), (uPnPThread.SSDP_ADDR, uPnPThread.SSDP_PORT))
+            self.sock.sendto(
+                ssdpRequest.encode(), (uPnPThread.SSDP_ADDR, uPnPThread.SSDP_PORT)
+            )
         except Exception:
             logger.exception("UPnP send query failed")
 
@@ -360,10 +413,13 @@ class uPnPThread(StoppableThread):
                     i,
                     localIP,
                     self.localPort,
-                    extPort)
-                router.AddPortMapping(extPort, self.localPort, localIP, 'TCP', 'BitMessage')
+                    extPort,
+                )
+                router.AddPortMapping(
+                    extPort, self.localPort, localIP, "TCP", "BitMessage"
+                )
                 self.extPort = extPort
-                config.set('bitmessagesettings', 'extport', str(extPort))
+                config.set("bitmessagesettings", "extport", str(extPort))
                 config.save()
                 break
             except UPnPError:
@@ -371,4 +427,4 @@ class uPnPThread(StoppableThread):
 
     def deletePortMapping(self, router):
         """Delete a port mapping"""
-        router.DeletePortMapping(router.extPort, 'TCP')
+        router.DeletePortMapping(router.extPort, "TCP")

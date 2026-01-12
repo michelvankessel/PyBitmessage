@@ -6,7 +6,7 @@ from binascii import hexlify, unhexlify
 from struct import pack
 
 import queue
-import xmlrpc.client as xmlrpc_client
+import xmlrpc.client as xmlrpc_client  # nosec B411
 
 from pybitmessage import protocol
 from pybitmessage.highlevelcrypto import calculateInventoryHash
@@ -48,7 +48,8 @@ class TestAPIThread(TestPartialRun):
         time.sleep(3)
         port = cls.config.getint("bitmessagesettings", "apiport")
         cls.api = xmlrpc_client.ServerProxy(
-            "http://username:password@127.0.0.1:%i/" % port)
+            "http://username:password@127.0.0.1:%i/" % port
+        )
 
     def test_connection(self):
         """API command 'helloWorld'"""

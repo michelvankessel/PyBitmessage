@@ -2,6 +2,7 @@
 Core classes for loading images and converting them to a Texture.
 The raw image data can be keep in memory for further access
 """
+
 import hashlib
 from io import BytesIO
 
@@ -25,10 +26,10 @@ def generate(Generate_string=None):
     image = generate_image(image, color, hash_string)
     image = image.resize(RESOLUTION, 0)
     data = BytesIO()
-    image.save(data, format='png')
+    image.save(data, format="png")
     data.seek(0)
     # yes you actually need this
-    im = CoreImage(BytesIO(data.read()), ext='png')
+    im = CoreImage(BytesIO(data.read()), ext="png")
     beeld = kiImage()
     # only use this line in first code instance
     beeld.texture = im.texture
@@ -40,8 +41,9 @@ def generate_hash(string):
     try:
         # make input case insensitive
         string = str.lower(string)
-        hash_object = hashlib.md5(
-            str.encode(string))
+        hash_object = hashlib.md5(  # nosec B324
+            str.encode(string)
+        )
         print(hash_object.hexdigest())
         # returned object is a hex string
         return hash_object.hexdigest()

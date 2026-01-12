@@ -4,7 +4,7 @@ import time
 from binascii import hexlify
 
 import psutil
-import xmlrpc.client as xmlrpc_client
+import xmlrpc.client as xmlrpc_client  # nosec B411
 
 from .samples import (
     sample_deterministic_addr3,

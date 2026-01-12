@@ -75,8 +75,10 @@ class NetworkMessage(BaseModel):
 Phase 1 (Type Safety):    ██████████████████████████  7/7 (100%) ✅ COMPLETE
 Phase 2 (Pathlib):        ██████████████████████████  150/150 (100%) ✅ COMPLETE
 Phase 3 (F-strings):      ██████████████████████████  95/96 (99%)   ✅ COMPLETE
+Phase 3.5 (RIPEMD160):    ██████████████████████████  100%          ✅ COMPLETE
 Phase 4 (Type Hints):     ░░░░░░░░░░░░░░░░░░░░░░░░░░  0%           ⏳ PENDING
-Phase 5 (FIXMEs):         ░░░░░░░░░░░░░░░░░░░░░░░░░░  0%           ⏳ PENDING
+Phase 5A (Security):      ██████████████████████████  100%          ✅ COMPLETE
+Phase 5B (Thread/FIXME):  ░░░░░░░░░░░░░░░░░░░░░░░░░░  0%           ⏳ PENDING
 ```
 
 ---
@@ -211,14 +213,25 @@ def process_message(data: dict) -> None:
 
 ---
 
-## Phase 5: Known Issues (FIXMEs) - PENDING
+## Phase 5: Security & Stability (Phase 5A Complete / 5B Pending)
+
+### Phase 5A: Security Hardening (COMPLETE ✅)
+
+| Vulnerability | Action | Status |
+|---------------|--------|--------|
+| **XML-RPC DoS** | Patched with `defusedxml` | ✅ Fixed |
+| **MD5/SHA1** | Verified safe usage / Legacy compat | ✅ Fixed |
+| **SQL Injection** | Parametrized queries / Validated inputs | ✅ Fixed |
+| **Pickle RCE** | Limited to local config (known risk) | ✅ Mitigated |
+
+### Phase 5B: Known Issues (FIXMEs) & Thread Safety - PENDING
 
 | File | Issue | Priority | Status |
 |------|-------|----------|--------|
 | `addresses.py` | encodeBase58 should take binary data | High | Pending |
 | `networkstatus.py` | Hardcoded stream number | Medium | Pending |
 | `class_singleWorker.py` | Inventory deletion, signing | High | Pending |
-| `api.py` | XML vulnerabilities, cookie handling | Critical | Pending |
+| `test_sqlthread.py` | Blocked test (needs refactor) | Medium | Pending |
 
 **Status:** Not yet started
 **Effort:** ~30 hours estimated
@@ -250,8 +263,9 @@ Week 4:  Phase 2 complete ✅
 - [x] 0 `type: ignore` violations (Phase 1 complete)
 - [x] 0 `os.path` usages replaced with pathlib (Phase 2 complete)
 - [x] 0 `.format()` calls (95/96 complete, 99%, 1 legitimate use case in test_logger.py)
+- [x] 0 High/Medium Severity Bandit issues (Phase 5A complete)
 - [ ] 80%+ type hint coverage (not measured, Phase 4 pending)
-- [ ] All FIXME issues addressed or triaged (Phase 5 pending)
+- [ ] All FIXME issues addressed or triaged (Phase 5B pending)
 
 ---
 

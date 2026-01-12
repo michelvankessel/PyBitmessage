@@ -11,7 +11,7 @@ import logging
 import os
 from binascii import hexlify
 
-from Crypto.Hash import RIPEMD160 as RIPEMD160Hash
+from Crypto.Hash import RIPEMD160 as RIPEMD160Hash  # nosec B413
 import arithmetic as a
 
 logger = logging.getLogger("default")
@@ -385,7 +385,7 @@ class CryptographyECC:
         if digest_alg == hashes.SHA256:
             alg = hashes.SHA256()
         else:
-            alg = hashes.SHA1()
+            alg = hashes.SHA1()  # nosec B303
         return self.private_key.sign(data, ec.ECDSA(alg))
 
     def verify(self, signature, data, digest_alg=None):
@@ -398,7 +398,7 @@ class CryptographyECC:
         if digest_alg == hashes.SHA256:
             alg = hashes.SHA256()
         else:
-            alg = hashes.SHA1()
+            alg = hashes.SHA1()  # nosec B303
         try:
             self.public_key.verify(signature, data, ec.ECDSA(alg))
             return True

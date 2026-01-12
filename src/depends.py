@@ -196,7 +196,7 @@ def check_cryptography():
 def check_ripemd160():
     """Check availability of the RIPEMD160 hash function"""
     try:
-        from Crypto.Hash import RIPEMD160 as RIPEMD160Hash
+        from Crypto.Hash import RIPEMD160 as RIPEMD160Hash  # nosec B413
     except ImportError:
         return False
     return RIPEMD160Hash is not None

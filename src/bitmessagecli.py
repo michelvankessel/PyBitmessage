@@ -22,7 +22,15 @@ import sys
 import time
 from pathlib import Path
 
-import xmlrpc.client as xmlrpclib
+import xmlrpc.client as xmlrpclib  # nosec B411
+
+try:
+    import defusedxml.xmlrpc
+
+    defusedxml.xmlrpc.monkey_patch()
+except ImportError:
+    pass
+
 
 from bmconfigparser import config
 
@@ -46,28 +54,28 @@ def safe_json_loads(response):
 def is_image(path):
     """Check if file is an image by magic number"""
     try:
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             head = f.read(32)
             if len(head) < 4:
                 return None
             # PNG
-            if head.startswith(b'\x89PNG\r\n\x1a\n'):
-                return 'png'
+            if head.startswith(b"\x89PNG\r\n\x1a\n"):
+                return "png"
             # JPEG
-            if head.startswith(b'\xff\xd8'):
-                return 'jpeg'
+            if head.startswith(b"\xff\xd8"):
+                return "jpeg"
             # GIF
-            if head.startswith(b'GIF8'):
-                return 'gif'
+            if head.startswith(b"GIF8"):
+                return "gif"
             # BMP
-            if head.startswith(b'BM'):
-                return 'bmp'
+            if head.startswith(b"BM"):
+                return "bmp"
             # TIFF
-            if head.startswith(b'MM\x00\x2a') or head.startswith(b'II\x2a\x00'):
-                return 'tiff'
+            if head.startswith(b"MM\x00\x2a") or head.startswith(b"II\x2a\x00"):
+                return "tiff"
             # WebP
-            if head.startswith(b'RIFF') and head[8:12] == b'WEBP':
-                return 'webp'
+            if head.startswith(b"RIFF") and head[8:12] == b"WEBP":
+                return "webp"
     except Exception:
         pass
     return None
@@ -109,7 +117,10 @@ def lookupAppdataFolder():
     APPNAME = "PyBitmessage"
     if sys.platform == "darwin":
         if "HOME" in os.environ:
-            dataFolder = str(Path(os.environ["HOME"]) / "Library/Application support" / APPNAME) + "/"
+            dataFolder = (
+                str(Path(os.environ["HOME"]) / "Library/Application support" / APPNAME)
+                + "/"
+            )
         else:
             print(
                 "     Could not find home folder, please report "
@@ -515,7 +526,9 @@ def validAddress(address):
 
 def getAddress(passphrase, vNumber, sNumber):
     """Get a deterministic address"""
-    passphrase = base64.b64encode(passphrase.encode("utf-8")).decode("ascii")  # passphrase must be encoded
+    passphrase = base64.b64encode(passphrase.encode("utf-8")).decode(
+        "ascii"
+    )  # passphrase must be encoded
 
     return api.getDeterministicAddress(passphrase, vNumber, sNumber)
 
@@ -1148,7 +1161,9 @@ def outbox():
         )
         print(
             "     Subject:",
-            base64.b64decode(outboxMessages["sentMessages"][msgNum]["subject"]).decode("utf-8"),
+            base64.b64decode(outboxMessages["sentMessages"][msgNum]["subject"]).decode(
+                "utf-8"
+            ),
         )  # Get the subject)
         print(
             "     Status:", outboxMessages["sentMessages"][msgNum]["status"]
@@ -1194,7 +1209,9 @@ def readSentMsg(msgNum):
         main()
 
     # Begin attachment detection
-    message = base64.b64decode(outboxMessages["sentMessages"][msgNum]["message"]).decode("utf-8")
+    message = base64.b64decode(
+        outboxMessages["sentMessages"][msgNum]["message"]
+    ).decode("utf-8")
 
     while True:  # Allows multiple messages to be downloaded/saved
         if (
@@ -1242,7 +1259,10 @@ def readSentMsg(msgNum):
         getLabelForAddress(outboxMessages["sentMessages"][msgNum]["fromAddress"]),
     )
     print(
-        "     Subject:", base64.b64decode(outboxMessages["sentMessages"][msgNum]["subject"]).decode("utf-8")
+        "     Subject:",
+        base64.b64decode(outboxMessages["sentMessages"][msgNum]["subject"]).decode(
+            "utf-8"
+        ),
     )  # Get the subject)
     print(
         "     Status:", outboxMessages["sentMessages"][msgNum]["status"]
@@ -1280,7 +1300,9 @@ def readMsg(msgNum):
         main()
 
     # Begin attachment detection
-    message = base64.b64decode(inboxMessages["inboxMessages"][msgNum]["message"]).decode("utf-8")
+    message = base64.b64decode(
+        inboxMessages["inboxMessages"][msgNum]["message"]
+    ).decode("utf-8")
 
     while True:  # Allows multiple messages to be downloaded/saved
         if (
@@ -1328,7 +1350,9 @@ def readMsg(msgNum):
     )
     print(
         "     Subject:",
-        base64.b64decode(inboxMessages["inboxMessages"][msgNum]["subject"]).decode("utf-8"),
+        base64.b64decode(inboxMessages["inboxMessages"][msgNum]["subject"]).decode(
+            "utf-8"
+        ),
     )  # Get the subject)
     print(
         "".join(
@@ -1363,9 +1387,9 @@ def replyMsg(msgNum, forwardORreply):
     fromAdd = inboxMessages["inboxMessages"][msgNum][
         "toAddress"
     ]  # Address it was sent To, now the From address
-    message = base64.b64decode(inboxMessages["inboxMessages"][msgNum]["message"]).decode(
-        "utf-8"
-    )  # Message that you are replying too.
+    message = base64.b64decode(
+        inboxMessages["inboxMessages"][msgNum]["message"]
+    ).decode("utf-8")  # Message that you are replying too.
 
     subject = inboxMessages["inboxMessages"][msgNum]["subject"]
     subject = base64.b64decode(subject).decode("utf-8")
@@ -1536,7 +1560,9 @@ def addAddressToAddressBook(address, label):
     global usrPrompt
 
     try:
-        response = api.addAddressBookEntry(address, base64.b64encode(label.encode("utf-8")).decode("ascii"))
+        response = api.addAddressBookEntry(
+            address, base64.b64encode(label.encode("utf-8")).decode("ascii")
+        )
         if "API Error" in response:
             return getAPIErrorCode(response)
     except Exception:
@@ -2056,7 +2082,9 @@ def UI(usrInput):
                 else:
                     break
 
-            subject = base64.b64decode(inboxMessages["inboxMessages"][msgNum]["subject"]).decode("utf-8")
+            subject = base64.b64decode(
+                inboxMessages["inboxMessages"][msgNum]["subject"]
+            ).decode("utf-8")
             # Don't decode since it is done in the saveFile function
             message = inboxMessages["inboxMessages"][msgNum]["message"]
 
@@ -2074,7 +2102,9 @@ def UI(usrInput):
                 else:
                     break
 
-            subject = base64.b64decode(outboxMessages["sentMessages"][msgNum]["subject"]).decode("utf-8")
+            subject = base64.b64decode(
+                outboxMessages["sentMessages"][msgNum]["subject"]
+            ).decode("utf-8")
             # Don't decode since it is done in the saveFile function
             message = outboxMessages["sentMessages"][msgNum]["message"]
 

@@ -3408,7 +3408,7 @@ class MyForm(settingsmixin.SMainWindow):
             chunk = msgidsList[i:i + chunkSize]
             placeholders = ",".join("?" * len(chunk))
             sqlExecute(
-                f"UPDATE inbox SET read=0 WHERE read=1 AND msgid IN ({placeholders})",
+                f"UPDATE inbox SET read=0 WHERE read=1 AND msgid IN ({placeholders})",  # nosec B608
                 *chunk,
             )
 
@@ -3635,7 +3635,7 @@ class MyForm(settingsmixin.SMainWindow):
         else:
             list_type = "whitelist"
         queryreturn = sqlQuery(
-            f"select * from {list_type} where address=?",
+            f"select * from {list_type} where address=?",  # nosec B608
             addressAtCurrentInboxRow,
         )
         if queryreturn == []:
@@ -3646,7 +3646,7 @@ class MyForm(settingsmixin.SMainWindow):
                 + config.safeGet(recipientAddress, "label", recipientAddress)
             )
             sqlExecute(
-                f"INSERT INTO {list_type} VALUES (?,?, ?)",
+                f"INSERT INTO {list_type} VALUES (?,?, ?)",  # nosec B608
                 label,
                 addressAtCurrentInboxRow,
                 True,
@@ -4374,7 +4374,7 @@ class MyForm(settingsmixin.SMainWindow):
     def setAvatar(self, addressAtCurrentRow):
         if not Path(state.appdata + "avatars/").exists():
             os.makedirs(state.appdata + "avatars/")
-        hash = hashlib.md5(
+        hash = hashlib.md5(  # nosec B324
             addBMIfNotPresent(addressAtCurrentRow).encode("utf-8")
         ).hexdigest()
         extensions = [

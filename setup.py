@@ -66,7 +66,7 @@ if __name__ == "__main__":
         library_dirs=["/opt/homebrew/opt/openssl@3/lib"],
     )
 
-    installRequires: List[str] = ["cryptography", "pycryptodome"]
+    installRequires: List[str] = ["cryptography", "pycryptodome", "defusedxml"]
     packages: List[str] = [
         "pybitmessage",
         "pybitmessage.bitmessageqt",

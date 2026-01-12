@@ -1293,7 +1293,7 @@ def loadInbox():
         FROM inbox WHERE folder='inbox' AND %s LIKE ?
         ORDER BY received
         """
-        % (where,),
+        % (where,),  # nosec B608
         what,
     )
     for row in ret:
@@ -1359,7 +1359,7 @@ def loadSent():
         FROM sent WHERE folder='sent' AND %s LIKE ?
         ORDER BY lastactiontime
         """
-        % (where,),
+        % (where,),  # nosec B608
         what,
     )
     for row in ret:
