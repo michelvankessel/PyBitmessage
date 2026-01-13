@@ -543,6 +543,10 @@ class singleWorker(StoppableThread):
             # Ensure addresses are strings, not bytes
             if isinstance(fromaddress, bytes):
                 fromaddress = fromaddress.decode('utf-8', 'replace')
+            if isinstance(subject, bytes):
+                subject = subject.decode('utf-8', 'replace')
+            if isinstance(body, bytes):
+                body = body.decode('utf-8', 'replace')
             # status
             _, addressVersionNumber, streamNumber, ripe = \
                 decodeAddress(fromaddress)

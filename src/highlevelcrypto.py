@@ -98,6 +98,8 @@ def random_keys():
 
 def deterministic_keys(seed, nonce):
     """Generates deterministic keys from seed and nonce"""
+    if isinstance(seed, str):
+        seed = seed.encode("utf-8")
     payload = seed + a.encode(int.from_bytes(nonce, "big"), 256)
     privkey = hashlib.sha512(payload).digest()[:32]
     return privkey, pointMult(privkey)

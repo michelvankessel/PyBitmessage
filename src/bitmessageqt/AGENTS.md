@@ -1,97 +1,89 @@
 # PyBitmessage Qt6 GUI Agent Guidelines
 
-**Branch:** `(based on working dir)` | **Generated:** 2026-01-10 | **Updated:** 2026-01-12
+**Generated:** 2026-01-13
 
-## Overview
+## OVERVIEW
+PyQt6 desktop GUI with signal/slot architecture, Qt Designer UI files, and worker thread separation for non-blocking operations.
 
-PyQt6 desktop GUI - main window, dialogs, settings, account management. Native signal/slot syntax, Qt Designer UI files compiled to Python.
-
-## Structure
-
+## STRUCTURE
 ```
 src/bitmessageqt/
-├── mainwindow.py      # Main app window (~1000+ lines, FIXME: rewrite)
-├── dialogs.py         # Message/address dialogs (FIXME: window title visibility)
-├── settings.py        # Settings dialog (FIXME: should be function in plugin)
-├── networkstatus.py   # Connection status (FIXME: hardcoded stream no)
-├── blacklist.py       # Address blacklisting
-├── migrationwizard.py # Database migration UI
-├── bitmessageui.py    # Generated UI classes (WARNING: manual changes lost)
-├── *.ui              # Qt Designer files (compiled to bitmessageui.py)
-├── widgets.py         # UI utilities (pathlib migrated)
-├── utils.py          # Avatar/identicon utilities (pathlib migrated)
-└── languagebox.py     # Locale selector (pathlib migrated)
+├── mainwindow.py      # Main window (1000+ lines, thread-safe UI updates)
+├── uisignaler.py      # Central signal emitter (QThread singleton)
+├── dialogs.py         # Message/address dialogs
+├── settings.py        # Configuration UI
+├── *.ui              # Qt Designer files (17 total)
+├── bitmessageui.py    # Auto-generated from .ui files (DO NOT EDIT)
+├── widgets.py         # Custom widget utilities
+└── tests/            # GUI-specific test suite
 ```
 
-## Defensive Coding for GUI
+## WHERE TO LOOK
+| Task | Location | Key Pattern |
+|------|----------|-------------|
+| **Signal/Slot Central** | `uisignaler.py` | `pyqtSignal()` definitions, queue consumer |
+| **Main Window Logic** | `mainwindow.py` | Signal connections, worker queue integration |
+| **UI Definitions** | `*.ui` files | Qt Designer XML, compiled to `bitmessageui.py` |
+| **Thread Safety** | `mainwindow.py:967-994` | UISignaler singleton pattern |
+| **Worker Integration** | `account.py:256` | `queues.workerQueue.put()` calls |
 
-### Pathlib Migration Status
-- ✅ **widgets.py**: 3/3 os.path usages migrated
-- ✅ **utils.py**: 4/4 os.path usages migrated
-- ✅ **languagebox.py**: 3/3 os.path usages migrated
-- ✅ **settings.py**: 1/1 os.path usage migrated
+## Qt6 CONVENTIONS
 
-### Pydantic for User Input (Critical)
-
-GUI validates all user input before processing:
-
+### Signal/Slot Pattern
 ```python
-# Example: Address input validation with Pydantic
-from pydantic import BaseModel, field_validator, ValidationError
+# Native PyQt6 syntax (preferred)
+signal_name = pyqtSignal(type1, type2)
+signal_name.connect(slot_method)
+signal_name.emit(value1, value2)
 
-class AddressInput(BaseModel):
-    address: str
-    label: str | None = None
-    channel: int | None = None
-
-    @field_validator('address')
-    @classmethod
-    def validate_address(cls, v: str) -> str:
-        if not v.startswith('BM-'):
-            raise ValueError('Must be a Bitmessage address')
-        # Additional validation per protocol spec
-        return v
-
-# Usage in dialog:
-try:
-    validated = AddressInput(address=user_input)
-except ValidationError as e:
-    self.show_error(f"Invalid address: {e}")
+# In mainwindow.py
+self.UISignalThread.displayNewInboxMessage.connect(self.displayNewInboxMessage)
 ```
 
-### Qt6 Specifics
+### UI File Handling
+- **Source**: `*.ui` files (Qt Designer XML)
+- **Generated**: `bitmessageui.py` (via `pyuic6`)
+- **Rule**: NEVER edit `bitmessageui.py` directly - changes lost on regeneration
+- **Extension**: Subclass generated classes in separate files
 
-- Native signal/slot syntax: `self.signal.connect(self.slot)`
-- UI files: `.ui` → `pyuic6` → `bitmessageui.py`
-- Custom widgets: Extend generated classes, don't modify
-- Thread safety: Use `QtCore.QTimer` for UI updates from workers
-- **Never** block the main event loop with long operations
+### Thread Safety Architecture
+```python
+# GUI thread: handles UI updates only
+# Worker thread: processes messages, crypto, network
+# Communication: queues + signals
 
-## Anti-Patterns (This Module)
+# Safe pattern from mainwindow.py
+def displayNewInboxMessage(self, inventory_hash, to_addr, from_addr, subject, body):
+    # Runs in GUI thread via signal
+    self.update_status_bar("New message received")
+    self.add_message_to_table(inventory_hash, to_addr, from_addr, subject, body)
+```
 
-- **0 .format() calls** (mainwindow.py) - convert to f-strings (Phase 3 complete ✅)
-- **Type hints**: Partial coverage in main modules (Phase 4)
-- **FIXME: newlocale, impossible condition** (mainwindow.py)
-- **FIXME: rewrite loops, reuse utils** (mainwindow.py)
-- **TODO: move to l10n, popMenu** (mainwindow.py)
-- **WARNING: manual changes lost** (bitmessageui.py - generated file)
+## ANTI-PATTERNS (GUI MODULE)
 
-## Where to Look
+- **BLOCKING GUI**: Never call `queues.workerQueue.get()` in GUI thread
+- **MANUAL UI EDITS**: Never edit `bitmessageui.py` - edit `.ui` files instead
+- **DIRECT THREADING**: Use `UISignaler` singleton, not raw `QThread`
+- **HARDCODED STREAMS**: Use config values, not `stream = 1` in networkstatus
+- **SIGNAL OVERLOAD**: Avoid connecting multiple signals to same slot without disambiguation
 
-| Task | Location |
-|------|----------|
-| Main window logic | `mainwindow.py` |
-| Settings dialog | `settings.py` |
-| Message dialogs | `dialogs.py` |
-| Connection status | `networkstatus.py` |
-| UI definitions | `*.ui` files |
-| Generated UI code | `bitmessageui.py` |
-| UI utilities | `widgets.py`, `utils.py` |
+## CRITICAL THREAD SAFETY
 
-## Known Issues
+1. **GUI Updates**: Must use `UISignaler` signals from worker threads
+2. **Worker Queue**: `queues.workerQueue.put()` from GUI, `.get()` in worker threads only
+3. **UI State**: Modify Qt widgets only in GUI thread (via signals)
+4. **Long Operations**: Always delegate to workers, update UI via signals
 
-- `mainwindow.py`: Needs complete rewrite (1000+ line complexity)
-- `dialogs.py`: Window title visibility issues
-- `settings.py`: Should be plugin function, not core dialog
-- `networkstatus.py`: Hardcoded stream number
-- `bitmessageui.py`: Auto-generated, manual edits will be lost
+## UI UPDATE PATTERN
+```python
+# Worker thread (safe)
+queues.UISignalQueue.put(('displayNewInboxMessage', 
+    (inventory_hash, to_addr, from_addr, subject, body)))
+
+# UISignaler converts to signal (safe)
+self.displayNewInboxMessage.emit(inventory_hash, to_addr, from_addr, subject, body)
+
+# GUI slot runs in main thread (safe)
+def displayNewInboxMessage(self, inventory_hash, to_addr, from_addr, subject, body):
+    # Update UI elements here
+```

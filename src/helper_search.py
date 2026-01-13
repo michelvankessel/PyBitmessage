@@ -4,6 +4,7 @@ Used by :mod:`.bitmessageqt`.
 """
 
 from helper_sql import sqlQuery
+from bmconfigparser import config
 from tr import _translate
 
 
@@ -33,8 +34,41 @@ def search_sql(
         _translate("MainWindow", "From"): "fromaddress",
         _translate("MainWindow", "Subject"): "subject",
         _translate("MainWindow", "Message"): "message",
+        _translate("MainWindow", "All"): "all",
     }
     where = where_map.get(where, where)
+
+    if what and not what.startswith("%") and not what.endswith("%"):
+        what = f"%{what}%"
+
+
+    # Find addresses matching the search term in the address book
+    matching_addresses = []
+    if where == "all" or where == "toaddress" or where == "fromaddress":
+        query = "SELECT address FROM addressbook WHERE label LIKE ?"
+        try:
+            for row in sqlQuery(query, [what]):
+                addr = row[0]
+                if isinstance(addr, bytes):
+                    addr = addr.decode("utf-8", "replace")
+                matching_addresses.append(addr)
+        except Exception as e:
+            print(f"DEBUG_SEARCH: Error querying addressbook: {e}")
+
+    # Also check local identities (Your Identities)
+    if where == "all" or where == "toaddress" or where == "fromaddress":
+        try:
+            # Strip wildcards for Python-side string matching
+            search_term = what.strip('%').lower()
+            if search_term:
+                for address in config.addresses():
+                    label = config.get(address, 'label')
+                    if label and search_term in label.lower():
+                        matching_addresses.append(address)
+        except Exception as e:
+            print(f"DEBUG_SEARCH: Error querying identities: {e}")
+    
+
 
     if folder == 'trash':
         # Union query for trash
@@ -55,8 +89,14 @@ def search_sql(
         sqlStatementParts.append("folder = 'trash'")
 
         if what:
-            sqlStatementParts.append('%s LIKE ?' % (where))
-            sqlArguments.append(what)
+            if where == "all":
+                sqlStatementParts.append(
+                    "(subject LIKE ? OR toaddress LIKE ? OR fromaddress LIKE ? OR message LIKE ?)"
+                )
+                sqlArguments.extend([what] * 4)
+            else:
+                sqlStatementParts.append('%s LIKE ?' % (where))
+                sqlArguments.append(what)
         if unreadOnly:
             sqlStatementParts.append('read = 0')
 
@@ -82,8 +122,14 @@ def search_sql(
         sqlStatementParts.append("folder = 'trash'")
 
         if what:
-            sqlStatementParts.append('%s LIKE ?' % (where))
-            sqlArguments.append(what)
+            if where == "all":
+                sqlStatementParts.append(
+                    "(subject LIKE ? OR toaddress LIKE ? OR fromaddress LIKE ? OR message LIKE ?)"
+                )
+                sqlArguments.extend([what] * 4)
+            else:
+                sqlStatementParts.append('%s LIKE ?' % (where))
+                sqlArguments.append(what)
 
         if sqlStatementParts:
             sqlStatementBase += 'WHERE ' + ' AND '.join(sqlStatementParts)
@@ -106,7 +152,7 @@ def search_sql(
         else:
             sqlStatementParts.append(xAddress + ' = ? ')
             sqlArguments.append(account)
-    if folder is not None:
+    if folder is not None and folder != 'sent':
         if folder == 'new':
             folder = 'inbox'
             unreadOnly = True
@@ -116,8 +162,20 @@ def search_sql(
         sqlStatementParts.append('folder != ?')
         sqlArguments.append('trash')
     if what:
-        sqlStatementParts.append('%s LIKE ?' % (where))
-        sqlArguments.append(what)
+        if where == "all":
+            sqlStatementParts.append(
+                "(subject LIKE ? OR toaddress LIKE ? OR fromaddress LIKE ? OR message LIKE ?)"
+            )
+            sqlArguments.extend([what] * 4)
+
+             # Add matching addresses from address book
+            if matching_addresses:
+                address_placeholders = ','.join(['?'] * len(matching_addresses))
+                sqlStatementParts[-1] = sqlStatementParts[-1][:-1] + f" OR toaddress IN ({address_placeholders}) OR fromaddress IN ({address_placeholders}))"
+                sqlArguments.extend(matching_addresses * 2)
+        else:
+            sqlStatementParts.append('%s LIKE ?' % (where))
+            sqlArguments.append(what)
     if unreadOnly:
         sqlStatementParts.append('read = 0')
     if sqlStatementParts:

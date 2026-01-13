@@ -91,6 +91,8 @@ class AccountMixin(object):
         """Set bitmessage address of the object"""
         if address is None:
             self.address = None
+        elif isinstance(address, bytes):
+            self.address = address.decode("utf-8")
         else:
             self.address = str(address)
 
@@ -263,8 +265,7 @@ class Ui_AddressWidget(QtWidgets.QTreeWidgetItem, AccountMixin):
         self.setAddress(address)
         self.setUnreadCount(unreadCount)
         # Safe attribute setting
-        if hasattr(self, "isEnabled"):
-            self.isEnabled = enabled
+        self.isEnabled = enabled
         self.setType()
         if parent is not None and pos is not None:
             parent.insertTopLevelItem(pos, self)
@@ -293,7 +294,8 @@ class Ui_AddressWidget(QtWidgets.QTreeWidgetItem, AccountMixin):
     def _getAddressBracket(self, unreadCount: bool = False) -> str:
         label = self._getLabel()
         count_str = f" ({self.unreadCount})" if self.unreadCount > 0 else ""
-        if self.address is not None:
+
+        if self.address is not None and self.address not in label:
             return f"{label} ({self.address}){count_str}"
         return f"{label}{count_str}"
 
@@ -332,6 +334,11 @@ class Ui_AddressWidget(QtWidgets.QTreeWidgetItem, AccountMixin):
     def setAddress(self, address: Optional[str]) -> None:
         """Set address to object (for QT UI)"""
         # Safe setData call with proper type handling
+        if address is not None:
+            if isinstance(address, bytes):
+                address = address.decode("utf-8")
+            else:
+                address = str(address)
         if address is not None:
             QtWidgets.QTreeWidgetItem.setData(
                 self, 0, QtCore.Qt.ItemDataRole.UserRole, address

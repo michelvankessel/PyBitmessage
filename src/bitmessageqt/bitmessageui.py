@@ -52,7 +52,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_12 = QtWidgets.QVBoxLayout()
         self.verticalLayout_12.setObjectName("verticalLayout_12")
         self.treeWidgetYourIdentities = QtWidgets.QTreeWidget(parent=self.inbox)
-        self.treeWidgetYourIdentities.setMaximumSize(QtCore.QSize(200, 16777215))
+
         self.treeWidgetYourIdentities.setObjectName("treeWidgetYourIdentities")
         icon1 = QtGui.QIcon()
         icon1.addPixmap(
@@ -66,9 +66,18 @@ class Ui_MainWindow(object):
         self.verticalLayout_12.addWidget(self.treeWidgetYourIdentities)
         self.pushButtonNewAddress = QtWidgets.QPushButton(parent=self.inbox)
         self.pushButtonNewAddress.setMaximumSize(QtCore.QSize(200, 16777215))
+
         self.pushButtonNewAddress.setObjectName("pushButtonNewAddress")
-        self.verticalLayout_12.addWidget(self.pushButtonNewAddress)
-        self.horizontalLayout_3.addLayout(self.verticalLayout_12)
+        self.verticalLayout_12.addWidget(self.pushButtonNewAddress, 0, QtCore.Qt.AlignmentFlag.AlignHCenter)
+
+        # Create sidebar container widget
+        self.sidebarWidget = QtWidgets.QWidget()
+        self.sidebarWidget.setLayout(self.verticalLayout_12)
+
+        # Create splitter and add sidebar
+        self.splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.splitter.addWidget(self.sidebarWidget)
+        self.horizontalLayout_3.addWidget(self.splitter)
         self.verticalLayout_7 = QtWidgets.QVBoxLayout()
         self.verticalLayout_7.setObjectName("verticalLayout_7")
         self.horizontalLayoutSearch = QtWidgets.QHBoxLayout()
@@ -86,7 +95,7 @@ class Ui_MainWindow(object):
         self.inboxSearchOption.addItem("")
         self.horizontalLayoutSearch.addWidget(self.inboxSearchOption)
         self.verticalLayout_7.addLayout(self.horizontalLayoutSearch)
-        self.tableWidgetInbox = QtWidgets.QTableWidget(parent=self.inbox)
+        self.tableWidgetInbox = QtWidgets.QTableWidget()
         self.tableWidgetInbox.setEditTriggers(
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
         )
@@ -128,13 +137,28 @@ class Ui_MainWindow(object):
         if v_header is not None:
             v_header.setVisible(False)
             v_header.setDefaultSectionSize(26)
-        self.verticalLayout_7.addWidget(self.tableWidgetInbox)
-        self.textEditInboxMessage = QtWidgets.QTextEdit(parent=self.inbox)
+        # self.verticalLayout_7.addWidget(self.tableWidgetInbox)
+        self.textEditInboxMessage = QtWidgets.QTextEdit()
+        self.textEditInboxMessage.setMinimumSize(QtCore.QSize(0, 100))
         self.textEditInboxMessage.setBaseSize(QtCore.QSize(0, 500))
         self.textEditInboxMessage.setReadOnly(True)
         self.textEditInboxMessage.setObjectName("textEditInboxMessage")
-        self.verticalLayout_7.addWidget(self.textEditInboxMessage)
-        self.horizontalLayout_3.addLayout(self.verticalLayout_7)
+        # self.verticalLayout_7.addWidget(self.textEditInboxMessage)
+
+        # Create vertical splitter for message list and view
+        self.splitter_2 = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        self.splitter_2.addWidget(self.tableWidgetInbox)
+        self.splitter_2.addWidget(self.textEditInboxMessage)
+        self.splitter_2.setCollapsible(0, False)
+        self.splitter_2.setCollapsible(1, False)
+        self.splitter_2.setSizes([300, 150])
+        self.verticalLayout_7.addWidget(self.splitter_2)
+        # Create right side container widget
+        self.rightSideWidget = QtWidgets.QWidget()
+        self.rightSideWidget.setLayout(self.verticalLayout_7)
+        self.splitter.addWidget(self.rightSideWidget)
+        
+
         self.gridLayout.addLayout(self.horizontalLayout_3, 0, 0, 1, 1)
         icon2 = QtGui.QIcon()
         icon2.addPixmap(
@@ -464,15 +488,15 @@ class Ui_MainWindow(object):
             QtGui.QIcon.State.Off,
         )
         self.tabWidget.addTab(self.subscriptions, icon6, "")
-        self.tab_3 = QtWidgets.QWidget()
-        self.tab_3.setObjectName("tab_3")
-        self.gridLayout_4 = QtWidgets.QGridLayout(self.tab_3)
+        self.chans = QtWidgets.QWidget()
+        self.chans.setObjectName("chans")
+        self.gridLayout_4 = QtWidgets.QGridLayout(self.chans)
         self.gridLayout_4.setObjectName("gridLayout_4")
         self.horizontalLayout_7 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_7.setObjectName("horizontalLayout_7")
         self.verticalLayout_17 = QtWidgets.QVBoxLayout()
         self.verticalLayout_17.setObjectName("verticalLayout_17")
-        self.treeWidgetChans = QtWidgets.QTreeWidget(parent=self.tab_3)
+        self.treeWidgetChans = QtWidgets.QTreeWidget(parent=self.chans)
         self.treeWidgetChans.setMaximumSize(QtCore.QSize(200, 16777215))
         self.treeWidgetChans.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
         self.treeWidgetChans.setLineWidth(1)
@@ -494,7 +518,7 @@ class Ui_MainWindow(object):
         if header_item is not None:
             header_item.setIcon(0, icon7)
         self.verticalLayout_17.addWidget(self.treeWidgetChans)
-        self.pushButtonAddChan = QtWidgets.QPushButton(parent=self.tab_3)
+        self.pushButtonAddChan = QtWidgets.QPushButton(parent=self.chans)
         self.pushButtonAddChan.setMaximumSize(QtCore.QSize(200, 16777215))
         self.pushButtonAddChan.setObjectName("pushButtonAddChan")
         self.verticalLayout_17.addWidget(self.pushButtonAddChan)
@@ -503,10 +527,10 @@ class Ui_MainWindow(object):
         self.verticalLayout_8.setObjectName("verticalLayout_8")
         self.horizontalLayout_6 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_6.setObjectName("horizontalLayout_6")
-        self.inboxSearchLineEditChans = QtWidgets.QLineEdit(parent=self.tab_3)
+        self.inboxSearchLineEditChans = QtWidgets.QLineEdit(parent=self.chans)
         self.inboxSearchLineEditChans.setObjectName("inboxSearchLineEditChans")
         self.horizontalLayout_6.addWidget(self.inboxSearchLineEditChans)
-        self.inboxSearchOptionChans = QtWidgets.QComboBox(parent=self.tab_3)
+        self.inboxSearchOptionChans = QtWidgets.QComboBox(parent=self.chans)
         self.inboxSearchOptionChans.setObjectName("inboxSearchOptionChans")
         self.inboxSearchOptionChans.addItem("")
         self.inboxSearchOptionChans.addItem("")
@@ -515,7 +539,7 @@ class Ui_MainWindow(object):
         self.inboxSearchOptionChans.addItem("")
         self.horizontalLayout_6.addWidget(self.inboxSearchOptionChans)
         self.verticalLayout_8.addLayout(self.horizontalLayout_6)
-        self.tableWidgetInboxChans = QtWidgets.QTableWidget(parent=self.tab_3)
+        self.tableWidgetInboxChans = QtWidgets.QTableWidget(parent=self.chans)
         self.tableWidgetInboxChans.setEditTriggers(
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
         )
@@ -554,7 +578,7 @@ class Ui_MainWindow(object):
             v_header.setVisible(False)
             v_header.setDefaultSectionSize(26)
         self.verticalLayout_8.addWidget(self.tableWidgetInboxChans)
-        self.textEditInboxMessageChans = QtWidgets.QTextEdit(parent=self.tab_3)
+        self.textEditInboxMessageChans = QtWidgets.QTextEdit(parent=self.chans)
         self.textEditInboxMessageChans.setBaseSize(QtCore.QSize(0, 500))
         self.textEditInboxMessageChans.setReadOnly(True)
         self.textEditInboxMessageChans.setObjectName("textEditInboxMessageChans")
@@ -567,7 +591,7 @@ class Ui_MainWindow(object):
             QtGui.QIcon.Mode.Normal,
             QtGui.QIcon.State.Off,
         )
-        self.tabWidget.addTab(self.tab_3, icon8, "")
+        self.tabWidget.addTab(self.chans, icon8, "")
         self.blackwhitelist = QtWidgets.QWidget()
         self.blackwhitelist.setObjectName("blackwhitelist")
         self.gridLayout_6 = QtWidgets.QGridLayout(self.blackwhitelist)
@@ -973,7 +997,7 @@ class Ui_MainWindow(object):
         if item is not None:
             item.setText(_translate("MainWindow", "Received"))
         self.tabWidget.setTabText(
-            self.tabWidget.indexOf(self.tab_3), _translate("MainWindow", "Chans")
+            self.tabWidget.indexOf(self.chans), _translate("MainWindow", "Chans")
         )
         self.radioButtonBlacklist.setText(
             _translate(

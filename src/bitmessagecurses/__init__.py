@@ -112,6 +112,24 @@ def cpair(a):
     return r
 
 
+def safe_addstr(stdscr, y, x, text, attr=0):
+    """Safely adds string to window, ignoring out of bounds errors"""
+    try:
+        max_y, max_x = stdscr.getmaxyx()
+        if y >= max_y or x >= max_x:
+            return
+        # Trucate if necessary
+        available_width = max_x - x
+        if len(text) > available_width:
+            text = text[:available_width]
+        if text:
+            # We can use addstr directly now that we've checked bounds,
+            # but wrapping in try-except is safest as corner cases (e.g. bottom-right) still trigger errors
+            stdscr.addstr(y, x, text, attr)
+    except curses.error:
+        pass
+
+
 def ascii(s):
     """ASCII values"""
     r = ""
@@ -165,10 +183,10 @@ def drawtab(stdscr):
 
     if menutab in range(1, len(menu) + 1):
         if menutab == 1:  # Inbox
-            stdscr.addstr(3, 5, "To", curses.A_BOLD)
-            stdscr.addstr(3, 40, "From", curses.A_BOLD)
-            stdscr.addstr(3, 80, "Subject", curses.A_BOLD)
-            stdscr.addstr(3, 120, "Time Received", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 5, "To", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 40, "From", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 80, "Subject", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 120, "Time Received", curses.A_BOLD)
             stdscr.hline(4, 5, "-", 121)
             for i, item in enumerate(
                 inbox[max(min(len(inbox) - curses.LINES + 6, inboxcur - 5), 0):]
@@ -182,15 +200,15 @@ def drawtab(stdscr):
                         a = a | curses.A_REVERSE
                     if item[7] is False:  # If not read, highlight
                         a = a | curses.A_BOLD
-                    stdscr.addstr(5 + i, 5, item[1][:34], a)
-                    stdscr.addstr(5 + i, 40, item[3][:39], a)
-                    stdscr.addstr(5 + i, 80, item[5][:39], a)
-                    stdscr.addstr(5 + i, 120, item[6][:39], a)
+            safe_addstr(stdscr, 5 + i, 5, item[1][:34], a)
+            safe_addstr(stdscr, 5 + i, 40, item[3][:39], a)
+            safe_addstr(stdscr, 5 + i, 80, item[5][:39], a)
+            safe_addstr(stdscr, 5 + i, 120, item[6][:39], a)
         elif menutab == 3:  # Sent
-            stdscr.addstr(3, 5, "To", curses.A_BOLD)
-            stdscr.addstr(3, 40, "From", curses.A_BOLD)
-            stdscr.addstr(3, 80, "Subject", curses.A_BOLD)
-            stdscr.addstr(3, 120, "Status", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 5, "To", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 40, "From", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 80, "Subject", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 120, "Status", curses.A_BOLD)
             stdscr.hline(4, 5, "-", 121)
             for i, item in enumerate(
                 sentbox[max(min(len(sentbox) - curses.LINES + 6, sentcur - 5), 0):]
@@ -202,14 +220,14 @@ def drawtab(stdscr):
                     ):
                         # Highlight current address
                         a = a | curses.A_REVERSE
-                    stdscr.addstr(5 + i, 5, item[0][:34], a)
-                    stdscr.addstr(5 + i, 40, item[2][:39], a)
-                    stdscr.addstr(5 + i, 80, item[4][:39], a)
-                    stdscr.addstr(5 + i, 120, item[5][:39], a)
+                    safe_addstr(stdscr, 5 + i, 5, item[0][:34], a)
+                    safe_addstr(stdscr, 5 + i, 40, item[2][:39], a)
+                    safe_addstr(stdscr, 5 + i, 80, item[4][:39], a)
+                    safe_addstr(stdscr, 5 + i, 120, item[5][:39], a)
         elif menutab == 2 or menutab == 4:  # Send or Identities
-            stdscr.addstr(3, 5, "Label", curses.A_BOLD)
-            stdscr.addstr(3, 40, "Address", curses.A_BOLD)
-            stdscr.addstr(3, 80, "Stream", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 5, "Label", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 40, "Address", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 80, "Stream", curses.A_BOLD)
             stdscr.hline(4, 5, "-", 81)
             for i, item in enumerate(
                 addresses[max(min(len(addresses) - curses.LINES + 6, addrcur - 5), 0):]
@@ -226,13 +244,13 @@ def drawtab(stdscr):
                         9,
                     ]:  # Embolden enabled, non-special addresses
                         a = a | curses.A_BOLD
-                    stdscr.addstr(5 + i, 5, item[0][:34], a)
-                    stdscr.addstr(5 + i, 40, item[2][:39], cpair(item[3]) | a)
-                    stdscr.addstr(5 + i, 80, str(1)[:39], a)
+                    safe_addstr(stdscr, 5 + i, 5, item[0][:34], a)
+                    safe_addstr(stdscr, 5 + i, 40, item[2][:39], cpair(item[3]) | a)
+                    safe_addstr(stdscr, 5 + i, 80, str(1)[:39], a)
         elif menutab == 5:  # Subscriptions
-            stdscr.addstr(3, 5, "Label", curses.A_BOLD)
-            stdscr.addstr(3, 80, "Address", curses.A_BOLD)
-            stdscr.addstr(3, 120, "Enabled", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 5, "Label", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 80, "Address", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 120, "Enabled", curses.A_BOLD)
             stdscr.hline(4, 5, "-", 121)
             for i, item in enumerate(
                 subscriptions[
@@ -248,12 +266,12 @@ def drawtab(stdscr):
                         a = a | curses.A_REVERSE
                     if item[2]:  # Embolden enabled subscriptions
                         a = a | curses.A_BOLD
-                    stdscr.addstr(5 + i, 5, item[0][:74], a)
-                    stdscr.addstr(5 + i, 80, item[1][:39], a)
-                    stdscr.addstr(5 + i, 120, str(item[2]), a)
+                    safe_addstr(stdscr, 5 + i, 5, item[0][:74], a)
+                    safe_addstr(stdscr, 5 + i, 80, item[1][:39], a)
+                    safe_addstr(stdscr, 5 + i, 120, str(item[2]), a)
         elif menutab == 6:  # Address book
-            stdscr.addstr(3, 5, "Label", curses.A_BOLD)
-            stdscr.addstr(3, 40, "Address", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 5, "Label", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 40, "Address", curses.A_BOLD)
             stdscr.hline(4, 5, "-", 41)
             for i, item in enumerate(
                 addrbook[max(min(len(addrbook) - curses.LINES + 6, abookcur - 5), 0):]
@@ -265,13 +283,13 @@ def drawtab(stdscr):
                     ):
                         # Highlight current address
                         a = a | curses.A_REVERSE
-                    stdscr.addstr(5 + i, 5, item[0][:34], a)
-                    stdscr.addstr(5 + i, 40, item[1][:39], a)
+                    safe_addstr(stdscr, 5 + i, 5, item[0][:34], a)
+                    safe_addstr(stdscr, 5 + i, 40, item[1][:39], a)
         elif menutab == 7:  # Blacklist
-            stdscr.addstr(3, 5, "Type: " + bwtype)
-            stdscr.addstr(4, 5, "Label", curses.A_BOLD)
-            stdscr.addstr(4, 80, "Address", curses.A_BOLD)
-            stdscr.addstr(4, 120, "Enabled", curses.A_BOLD)
+            safe_addstr(stdscr, 3, 5, "Type: " + bwtype)
+            safe_addstr(stdscr, 4, 5, "Label", curses.A_BOLD)
+            safe_addstr(stdscr, 4, 80, "Address", curses.A_BOLD)
+            safe_addstr(stdscr, 4, 120, "Enabled", curses.A_BOLD)
             stdscr.hline(5, 5, "-", 121)
             for i, item in enumerate(
                 blacklist[
@@ -287,51 +305,65 @@ def drawtab(stdscr):
                         a = a | curses.A_REVERSE
                     if item[2]:  # Embolden enabled subscriptions
                         a = a | curses.A_BOLD
-                    stdscr.addstr(6 + i, 5, item[0][:74], a)
-                    stdscr.addstr(6 + i, 80, item[1][:39], a)
-                    stdscr.addstr(6 + i, 120, str(item[2]), a)
+                    safe_addstr(stdscr, 6 + i, 5, item[0][:74], a)
+                    safe_addstr(stdscr, 6 + i, 80, item[1][:39], a)
+                    safe_addstr(stdscr, 6 + i, 120, str(item[2]), a)
         elif menutab == 8:  # Network status
             # Connection data
             connected_hosts = network.stats.connectedHostsList()
-            stdscr.addstr(
-                4, 5, "Total Connections: " + str(len(connected_hosts)).ljust(2)
+            safe_addstr(
+                stdscr, 4, 5, "Total Connections: " + str(len(connected_hosts)).ljust(2)
             )
-            stdscr.addstr(6, 6, "Stream #", curses.A_BOLD)
-            stdscr.addstr(6, 18, "Connections", curses.A_BOLD)
+            safe_addstr(stdscr, 6, 6, "Stream #", curses.A_BOLD)
+            safe_addstr(stdscr, 6, 18, "Connections", curses.A_BOLD)
             stdscr.hline(7, 6, "-", 23)
-            streamcount = []
-            for host, stream in connected_hosts:
-                if stream >= len(streamcount):
-                    streamcount.append(1)
-                else:
-                    streamcount[stream] += 1
-            for i, item in enumerate(streamcount):
+            streamcount = {}
+            for c in connected_hosts:
+                # Handle connection objects
+                try:
+                    stream = c.streams[0]
+                except (AttributeError, IndexError):
+                    stream = 1
+                streamcount[stream] = streamcount.get(stream, 0) + 1
+            
+            # Convert dict to list for display (index = stream number)
+            # Find max stream number to size the list
+            max_stream = max(streamcount.keys()) if streamcount else 0
+            # Initialize list with zeros
+            streamcount_list = [0] * (max_stream + 1)
+            for s, count in streamcount.items():
+                streamcount_list[s] = count
+            
+            for i, item in enumerate(streamcount_list):
                 if i < 4:
                     if i == 0:
-                        stdscr.addstr(8 + i, 6, "?")
+                        safe_addstr(stdscr, 8 + i, 6, "?")
                     else:
-                        stdscr.addstr(8 + i, 6, str(i))
-                    stdscr.addstr(8 + i, 18, str(item).ljust(2))
+                        safe_addstr(stdscr, 8 + i, 6, str(i))
+                    safe_addstr(stdscr, 8 + i, 18, str(item).ljust(2))
 
             # Uptime and processing data
-            stdscr.addstr(
-                6, 35, "Since startup on " + l10n.formatTimestamp(startuptime)
+            safe_addstr(
+                stdscr, 6, 35, "Since startup on " + l10n.formatTimestamp(startuptime)
             )
-            stdscr.addstr(
+            safe_addstr(
+                stdscr,
                 7,
                 40,
                 "Processed "
                 + str(state.numberOfMessagesProcessed).ljust(4)
                 + " person-to-person messages.",
             )
-            stdscr.addstr(
+            safe_addstr(
+                stdscr,
                 8,
                 40,
                 "Processed "
                 + str(state.numberOfBroadcastsProcessed).ljust(4)
                 + " broadcast messages.",
             )
-            stdscr.addstr(
+            safe_addstr(
+                stdscr,
                 9,
                 40,
                 "Processed "
@@ -340,12 +372,13 @@ def drawtab(stdscr):
             )
 
             # Inventory data
-            stdscr.addstr(
+            safe_addstr(
+                stdscr,
                 11, 35, "Inventory lookups per second: " + str(inventorydata).ljust(3)
             )
 
             # Log
-            stdscr.addstr(13, 6, "Log", curses.A_BOLD)
+            safe_addstr(stdscr, 13, 6, "Log", curses.A_BOLD)
             n = log.count("\n")
             if n > 0:
                 lg = log.split("\n")
@@ -1299,6 +1332,8 @@ def loadInbox():
     for row in ret:
         msgid, toaddr, fromaddr, subject, received, read = row
         subject = ascii(shared.fixPotentiallyInvalidUTF8Data(subject))
+        toaddr = shared.fixPotentiallyInvalidUTF8Data(toaddr)
+        fromaddr = shared.fixPotentiallyInvalidUTF8Data(fromaddr)
 
         # Set label for to address
         try:
@@ -1365,6 +1400,9 @@ def loadSent():
     for row in ret:
         toaddr, fromaddr, subject, status, ackdata, lastactiontime = row
         subject = ascii(shared.fixPotentiallyInvalidUTF8Data(subject))
+        toaddr = shared.fixPotentiallyInvalidUTF8Data(toaddr)
+        status = shared.fixPotentiallyInvalidUTF8Data(status)
+        fromaddr = shared.fixPotentiallyInvalidUTF8Data(fromaddr)
 
         # Set label for to address
         tolabel = ""

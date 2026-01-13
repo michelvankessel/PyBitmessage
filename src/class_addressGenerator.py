@@ -54,6 +54,8 @@ class addressGenerator(StoppableThread):
             return False
 
         self.logger.debug('label: %s', label)
+        if isinstance(label, bytes):
+            label = label.decode('utf-8', 'replace')
         config.set(address, 'label', label)
         config.set(address, 'enabled', 'true')
         config.set(address, 'decoy', 'false')
@@ -159,12 +161,20 @@ class addressGenerator(StoppableThread):
             if nonceTrialsPerByte == 0:
                 nonceTrialsPerByte = config.getint(
                     'bitmessagesettings', 'defaultnoncetrialsperbyte')
+            
+            # Ensure integer types for comparison
+            nonceTrialsPerByte = int(nonceTrialsPerByte)
+            
             nonceTrialsPerByte = max(
                 nonceTrialsPerByte,
                 defaults.networkDefaultProofOfWorkNonceTrialsPerByte)
             if payloadLengthExtraBytes == 0:
                 payloadLengthExtraBytes = config.getint(
                     'bitmessagesettings', 'defaultpayloadlengthextrabytes')
+            
+            # Ensure integer types for comparison
+            payloadLengthExtraBytes = int(payloadLengthExtraBytes)
+            
             payloadLengthExtraBytes = max(
                 payloadLengthExtraBytes,
                 defaults.networkDefaultPayloadLengthExtraBytes)

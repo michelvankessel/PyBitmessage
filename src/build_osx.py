@@ -8,7 +8,12 @@ from PyQt6 import QtCore
 from setuptools import setup
 
 name = "Bitmessage"
-version = os.getenv("PYBITMESSAGEVERSION", "custom")
+try:
+    from version import softwareVersion
+except ImportError:
+    softwareVersion = "0.0.0"
+
+version = os.getenv("PYBITMESSAGEVERSION", softwareVersion)
 mainscript = ["bitmessagemain.py"]
 
 translations_path = QtCore.QLibraryInfo.path(
@@ -30,9 +35,17 @@ DATA_FILES: List[Tuple[str, Sequence[str]]] = [
 
 OPTIONS: Dict[str, Any] = {
     "py2app": {
-        "includes": ["PyQt6._qt"],
+        "includes": [
+            "PyQt6._qt",
+            "encodings.idna",
+            "bitmessageqt.languagebox",
+            "bitmessagecurses",
+            "class_smtpDeliver",
+            "class_smtpServer",
+            "api",
+            "plugins",
+        ],
         "iconfile": "images/bitmessage.icns",
-        "prescripts": ["suppress_warning.py"],
     }
 }
 
@@ -41,6 +54,5 @@ setup(
     version=version,
     app=mainscript,
     data_files=DATA_FILES,
-    setup_requires=["py2app"],
     options=OPTIONS,
 )

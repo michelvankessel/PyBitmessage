@@ -1,99 +1,41 @@
 # PyBitmessage Storage Layer
 
-**Branch:** `(based on working dir)` | **Generated:** 2026-01-10 | **Updated:** 2026-01-12
+**Generated:** 2026-01-13 | **Status:** Dual backend operational
 
-## Overview
+## OVERVIEW
 
-SQLite database + filesystem storage for messages, addresses, inventory. Dual backend architecture with thread-safe abstractions.
+Dual backend persistence layer: SQLite for inventory metadata, filesystem for payload storage. Thread-safe with RLock coordination.
 
-## Structure
+## STRUCTURE
 
 ```
 src/storage/
-├── storage.py         # Base storage interface (InventoryStorage)
-├── sqlite.py          # SQLite implementation (SqliteInventory)
-├── filesystem.py      # File-based attachment storage (FilesystemInventory)
-└── __init__.py        # Empty (no exports)
+├── storage.py      # Abstract InventoryStorage base class
+├── sqlite.py       # SqliteInventory (metadata + caching)
+├── filesystem.py   # FilesystemInventory (payload storage)
+└── __init__.py     # Empty module
 ```
 
-## Database Schema
+## WHERE TO LOOK
 
-**inventory table** (messages.dat):
-```sql
-CREATE TABLE inventory (
-    hash blob,              -- Object hash identifier
-    objecttype int,         -- Message type enum
-    streamnumber int,       -- Bitmessage stream
-    payload blob,           -- Message data
-    expirestime integer,    -- Unix timestamp
-    tag blob,               -- Optional tag
-    UNIQUE(hash) ON CONFLICT REPLACE
-);
-```
+- **Inventory operations**: `sqlite.py` - SQL queries, connection pooling, caching
+- **Payload storage**: `filesystem.py` - Stream-based directory layout, file I/O
+- **Base interface**: `storage.py` - InventoryStorage abstract class
+- **Thread safety**: Both backends use `RLock` for concurrent access
+- **Schema**: `messages.dat` - inventory table with hash, type, stream, payload, expires
 
-## Key Classes
+## CONVENTIONS
 
-- **InventoryStorage**: Abstract base defining inventory interface
-- **SqliteInventory**: SQLite backend with connection pooling
-- **FilesystemInventory**: Directory-based storage (objects/ per stream)
+- **Lock hierarchy**: Acquire `self.lock` before any storage operation
+- **Hash format**: 32-byte binary keys, never hex strings in storage
+- **Stream directories**: `objects/{stream_number}/` for filesystem layout
+- **Connection pooling**: SQLite uses `threading.local()` per-thread connections
+- **Expiration**: `expirestime` column drives cleanup, not filesystem timestamps
 
-## Filesystem Layout
+## ANTI-PATTERNS
 
-```
-~/.config/PyBitmessage/storage/
-├── objects/             # Inventory objects by stream
-│   ├── 1/              # Stream 1 objects
-│   ├── 2/              # Stream 2 objects
-│   └── ...
-└── messages.dat        # SQLite database
-```
-
-## Defensive Coding for Storage
-
-### Pathlib Migration Status
-- ✅ **filesystem.py**: 13/13 os.path usages migrated to pathlib.Path
-
-### Thread Safety Considerations
-
-| Concern | Implementation | Notes |
-|---------|----------------|-------|
-| **SQLite concurrency** | Connection pooling per thread | `threading.local()` for connections |
-| **Filesystem locking** | Module-level locks | Prevent race conditions on object files |
-| **Object expiration** | SQL DELETE with expirestime | Cleanup runs periodically |
-
-### Pydantic for Data Validation (Recommended)
-
-Storage layer validates data before writing:
-
-```python
-# Example: Inventory item validation with Pydantic
-from pydantic import BaseModel, field_validator
-from datetime import datetime
-
-class InventoryItem(BaseModel):
-    hash: bytes  # Exactly 64 hex characters
-    object_type: int
-    stream_number: int
-    payload: bytes
-    expires_time: datetime
-    tag: bytes | None = None
-
-    @field_validator('hash')
-    @classmethod
-    def validate_hash(cls, v: bytes) -> bytes:
-        if len(v) != 32:
-            raise ValueError('Hash must be 32 bytes')
-        return v
-```
-
-## Anti-Patterns (This Module)
-
-- **Type hints**: filesystem.py needs full coverage (Phase 4)
-- **Pydantic models**: Not yet implemented for storage validation (Phase 4)
-
-## Migration Notes
-
-- knownnodes.py handles peer storage (separate from inventory)
-- Object expiration handled via expirestime column
-- Thread safety via module-level locks in both backends
-- ✅ Pathlib migration complete (filesystem.py)
+- **Direct SQL**: Never bypass InventoryStorage interface for database access
+- **Stream hardcoding**: Use `streamnumber` from inventory, never assume stream=1
+- **Path manipulation**: Use pathlib.Path exclusively (no os.path.join)
+- **Lock bypass**: Never access `_inventory` or `_objects` without acquiring lock
+- **Binary/hash confusion**: Always use binary hashes in storage, convert to hex only for UI

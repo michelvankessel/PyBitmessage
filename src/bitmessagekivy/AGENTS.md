@@ -1,117 +1,60 @@
 # PyBitmessage Kivy Mobile UI Agent Guidelines
 
-**Branch:** `(based on working dir)` | **Generated:** 2026-01-10 | **Updated:** 2026-01-12
+**Branch:** `(based on working dir)` | **Generated:** 2026-01-13
 
-## Overview
+## OVERVIEW
+Kivy-based mobile interface for iOS/Android with Material Design components, touch-first UX, and platform-specific adaptations.
 
-Kivy-based mobile interface for iOS/Android. Separate test suite (bitmessagekivy/tests/). Uses KivyMD for Material Design components.
-
-## Structure
-
+## STRUCTURE
 ```
 src/bitmessagekivy/
-├── baseclass/         # Screen implementations (inbox, sent, drafts, settings, etc.)
-│   ├── inbox.py       # Inbox screen logic
-│   ├── sent.py        # Sent messages screen
-│   ├── draft.py       # Draft messages screen
-│   ├── addressbook.py # Address book management (pathlib migrated)
-│   ├── maildetail.py  # Message detail view (pathlib migrated)
-│   ├── myaddress.py   # My addresses screen (pathlib migrated)
-│   ├── scan_screen.py # QR code scanner (pathlib migrated)
-│   └── common.py      # Shared widgets and utilities (pathlib migrated)
-├── tests/             # Kivy-specific tests (16 files)
-│   ├── test_*.py      # Screen-specific test modules
-│   └── telenium_process.py # Telenium test runner (pathlib migrated)
-├── mpybit.py          # Main Kivy app class (pathlib migrated - 20 os.path → 0)
-├── kivy_helper_search.py # Search utilities
-├── kivy_state.py      # Kivy app state management (pathlib migrated)
-├── base_navigation.py # Navigation drawer logic
-├── uikivysignaler.py  # UI signal handling
-├── kv/                # Kivy template files (.kv)
-├── main.kv            # Main app layout
-└── screens_data.json  # Screen configuration (pathlib migrated)
-
-Pathlib Migration Status: ✅ Complete (all 8 files migrated)
+├── baseclass/         # Screen controllers (MVC pattern)
+├── kv/               # Kivy language UI templates
+├── tests/            # Telenium-based mobile UI tests
+├── mpybit.py         # Main app entry (NavigateApp)
+├── kivy_state.py     # Mobile app state management
+├── get_platform.py   # iOS/Android/desktop detection
+├── screens_data.json # Screen routing configuration
+└── main.kv           # Root layout definition
 ```
 
-## Commands
+## WHERE TO LOOK
+| Task | Location | Kivy Pattern |
+|------|----------|--------------|
+| **Screen navigation** | `screens_data.json` + `baseclass/` | JSON-defined routes |
+| **UI layouts** | `kv/*.kv` files | Kivy language declarative UI |
+| **Touch interactions** | `baseclass/common.py` | Mobile gesture handling |
+| **Platform detection** | `get_platform.py` | Android/iOS/desktop branching |
+| **State management** | `kivy_state.py` | Screen-specific state vars |
+| **QR scanning** | `baseclass/scan_screen.py` | Camera integration |
+| **File management** | `mpybit.py` file_manager methods | Android storage permissions |
 
-```bash
-# Run Kivy tests
-uv run pytest src/bitmessagekivy/tests/
+## CONVENTIONS
+- **KivyMD components**: Material Design for mobile consistency
+- **Screen-based architecture**: Each screen = separate controller + .kv template
+- **Touch-first design**: dp() units, swipe gestures, bottom sheets
+- **Platform branching**: `platform == "android"` for mobile-specific logic
+- **Async operations**: `Clock.schedule_once()` for non-blocking UI updates
+- **State separation**: `KivyStateVariables` isolated from core `state.py`
 
-# Run specific Kivy screen test
-uv run pytest src/bitmessagekivy/tests/test_inbox.py
+## ANDROID SPECIFICS
+- **Storage permissions**: Runtime permission requests for file access
+- **Camera handling**: `KIVY_CAMERA=opencv` env var for non-mobile platforms
+- **Path adaptation**: `ANDROID_PRIVATE` env var for app-specific directories
+- **Dialog sizing**: Different width constants for mobile vs desktop
+- **Toast notifications**: Platform-appropriate feedback messages
 
-# Mobile app entry point
-uv run src/mockbm/kivy_main.py
-```
+## ANTI-PATTERNS
+- **Never block UI thread**: Long operations must use `Clock.schedule()`
+- **No hardcoded paths**: Use `get_platform()` for platform-specific logic
+- **Avoid global state**: Keep screen state in `KivyStateVariables`, not globals
+- **Don't mix UI logic**: Keep business logic out of .kv files
+- **No direct file system access**: Always check Android permissions first
 
-## Conventions
-
-- **Python 3.13+** (inherits from parent)
-- **KivyMD** for Material Design components
-- **Kivy language (.kv)** for UI layouts
-- **Telenium** for UI testing framework
-- **Screen-based navigation** with JSON configuration
-- **Mobile-first** touch interface patterns
-- **Pathlib** for all path operations (migrated)
-
-## Defensive Coding for Mobile
-
-### Mobile-Specific Considerations
-
-| Concern | Implementation | Notes |
-|---------|----------------|-------|
-| **Android storage** | Use `Path.home() / ".config"` on Android | Environment detection needed |
-| **Image paths** | Use `pathlib.Path` for avatar/image directories | Migrated in Phase 2 |
-| **QR code scanning** | Validate scanned addresses before use | TODO: add Pydantic validation |
-| **Offline storage** | SQLite + filesystem with proper escaping | Already implemented |
-| **Thread safety** | Use `threading.local()` for app state | Future-proof for GIL-free |
-
-### Pydantic for User Input (Recommended)
-
-Mobile users provide input through touch interfaces - validation is critical:
-
-```python
-# Example: Address input validation
-from pydantic import BaseModel, ValidationError, field_validator
-
-class AddressInput(BaseModel):
-    address: str
-    label: str | None = None
-
-    @field_validator('address')
-    @classmethod
-    def validate_address(cls, v: str) -> str:
-        if not v.startswith('BM-'):
-            raise ValueError('Address must start with BM-')
-        # Add more validation as per protocol
-        return v
-```
-
-## Anti-Patterns (This Module)
-
-- **0 .format() calls** in tests - convert to f-strings (Phase 3 complete ✅)
-- **TODO: get_free_credits, sc18 screen** (payment.py)
-- **TODO: checkLabel_valid, checkAddress_valid** (popup.kv)
-- **Type hints**: Partial coverage - needs Phase 4 completion
-
-## Where to Look
-
-| Task | Location |
-|------|----------|
-| Main app | `mpybit.py` - NavigateApp class ✅ pathlib complete |
-| Screen logic | `baseclass/` - individual screen files (8/8 migrated) |
-| UI layouts | `kv/` - Kivy template files |
-| Navigation | `base_navigation.py` - drawer and routing |
-| State management | `kivy_state.py` - app state variables ✅ pathlib complete |
-| Tests | `bitmessagekivy/tests/` - Telenium-based UI tests ✅ pathlib complete |
-| Mock testing | `src/mockbm/kivy_main.py` - test entry point |
-
-## Known Issues (FIXME)
-
-- Test files: 0 .format() calls - f-string conversion complete (Phase 3 ✅)
-- Payment screen: incomplete get_free_credits implementation
-- Address validation: TODO in popup.kv templates
-- Type hints: Partial coverage in screen modules (Phase 4)
+## MOBILE UI PATTERNS
+- **Navigation drawer**: Material Design side navigation pattern
+- **Bottom sheets**: `MDCustomBottomSheet` for contextual actions
+- **Swipe actions**: `MDCardSwipe` for message operations
+- **Floating buttons**: Primary actions in lower-right corner
+- **Responsive dialogs**: Different sizes for mobile vs desktop
+- **Avatar handling**: Identicon generation with custom image override

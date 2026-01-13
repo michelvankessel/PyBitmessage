@@ -95,6 +95,10 @@ class TLSDispatcher(AdvancedDispatcher):
         try:
             # Once the connection has been established,
             # it's safe to wrap the socket.
+            if self.socket is None or self.socket.fileno() == -1:
+                logger.debug("Socket is not valid, skipping TLS init")
+                return False
+
             if sys.version_info >= (2, 7, 9):
                 # OpenSSL 3.x specific context creation (Reference Client Logic)
                 if ssl.OPENSSL_VERSION_NUMBER >= 0x30000000:
@@ -332,12 +336,14 @@ class TLSDispatcher(AdvancedDispatcher):
                 )
 
             if not (self.want_write or self.want_read):
-                logger.error(
-                    "%s:%i: TLS handshake FATAL - raising exception",
+                logger.warning(
+                    "%s:%i: TLS handshake failed (fatal) - closing connection",
                     self.destination.host,
                     self.destination.port,
                 )
-                raise
+                self.close_reason = "Fatal SSL Error in tls_handshake: %s" % str(err)
+                self.handle_close()
+                return
         except socket.error as err:
             if err.errno in asyncore._DISCONNECTED:
                 self.close_reason = "socket.error in tls_handshake"

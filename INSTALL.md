@@ -4,7 +4,7 @@
   - Windows: <https://artifacts.bitmessage.at/winebuild/>
   - Linux AppImages: <https://artifacts.bitmessage.at/appimage/>
   - Linux snaps: <https://artifacts.bitmessage.at/snap/>
-  - Mac (not up to date): <https://github.com/Bitmessage/PyBitmessage/releases/tag/v0.6.1>
+  - Mac (not up to date): <https://github.com/Bitmessage/PyBitmessage/releases>
 - Source
     `git clone git://github.com/Bitmessage/PyBitmessage.git`
 
@@ -25,8 +25,8 @@ The appimage name has several informational filds:
 PyBitmessage-<VERSION>-g<COMMITHASH>[-alpha]-<ARCH>.AppImage
 ```
 
-E.g. `PyBitmessage-0.6.3.2-ge571ba8a-x86_64.AppImage` is an appimage, built from
-the `v0.6` for x86_64 and `PyBitmessage-0.6.3.2-g9de2aaf1-alpha-aarch64.AppImage`
+E.g. `PyBitmessage-<VERSION>-g<COMMITHASH>-x86_64.AppImage` is an appimage, built from
+the `vX.Y` for x86_64 and `PyBitmessage-<VERSION>-g<COMMITHASH>-alpha-aarch64.AppImage`
 is one, built from some development branch for arm64.
 
 You can also build the appimage with local code. For that you need installed

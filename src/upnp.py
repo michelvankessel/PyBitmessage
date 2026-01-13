@@ -80,8 +80,7 @@ class UPnPError(Exception):
     """Handle a UPnP error"""
 
     def __init__(self, message):
-        super(UPnPError, self).__init__()
-        logger.error(message)
+        super(UPnPError, self).__init__(message)
 
 
 class Router:
@@ -95,6 +94,8 @@ class Router:
 
     def __init__(self, ssdpResponse, address):
         self.address = address
+        if isinstance(ssdpResponse, bytes):
+            ssdpResponse = ssdpResponse.decode("utf-8", "replace")
 
         row = ssdpResponse.split("\r\n")
         header = {}
@@ -114,7 +115,11 @@ class Router:
         parsed_url = urlparse(header["location"])
         if parsed_url.scheme not in ["http", "https"]:
             raise UPnPError("Unsupported URL scheme: %s" % parsed_url.scheme)
-        directory = urlopen(header["location"]).read()  # nosec B310
+        
+        try:
+            directory = urlopen(header["location"], timeout=5).read()  # nosec B310
+        except (socket.timeout, OSError) as e:
+            raise UPnPError(f"Failed to fetch UPnP device description from {header['location']}: {e}")
 
         # create a DOM object that represents the `directory` document
         dom = parseString(directory.decode("utf-8"))
@@ -250,6 +255,12 @@ class uPnPThread(StoppableThread):
         self.localIP = self.getLocalIP()
         self.routers = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if hasattr(socket, "SO_REUSEPORT"):
+                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except Exception:
+            pass
         self.sock.bind((self.localIP, 0))
         self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
         self.sock.settimeout(5)
@@ -309,7 +320,11 @@ class uPnPThread(StoppableThread):
                     resp, (ip, _) = self.sock.recvfrom(1000)
                     if resp is None:
                         continue
-                    newRouter = Router(resp, ip)
+                    try:
+                        newRouter = Router(resp, ip)
+                    except UPnPError as e:
+                        logger.warning(f"UPnP Router Error: {e}")
+                        continue
                     for router in self.routers:
                         if router.routerPath == newRouter.routerPath:
                             break
@@ -393,6 +408,14 @@ class uPnPThread(StoppableThread):
             self.sock.sendto(
                 ssdpRequest.encode(), (uPnPThread.SSDP_ADDR, uPnPThread.SSDP_PORT)
             )
+        except OSError as e:
+            if e.errno == 49:  # EADDRNOTAVAIL
+                logger.warning(
+                    "UPnP: Can't assign requested address (Errno 49). "
+                    "Multicast disabled or network unavailable."
+                )
+            else:
+                logger.exception("UPnP send query failed")
         except Exception:
             logger.exception("UPnP send query failed")
 

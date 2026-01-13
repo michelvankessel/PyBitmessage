@@ -53,7 +53,7 @@ from .foldertree import (
 from . import settingsmixin
 from . import support
 import helper_sent
-from helper_sql import sqlQuery, sqlExecute, sqlExecuteChunked, sqlStoredProcedure
+from helper_sql import sqlQuery, sqlExecute, sqlStoredProcedure
 import helper_addressbook
 import helper_search
 import l10n
@@ -791,9 +791,13 @@ class MyForm(settingsmixin.SMainWindow):
         from .messageview import MessageView
 
         def replace_widget(old_widget, new_widget):
-            layout = old_widget.parent().layout()
-            if layout:
-                layout.replaceWidget(old_widget, new_widget)
+            parent = old_widget.parent()
+            if isinstance(parent, QtWidgets.QSplitter):
+                parent.replaceWidget(parent.indexOf(old_widget), new_widget)
+            else:
+                layout = parent.layout()
+                if layout:
+                    layout.replaceWidget(old_widget, new_widget)
             old_widget.deleteLater()
             return new_widget
 
@@ -806,7 +810,7 @@ class MyForm(settingsmixin.SMainWindow):
             MessageView(self.ui.subscriptions),
         )
         self.ui.textEditInboxMessageChans = replace_widget(
-            self.ui.textEditInboxMessageChans, MessageView(self.ui.tab_3)
+            self.ui.textEditInboxMessageChans, MessageView(self.ui.chans)
         )
         # Note: textEditMessage and textEditMessageBroadcast are editable input fields
         # allowing rich text, so they should remain QTextEdit or become a specialized editor,
@@ -2666,7 +2670,7 @@ class MyForm(settingsmixin.SMainWindow):
 
                 self.ui.comboBoxSendFromBroadcast.setCurrentIndex(0)
                 self.ui.lineEditSubjectBroadcast.setText("")
-                self.ui.textEditMessageBroadcast.reset()
+                self.ui.textEditMessageBroadcast.clear()
                 self.ui.tabWidget.setCurrentIndex(
                     self.ui.tabWidget.indexOf(self.ui.send)
                 )
@@ -2753,7 +2757,8 @@ class MyForm(settingsmixin.SMainWindow):
         for addressInKeysFile in config.addresses(True):
             isEnabled = config.getboolean(addressInKeysFile, "enabled")
             isChan = config.safeGetBoolean(addressInKeysFile, "chan")
-            if isEnabled and not isChan:
+            isMailingList = config.safeGetBoolean(addressInKeysFile, "mailinglist")
+            if isEnabled and not isChan and isMailingList:
                 label = str(config.get(addressInKeysFile, "label")).strip()
                 if label == "":
                     label = addressInKeysFile
@@ -3074,9 +3079,17 @@ class MyForm(settingsmixin.SMainWindow):
             for col in range(tableWidget.columnCount()):
                 tableWidget.item(i, col).setUnread(False)
 
-        markread = sqlExecuteChunked(
-            "UPDATE inbox SET read = 1 WHERE msgid IN({0}) AND read=0", idCount, *msgids
-        )
+        markread = 0
+        chunkSize = 900
+        for i in range(0, idCount, chunkSize):
+            chunk = msgids[i: i + chunkSize]
+            placeholders = ",".join(["?"] * len(chunk))
+            markread += sqlExecute(
+                "UPDATE inbox SET read = 1 WHERE msgid IN({}) AND read=0".format(
+                    placeholders
+                ),
+                *chunk,
+            )
 
         if markread > 0:
             self.propagateUnreadCount()
@@ -3361,6 +3374,8 @@ class MyForm(settingsmixin.SMainWindow):
         if queryreturn != []:
             for row in queryreturn:
                 (messageText,) = row
+        if isinstance(messageText, bytes):
+            messageText = messageText.decode("utf-8", "replace")
 
         lines = messageText.split("\n")
         totalLines = len(lines)
@@ -3406,7 +3421,7 @@ class MyForm(settingsmixin.SMainWindow):
         chunkSize = 900
         for i in range(0, len(msgidsList), chunkSize):
             chunk = msgidsList[i:i + chunkSize]
-            placeholders = ",".join("?" * len(chunk))
+            placeholders = ",".join(["?"] * len(chunk))
             sqlExecute(
                 f"UPDATE inbox SET read=0 WHERE read=1 AND msgid IN ({placeholders})",  # nosec B608
                 *chunk,
@@ -3723,29 +3738,36 @@ class MyForm(settingsmixin.SMainWindow):
             currentRow = r.topRow()
             self.getCurrentMessageTextedit().setText("")
             tableWidget.model().removeRows(r.topRow(), r.bottomRow() - r.topRow() + 1)
-        idCount = len(inventoryHashesToTrash)
+        inventoryHashesToTrashList = list(inventoryHashesToTrash)
+        chunkSize = 900
         if folder == "trash" or shifted:
-            sqlExecuteChunked(
-                "DELETE FROM inbox WHERE msgid IN ({0})",
-                idCount,
-                *inventoryHashesToTrash,
-            )
-            sqlExecuteChunked(
-                "DELETE FROM sent WHERE ackdata IN ({0})",
-                idCount,
-                *inventoryHashesToTrash,
-            )
+            for i in range(0, len(inventoryHashesToTrashList), chunkSize):
+                chunk = inventoryHashesToTrashList[i: i + chunkSize]
+                placeholders = ",".join(["?"] * len(chunk))
+                sqlExecute(
+                    "DELETE FROM inbox WHERE msgid IN ({})".format(placeholders),
+                    *chunk,
+                )
+                sqlExecute(
+                    "DELETE FROM sent WHERE ackdata IN ({})".format(placeholders),
+                    *chunk,
+                )
         else:
-            sqlExecuteChunked(
-                "UPDATE inbox SET folder='trash', read=1 WHERE msgid IN ({0})",
-                idCount,
-                *inventoryHashesToTrash,
-            )
-            sqlExecuteChunked(
-                "UPDATE sent SET status='trash' WHERE ackdata IN ({0})",
-                idCount,
-                *inventoryHashesToTrash,
-            )
+            for i in range(0, len(inventoryHashesToTrashList), chunkSize):
+                chunk = inventoryHashesToTrashList[i: i + chunkSize]
+                placeholders = ",".join(["?"] * len(chunk))
+                sqlExecute(
+                    "UPDATE inbox SET folder='trash', read=1 WHERE msgid IN ({})".format(
+                        placeholders
+                    ),
+                    *chunk,
+                )
+                sqlExecute(
+                    "UPDATE sent SET status='trash' WHERE ackdata IN ({})".format(
+                        placeholders
+                    ),
+                    *chunk,
+                )
         tableWidget.selectRow(0 if currentRow == 0 else currentRow - 1)
         tableWidget.setUpdatesEnabled(True)
         self.propagateUnreadCount(folder)
@@ -3770,12 +3792,17 @@ class MyForm(settingsmixin.SMainWindow):
             self.getCurrentMessageTextedit().setText("")
             tableWidget.model().removeRows(r.topRow(), r.bottomRow() - r.topRow() + 1)
         tableWidget.selectRow(0 if currentRow == 0 else currentRow - 1)
-        idCount = len(inventoryHashesToTrash)
-        sqlExecuteChunked(
-            "UPDATE inbox SET folder='inbox' WHERE msgid IN({0})",
-            idCount,
-            *inventoryHashesToTrash,
-        )
+        inventoryHashesToTrashList = list(inventoryHashesToTrash)
+        chunkSize = 900
+        for i in range(0, len(inventoryHashesToTrashList), chunkSize):
+            chunk = inventoryHashesToTrashList[i: i + chunkSize]
+            placeholders = ",".join(["?"] * len(chunk))
+            sqlExecute(
+                "UPDATE inbox SET folder='inbox' WHERE msgid IN ({})".format(
+                    placeholders
+                ),
+                *chunk,
+            )
         tableWidget.selectRow(0 if currentRow == 0 else currentRow - 1)
         tableWidget.setUpdatesEnabled(True)
         self.propagateUnreadCount()
@@ -3807,7 +3834,7 @@ class MyForm(settingsmixin.SMainWindow):
         defaultFilename = (
             "".join(x for x in subjectAtCurrentInboxRow if x.isalnum()) + ".txt"
         )
-        filename = QtWidgets.QFileDialog.getSaveFileName(
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
             self,
             _translate("MainWindow", "Save As..."),
             defaultFilename,
@@ -4506,12 +4533,10 @@ class MyForm(settingsmixin.SMainWindow):
                 )
             )
         ]
-        sourcefile = str(
-            QtWidgets.QFileDialog.getOpenFileName(
-                self,
-                _translate("MainWindow", "Set notification sound..."),
-                filter=";;".join(filters),
-            )
+        sourcefile, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            _translate("MainWindow", "Set notification sound..."),
+            filter=";;".join(filters),
         )
 
         if not sourcefile:
@@ -4633,8 +4658,10 @@ class MyForm(settingsmixin.SMainWindow):
         )
 
         if account.type_ == AccountMixin.CHAN:
+            self.popMenuInbox.addAction(self.actionReply)
             self.popMenuInbox.addAction(self.actionReplyChan)
-        self.popMenuInbox.addAction(self.actionReply)
+        else:
+            self.popMenuInbox.addAction(self.actionReply)
         self.popMenuInbox.addAction(self.actionAddSenderToAddressBook)
         self.actionClipboardMessagelist = self.inboxContextMenuToolbar.addAction(
             _translate("MainWindow", "Copy subject to clipboard")
@@ -4803,6 +4830,8 @@ class MyForm(settingsmixin.SMainWindow):
 
         try:
             message = queryreturn[-1][0]
+            if isinstance(message, bytes):
+                message = message.decode("utf-8", "replace")
         except NameError:
             message = ""
         except IndexError:

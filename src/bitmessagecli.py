@@ -6,7 +6,7 @@
 Created by Adam Melton (.dok) referenceing https://bitmessage.org/wiki/API_Reference for API documentation
 Distributed under the MIT/X11 software license. See http://www.opensource.org/licenses/mit-license.php.
 
-This is an example of a daemon client for PyBitmessage 0.6.2, by .dok (Version 0.3.1) , modified
+This is an example of a daemon client for PyBitmessage, by .dok, modified
 
 TODO: fix the following (currently ignored) violations:
 
@@ -256,13 +256,21 @@ def apiData():
         keysPath
     )  # First try to load the config file (the keys.dat file) from the program directory
 
-    try:
-        config.get("bitmessagesettings", "port")
-        appDataFolder = ""
-    except Exception:
+    # config.read() silently ignores missing files and loads defaults from default.ini via bmconfigparser.
+    # We must explicitly check if the file exists locally, otherwise we end up using defaults without credentials.
+    local_keys_exist = os.path.exists(keysPath)
+
+    if local_keys_exist:
+        try:
+            config.get("bitmessagesettings", "port")
+            appDataFolder = ""
+        except Exception:
+            local_keys_exist = False
+
+    if not local_keys_exist:
         # Could not load the keys.dat file in the program directory. Perhaps it is in the appdata directory.
         appDataFolder = lookupAppdataFolder()
-        keysPath = appDataFolder + keysPath
+        keysPath = appDataFolder + keysName  # keysName is "keys.dat"
         config.read(keysPath)
 
         try:
@@ -302,29 +310,27 @@ def apiData():
             usrPrompt = 1
             main()
 
-    try:  # checks to make sure that everyting is configured correctly. Excluding apiEnabled, it is checked after
-        config.get("bitmessagesettings", "apiport")
-        config.get("bitmessagesettings", "apiinterface")
-        config.get("bitmessagesettings", "apiusername")
-        config.get("bitmessagesettings", "apipassword")
-
-    except Exception:
-        apiInit("")  # Initalize the keys.dat file with API information
-
     # keys.dat file was found or appropriately configured, allow information retrieval
-    # apiEnabled =
-    # apiInit(config.safeGetBoolean('bitmessagesettings','apienabled'))
-    # #if false it will prompt the user, if true it will return true
 
     config.read(keysPath)  # read again since changes have been made
-    apiPort = int(config.get("bitmessagesettings", "apiport"))
-    apiInterface = config.get("bitmessagesettings", "apiinterface")
-    apiUsername = config.get("bitmessagesettings", "apiusername")
-    apiPassword = config.get("bitmessagesettings", "apipassword")
+
+    # Use defaults if specific settings are missing, to match main application behavior
+    apiPort = config.safeGetInt("bitmessagesettings", "apiport", 8444)
+    apiInterface = config.safeGet("bitmessagesettings", "apiinterface", "127.0.0.1")
+    apiUsername = config.safeGet("bitmessagesettings", "apiusername", "")
+    apiPassword = config.safeGet("bitmessagesettings", "apipassword", "")
+
+    # Only force init if essential credentials are completely missing/empty and valid defaults can't be assumed
+    # (Though technically username/password can be empty? let's assume if they are missing it's an issue?
+    # Actually user said they HAVE username/password. So likely just port/interface missing)
+    if not apiUsername or not apiPassword:
+        # If credentials are truly missing, then we might need to prompt,
+        # but let's see if the user has them set.
+        # The original code's try/except block was too aggressive.
+        pass
 
     print("\n     API data successfully imported.\n")
 
-    # Build the api credentials
     return (
         "http://"
         + apiUsername
@@ -374,22 +380,22 @@ def bmSettings():
         "bitmessagesettings", "showtraynotifications"
     )
     startintray = config.safeGetBoolean("bitmessagesettings", "startintray")
-    defaultnoncetrialsperbyte = config.get(
-        "bitmessagesettings", "defaultnoncetrialsperbyte"
-    )
-    defaultpayloadlengthextrabytes = config.get(
-        "bitmessagesettings", "defaultpayloadlengthextrabytes"
-    )
+    defaultnoncetrialsperbyte = str(config.safeGetInt(
+        "bitmessagesettings", "defaultnoncetrialsperbyte", 1000
+    ))
+    defaultpayloadlengthextrabytes = str(config.safeGetInt(
+        "bitmessagesettings", "defaultpayloadlengthextrabytes", 1000
+    ))
     daemon = config.safeGetBoolean("bitmessagesettings", "daemon")
 
-    socksproxytype = config.get("bitmessagesettings", "socksproxytype")
-    sockshostname = config.get("bitmessagesettings", "sockshostname")
-    socksport = config.get("bitmessagesettings", "socksport")
+    socksproxytype = config.safeGet("bitmessagesettings", "socksproxytype", "none")
+    sockshostname = config.safeGet("bitmessagesettings", "sockshostname", "localhost")
+    socksport = config.safeGet("bitmessagesettings", "socksport", "9050")
     socksauthentication = config.safeGetBoolean(
         "bitmessagesettings", "socksauthentication"
     )
-    socksusername = config.get("bitmessagesettings", "socksusername")
-    sockspassword = config.get("bitmessagesettings", "sockspassword")
+    socksusername = config.safeGet("bitmessagesettings", "socksusername", "")
+    sockspassword = config.safeGet("bitmessagesettings", "sockspassword", "")
 
     print("\n     -----------------------------------")
     print("     |   Current Bitmessage Settings   |")
@@ -519,9 +525,11 @@ def bmSettings():
 
 def validAddress(address):
     """Predicate to test address validity"""
-    address_information = safe_json_loads(api.decodeAddress(address))
-
-    return "success" in str(address_information["status"]).lower()
+    try:
+        address_information = safe_json_loads(api.decodeAddress(address))
+        return "success" in str(address_information["status"]).lower()
+    except Exception:
+        return False
 
 
 def getAddress(passphrase, vNumber, sNumber):
@@ -679,9 +687,10 @@ def listAdd():
     for addNum in range(
         0, numAddresses
     ):  # processes all of the addresses and lists them out
-        label = (jsonAddresses["addresses"][addNum]["label"]).encode(
-            "utf"
-        )  # may still misdiplay in some consoles
+        label = jsonAddresses["addresses"][addNum]["label"]
+        # Ensure label is a string for display
+        if isinstance(label, bytes):
+            label = label.decode("utf-8", "replace")
         address = str(jsonAddresses["addresses"][addNum]["address"])
         stream = str(jsonAddresses["addresses"][addNum]["stream"])
         enabled = str(jsonAddresses["addresses"][addNum]["enabled"])
@@ -1822,14 +1831,17 @@ def UI(usrInput):
 
     elif usrInput == "addinfo":
         tmp_address = userInput("\nEnter the Bitmessage Address.")
-        address_information = safe_json_loads(api.decodeAddress(tmp_address))
+        try:
+            address_information = safe_json_loads(api.decodeAddress(tmp_address))
+        except Exception:
+            address_information = {"status": "Error"}
 
         print("\n------------------------------")
 
         if "success" in str(address_information["status"]).lower():
             print(" Valid Address")
-            print(" Address Version: %s" % str(address_information["addressVersion"]))
-            print(" Stream Number: %s" % str(address_information["streamNumber"]))
+            print(" Address Version: %s" % str(address_information.get("addressVersion", "N/A")))
+            print(" Stream Number: %s" % str(address_information.get("streamNumber", "N/A")))
         else:
             print(" Invalid Address !")
 

@@ -172,8 +172,7 @@ def fixPotentiallyInvalidUTF8Data(text):
     if isinstance(text, str):
         return text
     try:
-        text.decode("utf-8")
-        return text
+        return text.decode("utf-8")
     except (UnicodeDecodeError, AttributeError):
         return (
             "Part of the message is corrupt. The message cannot be"

@@ -146,8 +146,9 @@ class UDPSocket(BMProto):
             retval = self.socket.sendto(
                 self.write_buf, ('<broadcast>', self.port))
         except (socket.error, OSError) as e:
-            if getattr(e, 'errno', None) == 49:  # Can't assign requested address (macOS)
-                logger.debug("UDP broadcast failed (Errno 49), standard on some macOS configs")
+            errno = getattr(e, 'errno', None)
+            if errno in (49, 51, 65):  # 49=AddrNotAvail, 51=NetUnreach, 65=NoRoute
+                logger.debug("UDP broadcast failed (Errno %s), ignoring.", errno)
             else:
                 logger.error("socket error on sendto: %s", e)
             retval = len(self.write_buf)

@@ -309,7 +309,7 @@ def check_curses():
     # The pythondialog author does not like Python2 str, so we have to use
     # unicode for just the version otherwise we get the repr form which
     # includes the module and class names along with the actual version.
-    logger.info("dialog Utility Version %s", dialog_util_version.decode("utf-8"))
+    logger.info("dialog Utility Version %s", str(dialog_util_version))
     return True
 
 

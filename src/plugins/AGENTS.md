@@ -1,13 +1,11 @@
 # PyBitmessage Plugins Agent Guidelines
 
-**Branch:** `(based on working dir)` | **Generated:** 2026-01-10 | **Updated:** 2026-01-12
+**Generated:** 2026-01-13
 
-## Overview
+## OVERVIEW
+Optional plugin system for QR codes, notifications, audio alerts, desktop integration via setuptools entry points with conditional loading based on extras_require dependencies.
 
-Optional plugin system for audio, notifications, QR codes, desktop integration. Plugins load conditionally based on extras_require dependencies.
-
-## Structure
-
+## STRUCTURE
 ```
 src/plugins/
 ├── plugin.py              # Plugin discovery (importlib.metadata)
@@ -21,10 +19,16 @@ src/plugins/
 └── proxyconfig_stem.py    # Tor proxy configuration
 ```
 
-## Entry Points
+## WHERE TO LOOK
+- **Plugin Discovery**: `plugin.py` - `get_plugins()` iterates entry points using importlib.metadata
+- **QR codes**: `menu_qrcode.py` - Shows BM address QR in modal dialog, requires `[qrcode]`
+- **Notifications**: `notification_notify2.py` - Uses gi.repository.Notify, requires `[gir,notify2]`
+- **Audio**: `sound_canberra.py` - pycanberra theme sounds, `sound_gstreamer.py` - gstreamer playback
+- **Desktop**: `desktop_xdg.py` - XDG autostart via pyxdg, requires `[xdg]`
+- **Tor**: `proxyconfig_stem.py` - Stem-based hidden service config, requires `[tor]`
 
-Defined in setup.py:
-
+## PLUGIN REGISTRATION
+Entry points in setup.py define plugin groups:
 - `bitmessage.gui.menu` - Context menu extensions
 - `bitmessage.notification.message` - Desktop notifications  
 - `bitmessage.notification.sound` - Audio alerts
@@ -32,18 +36,9 @@ Defined in setup.py:
 - `bitmessage.desktop` - Desktop environment integration
 - `bitmessage.proxyconfig` - Proxy configuration
 
-## Plugin Discovery
+## HOOK SYSTEM
+Each plugin exports `connect_plugin()` function returning callback tuple:
+`(callback_function, menu_text)` for menus or direct function for notifications.
 
-`plugin.py` provides `get_plugins(group, point, name, fallback)` - iterates entry points matching criteria. Uses modern importlib.metadata with pkg_resources fallback.
-
-## Where to Look
-
-- **QR codes**: `menu_qrcode.py` - Shows BM address QR in modal dialog
-- **Notifications**: `notification_notify2.py` - Uses gi.repository.Notify
-- **Audio**: `sound_canberra.py` - pycanberra theme sounds
-- **Desktop**: `desktop_xdg.py` - XDG autostart via pyxdg
-- **Tor**: `proxyconfig_stem.py` - Stem-based hidden service config
-
-## Dependencies
-
-Plugins require extras: `[qrcode]`, `[gir]`, `[notify2]`, `[sound]`, `[xdg]`, `[tor]`. Install via `uv pip install pybitmessage[qrcode,tor]` etc.
+## ISOLATION
+Plugins load conditionally - missing dependencies don't break core. Entry point brackets specify extras: `[qrcode]`, `[gir]`, `[notify2]`, `[sound]`, `[xdg]`, `[tor]`.
