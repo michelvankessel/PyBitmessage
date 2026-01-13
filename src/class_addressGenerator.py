@@ -161,20 +161,20 @@ class addressGenerator(StoppableThread):
             if nonceTrialsPerByte == 0:
                 nonceTrialsPerByte = config.getint(
                     'bitmessagesettings', 'defaultnoncetrialsperbyte')
-            
+
             # Ensure integer types for comparison
             nonceTrialsPerByte = int(nonceTrialsPerByte)
-            
+
             nonceTrialsPerByte = max(
                 nonceTrialsPerByte,
                 defaults.networkDefaultProofOfWorkNonceTrialsPerByte)
             if payloadLengthExtraBytes == 0:
                 payloadLengthExtraBytes = config.getint(
                     'bitmessagesettings', 'defaultpayloadlengthextrabytes')
-            
+
             # Ensure integer types for comparison
             payloadLengthExtraBytes = int(payloadLengthExtraBytes)
-            
+
             payloadLengthExtraBytes = max(
                 payloadLengthExtraBytes,
                 defaults.networkDefaultPayloadLengthExtraBytes)
@@ -318,23 +318,25 @@ class addressGenerator(StoppableThread):
                     if command == 'getDeterministicAddress':
                         saveAddressToDisk = False
 
-                    if saveAddressToDisk and live and self.save_address(
-                        addressVersionNumber, streamNumber, ripe, label,
-                        potentialPrivSigningKey, potentialPrivEncryptionKey,
-                        nonceTrialsPerByte, payloadLengthExtraBytes
-                    ):
-                        if command in ('createChan', 'joinChan'):
-                            config.set(address, 'chan', 'true')
-                        config.save()
+                    if saveAddressToDisk and live:
+                        if self.save_address(
+                            addressVersionNumber, streamNumber, ripe, label,
+                            potentialPrivSigningKey, potentialPrivEncryptionKey,
+                            nonceTrialsPerByte, payloadLengthExtraBytes
+                        ):
+                            if command in ('createChan', 'joinChan'):
+                                config.set(address, 'chan', 'true')
+                            config.save()
 
-                        listOfNewAddressesToSendOutThroughTheAPI.append(
-                            address)
+                            queues.UISignalQueue.put((
+                                'updateStatusBar',
+                                _translate(
+                                    "MainWindow", "Done generating address")
+                            ))
 
-                        queues.UISignalQueue.put((
-                            'updateStatusBar',
-                            _translate(
-                                "MainWindow", "Done generating address")
-                        ))
+                        # Append to list whether new or existing, so API returns it
+                        listOfNewAddressesToSendOutThroughTheAPI.append(address)
+
                     elif saveAddressToDisk and not live \
                             and not config.has_section(address):
                         listOfNewAddressesToSendOutThroughTheAPI.append(

@@ -12,9 +12,8 @@ TODO: fix the following (currently ignored) violations:
 
 """
 
-import datetime
 import base64
-
+import datetime
 import ntpath
 import os
 import socket
@@ -22,15 +21,10 @@ import sys
 import time
 from pathlib import Path
 
-import xmlrpc.client as xmlrpclib  # nosec B411
-
 try:
-    import defusedxml.xmlrpc
-
-    defusedxml.xmlrpc.monkey_patch()
+    import jsonrpclib
 except ImportError:
-    pass
-
+    jsonrpclib = None  # type: ignore
 
 from bmconfigparser import config
 
@@ -42,13 +36,6 @@ usrPrompt = (
     0  # 0 = First Start, 1 = prompt, 2 = no prompt if the program is starting up
 )
 knownAddresses: dict = dict()
-
-
-def safe_json_loads(response):
-    """Safely handle API responses that may be dicts or JSON strings"""
-    if isinstance(response, str):
-        return safe_json_loads(response)
-    return response
 
 
 def is_image(path):
@@ -526,7 +513,7 @@ def bmSettings():
 def validAddress(address):
     """Predicate to test address validity"""
     try:
-        address_information = safe_json_loads(api.decodeAddress(address))
+        address_information = api.decodeAddress(address)
         return "success" in str(address_information["status"]).lower()
     except Exception:
         return False
@@ -593,8 +580,8 @@ def listSubscriptions():
     print("\nLabel, Address, Enabled\n")
     try:
         print(api.listSubscriptions())
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
     print(" ")
@@ -608,8 +595,8 @@ def createChan():
     password = base64.b64encode(password.encode("utf-8")).decode("ascii")
     try:
         print(api.createChan(password))
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -634,8 +621,8 @@ def joinChan():
     password = base64.b64encode(password.encode("utf-8")).decode("ascii")
     try:
         print(api.joinChan(password, address))
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -658,8 +645,8 @@ def leaveChan():
 
     try:
         print(api.leaveChan(address))
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -668,10 +655,10 @@ def listAdd():
     """List all of the addresses and their info"""
     global usrPrompt
     try:
-        jsonAddresses = safe_json_loads(api.listAddresses())
+        jsonAddresses = api.listAddresses()
         numAddresses = len(jsonAddresses["addresses"])  # Number of addresses
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -687,13 +674,24 @@ def listAdd():
     for addNum in range(
         0, numAddresses
     ):  # processes all of the addresses and lists them out
-        label = jsonAddresses["addresses"][addNum]["label"]
+        addr_data = jsonAddresses["addresses"][addNum]
+        label = addr_data["label"]
         # Ensure label is a string for display
         if isinstance(label, bytes):
             label = label.decode("utf-8", "replace")
-        address = str(jsonAddresses["addresses"][addNum]["address"])
-        stream = str(jsonAddresses["addresses"][addNum]["stream"])
-        enabled = str(jsonAddresses["addresses"][addNum]["enabled"])
+
+        # Add markers for Chan and Mailing List
+        marker = ""
+        if addr_data.get("chan"):
+            marker = "[C] "
+        elif addr_data.get("mailinglist"):
+            marker = "[ML] "
+
+        label = marker + label
+
+        address = str(addr_data["address"])
+        stream = str(addr_data["stream"])
+        enabled = str(addr_data["enabled"])
 
         if len(label) > 19:
             label = label[:16] + "..."
@@ -737,7 +735,7 @@ def genAdd(lbl, deterministic, passphrase, numOfAdd, addVNum, streamNum, ripe):
     ):  # Generates a new address with the user defined label. non-deterministic
         addressLabel = base64.b64encode(lbl.encode("utf-8")).decode("ascii")
         try:
-            generatedAddress = api.createRandomAddress(addressLabel)
+            generatedAddress = api.createRandomAddress(addressLabel, ripe)
         except Exception:
             print("\n     Connection Error\n")
             usrPrompt = 0
@@ -784,7 +782,7 @@ def saveFile(fileName, fileData):
 
     with open(filePath, "wb+") as path_to_file:
         path_to_file.write(base64.b64decode(fileData))
-    print("\n     Successfully saved " + filePath + "\n")
+    print("\n     Successfully saved " + str(filePath) + "\n")
 
 
 def attachment():
@@ -915,73 +913,64 @@ def sendMsg(toAddress, fromAddress, subject, message):
 
     global usrPrompt
     if validAddress(toAddress) is False:
-        while True:
-            toAddress = userInput("What is the To Address?")
+        try:
+            # Get address book entries for recipient label lookup
+            addressBook = api.listAddressBookEntries()["addresses"]
+        except Exception:
+            addressBook = []
 
-            if toAddress == "c":
+        while True:
+            toAddressInput = userInput("What is the To Address (or label)?")
+
+            if toAddressInput == "c":
                 usrPrompt = 1
                 print(" ")
                 main()
-            elif validAddress(toAddress) is False:
-                print('\n     Invalid Address. "c" to cancel. Please try again.\n')
-            else:
+
+            toAddress = resolveAddress(toAddressInput, addressBook)
+            if toAddress:
                 break
+
+            print('\n     Invalid Address or Label. "c" to cancel. Please try again.\n')
 
     if validAddress(fromAddress) is False:
         try:
-            jsonAddresses = safe_json_loads(api.listAddresses())
-            numAddresses = len(jsonAddresses["addresses"])  # Number of addresses
-        except Exception:
-            print("\n     Connection Error\n")
+            jsonAddresses = api.listAddresses()
+        except Exception as e:
+            print(f"\n     Connection Error: {e}\n")
             usrPrompt = 0
             main()
 
-        if numAddresses > 1:  # Ask what address to send from if multiple addresses
-            found = False
+        # Filter addresses like the Qt GUI does for regular messages:
+        # Must be enabled and NOT a mailing list.
+        eligible = [
+            a for a in jsonAddresses["addresses"]
+            if a.get("enabled") and not a.get("mailinglist")
+        ]
+
+        if len(eligible) > 1:  # Ask what address to send from if multiple addresses
             while True:
                 print(" ")
-                fromAddress = userInput(
-                    "Enter an Address or Address Label to send from."
+                fromAddressInput = userInput(
+                    "Enter the SENDER Address or Label (one of your identities) to send from."
                 )
 
-                if fromAddress == "exit":
+                if fromAddressInput == "exit":
                     usrPrompt = 1
                     main()
 
-                for addNum in range(0, numAddresses):  # processes all of the addresses
-                    label = jsonAddresses["addresses"][addNum]["label"]
-                    address = jsonAddresses["addresses"][addNum]["address"]
-                    if fromAddress == label:  # address entered was a label and is found
-                        fromAddress = address
-                        found = True
-                        break
+                fromAddress = resolveAddress(fromAddressInput, eligible)
 
-                if found is False:
-                    if validAddress(fromAddress) is False:
-                        print("\n     Invalid Address. Please try again.\n")
+                if fromAddress:
+                    break
 
-                    else:
-                        for addNum in range(
-                            0, numAddresses
-                        ):  # processes all of the addresses
-                            address = jsonAddresses["addresses"][addNum]["address"]
-                            if (
-                                fromAddress == address
-                            ):  # address entered was a found in our addressbook.
-                                found = True
-                                break
-
-                        if found is False:
-                            print(
-                                "\n     The address entered is not one of yours. Please try again.\n"
-                            )
-
-                if found:
-                    break  # Address was found
-
-        else:  # Only one address in address book
-            print("\n     Using the only address in the addressbook to send from.\n")
-            fromAddress = jsonAddresses["addresses"][0]["address"]
+                print("\n     Invalid Address or Label. Please try again.\n")
+        elif len(eligible) == 1:
+            fromAddress = eligible[0]["address"]
+        else:
+            print("\n     You have no addresses. Please generate one first.\n")
+            usrPrompt = 1
+            main()
 
     if not subject:
         subject = userInput("Enter your Subject.")
@@ -1000,8 +989,8 @@ def sendMsg(toAddress, fromAddress, subject, message):
     try:
         ackData = api.sendMessage(toAddress, fromAddress, subject, message)
         print("\n     Message Status:", api.getStatus(ackData), "\n")
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1012,58 +1001,48 @@ def sendBrd(fromAddress, subject, message):
     global usrPrompt
     if not fromAddress:
         try:
-            jsonAddresses = safe_json_loads(api.listAddresses())
-            numAddresses = len(jsonAddresses["addresses"])  # Number of addresses
-        except Exception:
-            print("\n     Connection Error\n")
+            jsonAddresses = api.listAddresses()
+        except Exception as e:
+            print(f"\n     Connection Error: {e}\n")
             usrPrompt = 0
             main()
 
-        if numAddresses > 1:  # Ask what address to send from if multiple addresses
-            found = False
+        # Filter like the Qt GUI does for broadcasts:
+        # Must be enabled, NOT a chan, and marked as a mailing list.
+        mlAddresses = [
+            a for a in jsonAddresses["addresses"]
+            if a.get("enabled") and not a.get("chan") and a.get("mailinglist")
+        ]
+
+        if not mlAddresses:
+            print("\n     You have no addresses marked as 'mailing list'.")
+            print("     In the GUI, check 'Act as a mailing list' for an identity.")
+            print("     Returning all addresses as a fallback...\n")
+            mlAddresses = jsonAddresses["addresses"]
+
+        if len(mlAddresses) > 1:  # Ask what address to send from if multiple addresses
             while True:
-                fromAddress = userInput(
-                    "\nEnter an Address or Address Label to send from."
+                userInput_from = userInput(
+                    "\nEnter the SENDER Address or Label (one of your identities) to send from."
                 )
 
-                if fromAddress == "exit":
+                if userInput_from == "exit":
                     usrPrompt = 1
                     main()
 
-                for addNum in range(0, numAddresses):  # processes all of the addresses
-                    label = jsonAddresses["addresses"][addNum]["label"]
-                    address = jsonAddresses["addresses"][addNum]["address"]
-                    if fromAddress == label:  # address entered was a label and is found
-                        fromAddress = address
-                        found = True
-                        break
+                fromAddress = resolveAddress(userInput_from, mlAddresses)
+                if fromAddress:
+                    break
 
-                if found is False:
-                    if validAddress(fromAddress) is False:
-                        print("\n     Invalid Address. Please try again.\n")
+                print("\n     Invalid Address or Label. Please try again.\n")
 
-                    else:
-                        for addNum in range(
-                            0, numAddresses
-                        ):  # processes all of the addresses
-                            address = jsonAddresses["addresses"][addNum]["address"]
-                            if (
-                                fromAddress == address
-                            ):  # address entered was a found in our addressbook.
-                                found = True
-                                break
-
-                        if found is False:
-                            print(
-                                "\n     The address entered is not one of yours. Please try again.\n"
-                            )
-
-                if found:
-                    break  # Address was found
-
-        else:  # Only one address in address book
-            print("\n     Using the only address in the addressbook to send from.\n")
-            fromAddress = jsonAddresses["addresses"][0]["address"]
+        elif len(mlAddresses) == 1:
+            fromAddress = mlAddresses[0]["address"]
+            print(f"     Using Sender: {getLabelForAddress(fromAddress)} ({fromAddress})")
+        else:
+            print("\n     You have no addresses. Please generate one first.\n")
+            usrPrompt = 1
+            main()
 
     if not subject:
         subject = userInput("Enter your Subject.")
@@ -1082,8 +1061,8 @@ def sendBrd(fromAddress, subject, message):
     try:
         ackData = api.sendBroadcast(fromAddress, subject, message)
         print("\n     Message Status:", api.getStatus(ackData), "\n")
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1093,7 +1072,7 @@ def inbox(unreadOnly=False):
 
     global usrPrompt
     try:
-        inboxMessages = safe_json_loads(api.getAllInboxMessages())
+        inboxMessages = api.getAllInboxMessages()
         numMessages = len(inboxMessages["inboxMessages"])
     except Exception as e:
         print(f"\n     Connection Error: {e}\n")
@@ -1149,10 +1128,10 @@ def outbox():
 
     global usrPrompt
     try:
-        outboxMessages = safe_json_loads(api.getAllSentMessages())
+        outboxMessages = api.getAllSentMessages()
         numMessages = len(outboxMessages["sentMessages"])
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1204,10 +1183,10 @@ def readSentMsg(msgNum):
 
     global usrPrompt
     try:
-        outboxMessages = safe_json_loads(api.getAllSentMessages())
+        outboxMessages = api.getAllSentMessages()
         numMessages = len(outboxMessages["sentMessages"])
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1297,10 +1276,10 @@ def readMsg(msgNum):
     """Open a message for reading"""
     global usrPrompt
     try:
-        inboxMessages = safe_json_loads(api.getAllInboxMessages())
+        inboxMessages = api.getAllInboxMessages()
         numMessages = len(inboxMessages["inboxMessages"])
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1387,9 +1366,9 @@ def replyMsg(msgNum, forwardORreply):
     global usrPrompt
     forwardORreply = forwardORreply.lower()  # makes it lowercase
     try:
-        inboxMessages = safe_json_loads(api.getAllInboxMessages())
-    except Exception:
-        print("\n     Connection Error\n")
+        inboxMessages = api.getAllInboxMessages()
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1452,13 +1431,13 @@ def delMsg(msgNum):
 
     global usrPrompt
     try:
-        inboxMessages = safe_json_loads(api.getAllInboxMessages())
+        inboxMessages = api.getAllInboxMessages()
         # gets the message ID via the message index number
         msgId = inboxMessages["inboxMessages"][int(msgNum)]["msgid"]
 
         msgAck = api.trashMessage(msgId)
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1470,26 +1449,124 @@ def delSentMsg(msgNum):
 
     global usrPrompt
     try:
-        outboxMessages = safe_json_loads(api.getAllSentMessages())
+        outboxMessages = api.getAllSentMessages()
         # gets the message ID via the message index number
         msgId = outboxMessages["sentMessages"][int(msgNum)]["msgid"]
         msgAck = api.trashSentMessage(msgId)
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
     return msgAck
 
 
+def resolveAddress(requested_id, addresses):
+    """
+    Resolve a user-provided string (label or address) to a Bitmessage address.
+    Supports case-insensitive matching and partial label matching.
+    `addresses` should be the list of dicts from listAddresses or listAddressBookEntries.
+    """
+    userInput_str = requested_id.strip().lower()
+
+    if not userInput_str:
+        return None
+
+    # 0. Check for index match
+    try:
+        # Check if the input is a simple integer corresponding to an index in the list
+        idx = int(userInput_str)
+        if 0 <= idx < len(addresses):
+            return addresses[idx]["address"]
+    except (ValueError, TypeError):
+        pass
+
+    # Collect all potential matches
+    matches = []
+
+    # 1. Check for exact address match
+    for entry in addresses:
+        if userInput_str == entry["address"].lower():
+            return entry["address"]
+
+    # 2. Check for exact label match
+    for entry in addresses:
+        label = entry.get("label", "").lower()
+        if userInput_str == label:
+            return entry["address"]
+
+    # 3. Gather suggested matches (Smart and Partial)
+    matches = []
+
+    # Smart match candidates
+    for entry in addresses:
+        label = entry.get("label", "").lower()
+        clean_label = label
+        for prefix in ["[chan] ", "[mailing list] ", "[subscription] "]:
+            if clean_label.startswith(prefix):
+                clean_label = clean_label[prefix.__len__():]
+
+        # Also handle the parenthetical address
+        clean_label = clean_label.split("(")[0].strip()
+
+        if userInput_str == clean_label:
+            if entry["address"] not in matches:
+                matches.append(entry["address"])
+
+    # Partial match candidates (only if no smart matches found yet)
+    if not matches:
+        for entry in addresses:
+            label = entry.get("label", "").lower()
+            if userInput_str in label:
+                if entry["address"] not in matches:
+                    matches.append(entry["address"])
+
+    # 4. Handle results
+    if not matches:
+        if validAddress(userInput_str):
+            return userInput_str
+        return None
+
+    # For any non-exact match, ALWAYS ask for confirmation
+    print(f"\n     Found match(es) for '{userInput_str}':")
+    for i, addr in enumerate(matches):
+        # Find the entry to get the status
+        entry = next((e for e in addresses if e["address"] == addr), {})
+        marker = ""
+        if entry.get("chan"):
+            marker = "[Chan] "
+        elif entry.get("mailinglist"):
+            marker = "[Mailing List] "
+
+        print(f"     [{i+1}] {marker}{getLabelForAddress(addr)}")
+
+    while True:
+        choice = userInput(f"     Please choose [1-{len(matches)}] (or 'c' to cancel): ")
+        if choice.lower() == 'c':
+            return None
+        try:
+            choice_idx = int(choice) - 1
+            if 0 <= choice_idx < len(matches):
+                return matches[choice_idx]
+        except (ValueError, IndexError):
+            pass
+        print(f"     Invalid choice. Please enter a number between 1 and {len(matches)}.")
+
+
 def getLabelForAddress(address):
     """Get label for an address"""
 
     if address in knownAddresses:
+        label = knownAddresses[address].strip()
+        if label.startswith("("):  # Only address was added
+            return address
         return knownAddresses[address]
     else:
         buildKnownAddresses()
         if address in knownAddresses:
+            label = knownAddresses[address].strip()
+            if label.startswith("("):
+                return address
             return knownAddresses[address]
 
     return address
@@ -1506,15 +1583,29 @@ def buildKnownAddresses():
         # if api is too old then fail
         if "API Error 0020" in response:
             return
-        addressBook = safe_json_loads(response)
+        addressBook = response
         for entry in addressBook["addresses"]:
             if entry["address"] not in knownAddresses:
-                knownAddresses[entry["address"]] = "%s (%s)" % (
-                    base64.b64decode(entry["label"]).decode("utf-8"),
-                    entry["address"],
-                )
-    except Exception:
-        print("\n     Connection Error\n")
+                label = entry.get("label", "")
+                if isinstance(label, str) and label:
+                    try:
+                        label = base64.b64decode(label).decode("utf-8")
+                    except Exception:
+                        pass
+                label = label.strip()
+
+                if label:
+                    if entry["address"] in label:
+                        knownAddresses[entry["address"]] = label
+                    else:
+                        knownAddresses[entry["address"]] = "%s (%s)" % (
+                            label,
+                            entry["address"],
+                        )
+                else:
+                    knownAddresses[entry["address"]] = "(%s)" % entry["address"]
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1524,15 +1615,31 @@ def buildKnownAddresses():
         # if api is too old just return then fail
         if "API Error 0020" in response:
             return
-        addresses = safe_json_loads(response)
+        addresses = response
         for entry in addresses["addresses"]:
             if entry["address"] not in knownAddresses:
-                knownAddresses[entry["address"]] = "%s (%s)" % (
-                    base64.b64decode(entry["label"]).decode("utf-8"),
-                    entry["address"],
-                )
-    except Exception:
-        print("\n     Connection Error\n")
+                label = entry.get("label", "")
+                if isinstance(label, str) and label:
+                    try:
+                        label = base64.b64decode(label).decode("utf-8")
+                    except Exception:
+                        pass
+                label = label.strip()
+
+                if label:
+                    # Don't append address if it's already in the label
+                    if entry["address"] in label:
+                        knownAddresses[entry["address"]] = label
+                    else:
+                        knownAddresses[entry["address"]] = "%s (%s)" % (
+                            label,
+                            entry["address"],
+                        )
+                else:
+                    # No label, just store address (or empty string with address)
+                    knownAddresses[entry["address"]] = "(%s)" % entry["address"]
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1546,7 +1653,7 @@ def listAddressBookEntries():
         response = api.listAddressBookEntries()
         if "API Error" in response:
             return getAPIErrorCode(response)
-        addressBook = safe_json_loads(response)
+        addressBook = response
         print("     --------------------------------------------------------------")
         print("     |        Label       |                Address                |")
         print("     |--------------------|---------------------------------------|")
@@ -1557,8 +1664,8 @@ def listAddressBookEntries():
                 label = label[:16] + "..."
             print("     | " + label.ljust(19) + "| " + address.ljust(37) + " |")
         print("     --------------------------------------------------------------")
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1574,8 +1681,8 @@ def addAddressToAddressBook(address, label):
         )
         if "API Error" in response:
             return getAPIErrorCode(response)
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1589,8 +1696,8 @@ def deleteAddressFromAddressBook(address):
         response = api.deleteAddressBookEntry(address)
         if "API Error" in response:
             return getAPIErrorCode(response)
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1613,8 +1720,8 @@ def markMessageRead(messageID):
         response = api.getInboxMessageByID(messageID, True)
         if "API Error" in response:
             return getAPIErrorCode(response)
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1628,8 +1735,8 @@ def markMessageUnread(messageID):
         response = api.getInboxMessageByID(messageID, False)
         if "API Error" in response:
             return getAPIErrorCode(response)
-    except Exception:
-        print("\n     Connection Error\n")
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1640,9 +1747,9 @@ def markAllMessagesRead():
     global usrPrompt
 
     try:
-        inboxMessages = safe_json_loads(api.getAllInboxMessages())["inboxMessages"]
-    except Exception:
-        print("\n     Connection Error\n")
+        inboxMessages = api.getAllInboxMessages()["inboxMessages"]
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
     for message in inboxMessages:
@@ -1656,9 +1763,9 @@ def markAllMessagesUnread():
     global usrPrompt
 
     try:
-        inboxMessages = safe_json_loads(api.getAllInboxMessages())["inboxMessages"]
-    except Exception:
-        print("\n     Connection Error\n")
+        inboxMessages = api.getAllInboxMessages()["inboxMessages"]
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
     for message in inboxMessages:
@@ -1672,9 +1779,9 @@ def clientStatus():
     global usrPrompt
 
     try:
-        client_status = safe_json_loads(api.clientStatus())
-    except Exception:
-        print("\n     Connection Error\n")
+        client_status = api.clientStatus()
+    except Exception as e:
+        print(f"\n     Connection Error: {e}\n")
         usrPrompt = 0
         main()
 
@@ -1832,7 +1939,7 @@ def UI(usrInput):
     elif usrInput == "addinfo":
         tmp_address = userInput("\nEnter the Bitmessage Address.")
         try:
-            address_information = safe_json_loads(api.decodeAddress(tmp_address))
+            address_information = api.decodeAddress(tmp_address)
         except Exception:
             address_information = {"status": "Error"}
 
@@ -1872,7 +1979,7 @@ def UI(usrInput):
             lbl = ""
             passphrase = userInput("Enter the Passphrase.")  # .encode('base64')
             numOfAdd = int(userInput("How many addresses would you like to generate?"))
-            addVNum = 3
+            addVNum = 4
             streamNum = 1
             isRipe = userInput("Shorten the address, (Y)es or (N)o?").lower()
 
@@ -1917,8 +2024,14 @@ def UI(usrInput):
             deterministic = False
             null = ""
             lbl = userInput("Enter the label for the new address.")
+            isRipe = userInput("Shorten the address, (Y)es or (N)o?").lower()
 
-            print(genAdd(lbl, deterministic, null, null, null, null, null))
+            if isRipe == "y":
+                ripe = True
+            else:
+                ripe = False
+
+            print(genAdd(lbl, deterministic, null, null, null, null, ripe))
             main()
 
         else:
@@ -2081,7 +2194,7 @@ def UI(usrInput):
             main()
 
         if uInput in ("i", "inbox"):
-            inboxMessages = safe_json_loads(api.getAllInboxMessages())
+            inboxMessages = api.getAllInboxMessages()
             numMessages = len(inboxMessages["inboxMessages"])
 
             while True:
@@ -2101,7 +2214,7 @@ def UI(usrInput):
             message = inboxMessages["inboxMessages"][msgNum]["message"]
 
         elif uInput == "o" or uInput == "outbox":
-            outboxMessages = safe_json_loads(api.getAllSentMessages())
+            outboxMessages = api.getAllSentMessages()
             numMessages = len(outboxMessages["sentMessages"])
 
             while True:
@@ -2134,7 +2247,7 @@ def UI(usrInput):
         ).lower()
 
         if uInput in ("i", "inbox"):
-            inboxMessages = safe_json_loads(api.getAllInboxMessages())
+            inboxMessages = api.getAllInboxMessages()
             numMessages = len(inboxMessages["inboxMessages"])
 
             while True:
@@ -2173,7 +2286,7 @@ def UI(usrInput):
                 usrPrompt = 1
 
         elif uInput in ("o", "outbox"):
-            outboxMessages = safe_json_loads(api.getAllSentMessages())
+            outboxMessages = api.getAllSentMessages()
             numMessages = len(outboxMessages["sentMessages"])
 
             while True:
@@ -2280,11 +2393,13 @@ def main():
     if usrPrompt == 0:
         print("\n     ------------------------------")
         print("     | Bitmessage Daemon by .dok  |")
-        print("     | Version 0.3.1 for BM 0.6.2 |")
+        print("     | Version 0.3.1 for BM 0.7.0 |")
         print("     ------------------------------")
-        api = xmlrpclib.ServerProxy(
-            apiData()
-        )  # Connect to BitMessage using these api credentials
+        if jsonrpclib:
+            api = jsonrpclib.ServerProxy(apiData())
+        else:
+            import xmlrpc.client as xmlrpclib  # nosec B411
+            api = xmlrpclib.ServerProxy(apiData())
 
         if apiTest() is False:
             print(

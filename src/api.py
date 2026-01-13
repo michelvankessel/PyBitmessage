@@ -12,8 +12,7 @@ The PyBitmessage API is provided either as
 `JSON-RPC <https://www.jsonrpc.org/specification>`_ like in bitcoin.
 It's selected according to 'apivariant' setting in config file.
 
-Special value ``apivariant=legacy`` is to mimic the old pre 0.6.3
-behaviour when any results are returned as strings of json.
+
 
 .. list-table:: All config settings related to API:
   :header-rows: 0
@@ -59,12 +58,13 @@ For further examples please reference `.tests.test_api`.
 import base64
 import errno
 import hashlib
-import json
+
 from typing import Any
 import random
 import socket
 import subprocess
 import time
+import traceback
 from binascii import hexlify, unhexlify
 from struct import pack, unpack
 
@@ -238,17 +238,22 @@ class singleAPI(StoppableThread):
         except AttributeError:
             errno.WSAEADDRINUSE = errno.EADDRINUSE
 
-        RPCServerBase = xmlrpc_server.SimpleXMLRPCServer
-        ct = "text/xml"
-        if config.safeGet("bitmessagesettings", "apivariant") == "json":
+        apivariant = config.safeGet("bitmessagesettings", "apivariant", "json")
+        RPCServerBase = None
+        ct = None
+
+        if apivariant == "json":
             try:
                 from jsonrpclib.SimpleJSONRPCServer import (
                     SimpleJSONRPCServer as RPCServerBase,
                 )
+                ct = "application/json-rpc"
             except ImportError:
                 logger.warning("jsonrpclib not available, failing back to XML-RPC")
-            else:
-                ct = "application/json-rpc"
+
+        if RPCServerBase is None:
+            RPCServerBase = xmlrpc_server.SimpleXMLRPCServer
+            ct = "text/xml"
 
         # Nested class. FIXME not found a better solution.
         class StoppableRPCServer(RPCServerBase):
@@ -312,7 +317,7 @@ class CommandHandler(type):
         result = super(CommandHandler, mcs).__new__(mcs, name, bases, namespace)
         result.config = config
         result._handlers = {}
-        apivariant = result.config.safeGet("bitmessagesettings", "apivariant")
+        apivariant = result.config.safeGet("bitmessagesettings", "apivariant", "json")
         for func in namespace.values():
             try:
                 for alias in getattr(func, "_cmd"):
@@ -349,23 +354,7 @@ class command(object):
         self.aliases = aliases
 
     def __call__(self, func):
-        if config.safeGet("bitmessagesettings", "apivariant") == "legacy":
-
-            def wrapper(*args):
-                """
-                A wrapper for legacy apivariant which dumps the result
-                into string of json
-                """
-                result = func(*args)
-                return (
-                    result
-                    if isinstance(result, (int, str))
-                    else json.dumps(result, indent=4)
-                )
-
-            wrapper.__doc__ = func.__doc__
-        else:
-            wrapper = func
+        wrapper = func
 
         wrapper._cmd = self.aliases
         wrapper.__doc__ = (
@@ -446,10 +435,14 @@ class BMXMLRPCRequestHandler(xmlrpc_server.SimpleXMLRPCRequestHandler):
                 )
         except Exception:  # This should only happen if the module is buggy
             # internal error, report as HTTP server error
+            logger.error("API Error: %s", traceback.format_exc())
             self.send_response(http_client.INTERNAL_SERVER_ERROR)
             self.end_headers()
         else:
-            # got a valid XML RPC response
+            # got a valid response
+            if isinstance(response, str):
+                response = response.encode("utf-8")
+
             self.send_response(http_client.OK)
             self.send_header("Content-type", self.server.content_type)
             self.send_header("Content-length", str(len(response)))
@@ -494,6 +487,22 @@ class BMXMLRPCRequestHandler(xmlrpc_server.SimpleXMLRPCRequestHandler):
 
 class BMRPCDispatcher(object, metaclass=CommandHandler):
     """This class is used to dispatch API commands"""
+
+    @staticmethod
+    def _recursive_decode(obj):
+        """Recursively decode bytes to strings in a object"""
+        if isinstance(obj, bytes):
+            return obj.decode("utf-8", "ignore")
+        if isinstance(obj, dict):
+            return {
+                BMRPCDispatcher._recursive_decode(k): BMRPCDispatcher._recursive_decode(
+                    v
+                )
+                for k, v in obj.items()
+            }
+        if isinstance(obj, (list, tuple)):
+            return [BMRPCDispatcher._recursive_decode(x) for x in obj]
+        return obj
 
     @staticmethod
     def _decode(text, decode_type):
@@ -541,7 +550,7 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
                 "status": status,
                 "addressVersion": addressVersionNumber,
                 "streamNumber": streamNumber,
-                "ripe": base64.b64encode(ripe),
+                "ripe": base64.b64encode(ripe).decode() if ripe is not None else "",
             }
             if self._method == "decodeAddress"
             else (status, addressVersionNumber, streamNumber, ripe)
@@ -554,11 +563,15 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         subject = shared.fixPotentiallyInvalidUTF8Data(subject)
         message = shared.fixPotentiallyInvalidUTF8Data(message)
         return {
-            "msgid": hexlify(msgid),
-            "toAddress": toAddress,
-            "fromAddress": fromAddress,
-            "subject": base64.b64encode(subject),
-            "message": base64.b64encode(message),
+            "msgid": hexlify(msgid).decode() if msgid is not None else "",
+            "toAddress": toAddress.decode() if isinstance(toAddress, bytes) else toAddress,
+            "fromAddress": fromAddress.decode() if isinstance(fromAddress, bytes) else fromAddress,
+            "subject": base64.b64encode(subject.encode("utf-8")).decode()
+            if subject is not None
+            else "",
+            "message": base64.b64encode(message.encode("utf-8")).decode()
+            if message is not None
+            else "",
             "encodingType": encodingtype,
             "receivedTime": received,
             "read": read,
@@ -579,15 +592,21 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         subject = shared.fixPotentiallyInvalidUTF8Data(subject)
         message = shared.fixPotentiallyInvalidUTF8Data(message)
         return {
-            "msgid": hexlify(msgid),
-            "toAddress": toAddress,
-            "fromAddress": fromAddress,
-            "subject": base64.b64encode(subject),
-            "message": base64.b64encode(message),
+            "msgid": hexlify(msgid).decode() if msgid is not None else "",
+            "toAddress": toAddress.decode() if isinstance(toAddress, bytes) else toAddress,
+            "fromAddress": fromAddress.decode() if isinstance(fromAddress, bytes) else fromAddress,
+            "subject": base64.b64encode(subject.encode("utf-8")).decode()
+            if subject is not None
+            else "",
+            "message": base64.b64encode(message.encode("utf-8")).decode()
+            if message is not None
+            else "",
             "encodingType": encodingtype,
             "lastActionTime": lastactiontime,
-            "status": status,
-            "ackData": hexlify(ackdata),
+            "status": status.decode("utf-8", "replace")
+            if isinstance(status, bytes)
+            else status,
+            "ackData": hexlify(ackdata).decode() if ackdata is not None else "",
         }
 
     @staticmethod
@@ -599,7 +618,9 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         )
         data = [
             {
-                "label": base64.b64encode(shared.fixPotentiallyInvalidUTF8Data(label)),
+                "label": base64.b64encode(
+                    shared.fixPotentiallyInvalidUTF8Data(label).encode("utf-8")
+                ).decode(),
                 "address": address,
             }
             for label, address in queryreturn
@@ -654,20 +675,21 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
             streamNumber = decodeAddress(address)[2]
             label = self.config.get(address, "label")
             if self._method == "listAddresses2":
-                label = base64.b64encode(label)
+                label = base64.b64encode(label.encode("utf-8")).decode()
             data.append(
                 {
-                    "label": label,
+                    "label": label.decode() if isinstance(label, bytes) else label,
                     "address": address,
                     "stream": streamNumber,
                     "enabled": self.config.safeGetBoolean(address, "enabled"),
                     "chan": self.config.safeGetBoolean(address, "chan"),
+                    "mailinglist": self.config.safeGetBoolean(address, "mailinglist"),
                 }
             )
         return {"addresses": data}
 
     # the listAddressbook alias should be removed eventually.
-    @command("listAddressBookEntries", "legacy:listAddressbook")
+    @command("listAddressBookEntries")
     def HandleListAddressBookEntries(self, label=None):
         """
         Returns dict with a list of all address book entries (address and label)
@@ -681,11 +703,16 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         data = []
         for label, address in queryreturn:
             label = shared.fixPotentiallyInvalidUTF8Data(label)
-            data.append({"label": base64.b64encode(label), "address": address})
+            data.append(
+                {
+                    "label": base64.b64encode(label.encode("utf-8")).decode(),
+                    "address": address,
+                }
+            )
         return {"addresses": data}
 
     # the addAddressbook alias should be deleted eventually.
-    @command("addAddressBookEntry", "legacy:addAddressbook")
+    @command("addAddressBookEntry")
     def HandleAddAddressBookEntry(self, address, label):
         """Add an entry to address book. label must be base64 encoded."""
         label = self._decode(label, "base64")
@@ -705,7 +732,7 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         return "Added address %s to address book" % address
 
     # the deleteAddressbook alias should be deleted eventually.
-    @command("deleteAddressBookEntry", "legacy:deleteAddressbook")
+    @command("deleteAddressBookEntry")
     def HandleDeleteAddressBookEntry(self, address):
         """Delete an entry from address book."""
         address = addBMIfNotPresent(address)
@@ -1105,7 +1132,10 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         )
 
         return {
-            "inboxMessageIds": [{"msgid": hexlify(msgid)} for (msgid,) in queryreturn]
+            "inboxMessageIds": [
+                {"msgid": hexlify(msgid).decode() if msgid is not None else ""}
+                for (msgid,) in queryreturn
+            ]
         }
 
     @command("getInboxMessageById", "getInboxMessageByID")
@@ -1175,11 +1205,14 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
             "SELECT msgid FROM sent WHERE folder='sent' ORDER BY lastactiontime"
         )
         return {
-            "sentMessageIds": [{"msgid": hexlify(msgid)} for (msgid,) in queryreturn]
+            "sentMessageIds": [
+                {"msgid": hexlify(msgid).decode() if msgid is not None else ""}
+                for (msgid,) in queryreturn
+            ]
         }
 
     # after some time getInboxMessagesByAddress should be removed
-    @command("getInboxMessagesByReceiver", "legacy:getInboxMessagesByAddress")
+    @command("getInboxMessagesByReceiver")
     def HandleInboxMessagesByReceiver(self, toAddress):
         """
         The same as *getAllInboxMessages* but returns only messages
@@ -1344,7 +1377,7 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         )
         queues.workerQueue.put(("sendmessage", toAddress))
 
-        return hexlify(ackdata)
+        return hexlify(ackdata).decode()
 
     @command("sendBroadcast")
     def HandleSendBroadcast(
@@ -1356,7 +1389,11 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
             raise APIError(6, "The encoding type must be 2 or 3.")
 
         subject = self._decode(subject, "base64")
+        if isinstance(subject, bytes):
+            subject = subject.decode("utf-8", "replace")
         message = self._decode(message, "base64")
+        if isinstance(message, bytes):
+            message = message.decode("utf-8", "replace")
         if len(subject + message) > (2**18 - 500):
             raise APIError(27, "Message is too long.")
         if TTL < 60 * 60:
@@ -1391,7 +1428,7 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         )
         queues.workerQueue.put(("sendbroadcast", ""))
 
-        return hexlify(ackdata)
+        return hexlify(ackdata).decode()
 
     @command("getStatus")
     def HandleGetStatus(self, ackdata):
@@ -1466,7 +1503,7 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
             label = shared.fixPotentiallyInvalidUTF8Data(label)
             data.append(
                 {
-                    "label": base64.b64encode(label),
+                    "label": base64.b64encode(label.encode("utf-8")).decode(),
                     "address": address,
                     "enabled": enabled == 1,
                 }
@@ -1641,7 +1678,7 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         )
         return {
             "receivedMessageDatas": [
-                {"data": hexlify(payload)} for (payload,) in queryreturn
+                {"data": hexlify(payload).decode()} for (payload,) in queryreturn
             ]
         }
 
@@ -1746,7 +1783,7 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
         try:
             self._method = method
             func = self._handlers[method]
-            return func(self, *params)
+            return self._recursive_decode(func(self, *params))
         except KeyError:
             raise APIError(20, "Invalid method: %s" % method)
         except TypeError as e:
@@ -1754,7 +1791,8 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
             if "argument" not in str(e):
                 raise APIError(21, msg)
             argcount = len(params)
-            maxcount = func.__code__.co_argcount
+            # Subtract 1 for 'self'
+            maxcount = func.__code__.co_argcount - 1
             if argcount > maxcount:
                 msg = "Command %s takes at most %s parameters (%s given)" % (
                     method,
@@ -1790,10 +1828,7 @@ class BMRPCDispatcher(object, metaclass=CommandHandler):
             _fault = APIError(21, "Unexpected API Failure - %s" % e)
 
         if _fault:
-            if self.config.safeGet("bitmessagesettings", "apivariant") == "legacy":
-                return str(_fault)
-            else:
-                raise _fault
+            raise _fault
 
     def _listMethods(self):
         """List all API commands"""

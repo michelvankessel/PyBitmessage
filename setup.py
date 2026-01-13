@@ -18,7 +18,7 @@ with open(os.path.join(os.path.dirname(__file__), "src", "version.py")) as f:
 EXTRAS_REQUIRE: Any = {
     "docs": ["sphinx"],
     "gir": ["pygobject"],
-    "json": ["jsonrpclib"],
+
     "notify2": ["notify2"],
     "opencl": ["pyopencl", "numpy"],
     "prctl": ["python_prctl"],
@@ -66,7 +66,7 @@ if __name__ == "__main__":
         library_dirs=["/opt/homebrew/opt/openssl@3/lib"],
     )
 
-    installRequires: List[str] = ["cryptography", "pycryptodome", "defusedxml"]
+    installRequires: List[str] = ["cryptography", "pycryptodome", "defusedxml", "jsonrpclib-pelix"]
     packages: List[str] = [
         "pybitmessage",
         "pybitmessage.bitmessageqt",

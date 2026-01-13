@@ -7,3 +7,6 @@ distro
 packaging
 cryptography
 defusedxml
+jsonrpclib-pelix
+
+

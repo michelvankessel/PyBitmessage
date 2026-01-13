@@ -123,7 +123,7 @@ class Main(object):
                 config.set(
                     'bitmessagesettings', 'apipassword', 'password')
                 config.set(
-                    'bitmessagesettings', 'apivariant', 'legacy')
+                    'bitmessagesettings', 'apivariant', 'json')
                 config.set(
                     'bitmessagesettings', 'apinotifypath',
                     str(Path(app_dir) / 'tests' / 'apinotify_handler.py')

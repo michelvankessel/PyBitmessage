@@ -2823,8 +2823,12 @@ class MyForm(settingsmixin.SMainWindow):
             ):
                 continue
 
+            status = "msgqueued"
+            if toAddress == str_broadcast_subscribers:
+                status = "broadcastqueued"
+
             self.addMessageListItemSent(
-                sent, toAddress, fromAddress, subject, "msgqueued", ackdata, time.time()
+                sent, toAddress, fromAddress, subject, status, ackdata, time.time()
             )
             self.getAccountTextedit(acct).setPlainText(message)
             sent.setCurrentCell(0, 0)
@@ -4653,11 +4657,18 @@ class MyForm(settingsmixin.SMainWindow):
         self.popMenuInbox.addAction(self.actionMarkUnread)
         self.popMenuInbox.addSeparator()
         currentRow = tableWidget.currentRow()
-        account = accountClass(
-            tableWidget.item(currentRow, 0).data(QtCore.Qt.ItemDataRole.UserRole)
-        )
+        if currentRow < 0:
+            return
 
-        if account.type_ == AccountMixin.CHAN:
+        item = tableWidget.item(currentRow, 0)
+        if not item:
+            return
+
+        account = accountClass(item.data(QtCore.Qt.ItemDataRole.UserRole))
+
+        if not account:
+            self.popMenuInbox.addAction(self.actionReply)
+        elif account.type_ == AccountMixin.CHAN:
             self.popMenuInbox.addAction(self.actionReply)
             self.popMenuInbox.addAction(self.actionReplyChan)
         else:
