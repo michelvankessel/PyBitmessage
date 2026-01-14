@@ -203,13 +203,17 @@ class NoAccount(BMAccount):
 class SubscriptionAccount(BMAccount):
     """Encapsulate a subscription account"""
 
-    pass
+    def setType(self) -> None:
+        """Set account type"""
+        self.type_ = AccountMixin.SUBSCRIPTION
 
 
 class BroadcastAccount(BMAccount):
     """Encapsulate a broadcast account"""
 
-    pass
+    def setType(self) -> None:
+        """Set account type"""
+        self.type_ = AccountMixin.BROADCAST
 
 
 class GatewayAccount(BMAccount):

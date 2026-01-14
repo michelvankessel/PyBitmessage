@@ -54,6 +54,22 @@ class Blacklist(QtWidgets.QWidget, RetranslateMixin):
         self.UISignalThread = UISignaler.get()
         self.UISignalThread.rerenderBlackWhiteList.connect(self.rerenderBlackWhiteList)
 
+    def loadSettings(self):
+        """Load blacklist settings."""
+        settings = QtCore.QSettings()
+        settings.beginGroup(self.tableWidgetBlacklist.objectName())
+        state = settings.value("state")
+        if state:
+            self.tableWidgetBlacklist.horizontalHeader().restoreState(state if isinstance(state, QtCore.QByteArray) else QtCore.QByteArray(state))
+        settings.endGroup()
+
+    def saveSettings(self):
+        """Save blacklist settings."""
+        settings = QtCore.QSettings()
+        settings.beginGroup(self.tableWidgetBlacklist.objectName())
+        settings.setValue("state", self.tableWidgetBlacklist.horizontalHeader().saveState())
+        settings.endGroup()
+
     def click_radioButtonBlacklist(self) -> None:
         if config.get("bitmessagesettings", "blackwhitelist") == "white":
             config.set("bitmessagesettings", "blackwhitelist", "black")

@@ -157,7 +157,6 @@ class Ui_MainWindow(object):
         self.rightSideWidget = QtWidgets.QWidget()
         self.rightSideWidget.setLayout(self.verticalLayout_7)
         self.splitter.addWidget(self.rightSideWidget)
-        
 
         self.gridLayout.addLayout(self.horizontalLayout_3, 0, 0, 1, 1)
         icon2 = QtGui.QIcon()
@@ -171,12 +170,13 @@ class Ui_MainWindow(object):
         self.send.setObjectName("send")
         self.gridLayout_7 = QtWidgets.QGridLayout(self.send)
         self.gridLayout_7.setObjectName("gridLayout_7")
-        self.horizontalLayout = QtWidgets.QHBoxLayout()
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        self.verticalLayout_2 = QtWidgets.QVBoxLayout()
+        # Send Tab Refactoring to use QSplitter
+        # Create container for sidebar (AddressBook + Buttons)
+        self.sendSidebar = QtWidgets.QWidget()
+        self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.sendSidebar)  # Added this line to define verticalLayout_2
         self.verticalLayout_2.setObjectName("verticalLayout_2")
-        self.tableWidgetAddressBook = QtWidgets.QTableWidget(parent=self.send)
-        self.tableWidgetAddressBook.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.tableWidgetAddressBook = QtWidgets.QTableWidget(parent=self.sendSidebar)
+        self.tableWidgetAddressBook.setMaximumSize(QtCore.QSize(16777215, 16777215))  # Allow resizing
         self.tableWidgetAddressBook.setAlternatingRowColors(True)
         self.tableWidgetAddressBook.setSelectionMode(
             QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection
@@ -211,21 +211,22 @@ class Ui_MainWindow(object):
         if v_header is not None:
             v_header.setVisible(False)
         self.verticalLayout_2.addWidget(self.tableWidgetAddressBook)
-        self.pushButtonAddAddressBook = QtWidgets.QPushButton(parent=self.send)
-        self.pushButtonAddAddressBook.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.pushButtonAddAddressBook = QtWidgets.QPushButton(parent=self.sendSidebar)
+        self.pushButtonAddAddressBook.setMaximumSize(QtCore.QSize(16777215, 16777215))  # Allow resizing
         self.pushButtonAddAddressBook.setObjectName("pushButtonAddAddressBook")
         self.verticalLayout_2.addWidget(self.pushButtonAddAddressBook)
-        self.pushButtonFetchNamecoinID = QtWidgets.QPushButton(parent=self.send)
-        self.pushButtonFetchNamecoinID.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.pushButtonFetchNamecoinID = QtWidgets.QPushButton(parent=self.sendSidebar)
+        self.pushButtonFetchNamecoinID.setMaximumSize(QtCore.QSize(16777215, 16777215))  # Allow resizing
         font = QtGui.QFont()
         font.setPointSize(9)
         self.pushButtonFetchNamecoinID.setFont(font)
         self.pushButtonFetchNamecoinID.setObjectName("pushButtonFetchNamecoinID")
         self.verticalLayout_2.addWidget(self.pushButtonFetchNamecoinID)
-        self.horizontalLayout.addLayout(self.verticalLayout_2)
-        self.verticalLayout = QtWidgets.QVBoxLayout()
+        # Create container for main content (Tabs + Send Button)
+        self.sendContent = QtWidgets.QWidget()
+        self.verticalLayout = QtWidgets.QVBoxLayout(self.sendContent)  # Added this line to define verticalLayout
         self.verticalLayout.setObjectName("verticalLayout")
-        self.tabWidgetSend = QtWidgets.QTabWidget(parent=self.send)
+        self.tabWidgetSend = QtWidgets.QTabWidget(parent=self.sendContent)
         self.tabWidgetSend.setObjectName("tabWidgetSend")
         self.tab = QtWidgets.QWidget()
         self.tab.setObjectName("tab")
@@ -292,7 +293,7 @@ class Ui_MainWindow(object):
         self.verticalLayout.addWidget(self.tabWidgetSend)
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_5.setObjectName("horizontalLayout_5")
-        self.pushButtonTTL = QtWidgets.QPushButton(parent=self.send)
+        self.pushButtonTTL = QtWidgets.QPushButton(parent=self.sendContent)
         sizePolicy = QtWidgets.QSizePolicy(
             QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed
         )
@@ -330,7 +331,7 @@ class Ui_MainWindow(object):
         self.pushButtonTTL.setFlat(True)
         self.pushButtonTTL.setObjectName("pushButtonTTL")
         self.horizontalLayout_5.addWidget(self.pushButtonTTL)
-        self.horizontalSliderTTL = QtWidgets.QSlider(parent=self.send)
+        self.horizontalSliderTTL = QtWidgets.QSlider(parent=self.sendContent)
         self.horizontalSliderTTL.setMinimumSize(QtCore.QSize(35, 0))
         self.horizontalSliderTTL.setMaximumSize(QtCore.QSize(70, 16777215))
         self.horizontalSliderTTL.setOrientation(QtCore.Qt.Orientation.Horizontal)
@@ -338,7 +339,7 @@ class Ui_MainWindow(object):
         self.horizontalSliderTTL.setInvertedControls(False)
         self.horizontalSliderTTL.setObjectName("horizontalSliderTTL")
         self.horizontalLayout_5.addWidget(self.horizontalSliderTTL)
-        self.labelHumanFriendlyTTLDescription = QtWidgets.QLabel(parent=self.send)
+        self.labelHumanFriendlyTTLDescription = QtWidgets.QLabel(parent=self.sendContent)
         sizePolicy = QtWidgets.QSizePolicy(
             QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Preferred
         )
@@ -354,13 +355,20 @@ class Ui_MainWindow(object):
             "labelHumanFriendlyTTLDescription"
         )
         self.horizontalLayout_5.addWidget(self.labelHumanFriendlyTTLDescription)
-        self.pushButtonSend = QtWidgets.QPushButton(parent=self.send)
+        self.pushButtonSend = QtWidgets.QPushButton(parent=self.sendContent)
         self.pushButtonSend.setMaximumSize(QtCore.QSize(16777215, 16777215))
         self.pushButtonSend.setObjectName("pushButtonSend")
         self.horizontalLayout_5.addWidget(self.pushButtonSend)
         self.verticalLayout.addLayout(self.horizontalLayout_5)
-        self.horizontalLayout.addLayout(self.verticalLayout)
-        self.gridLayout_7.addLayout(self.horizontalLayout, 0, 0, 1, 1)
+        
+        # Create Splitter
+        self.splitterSend = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.splitterSend.addWidget(self.sendSidebar)
+        self.splitterSend.addWidget(self.sendContent)
+        self.splitterSend.setObjectName("splitterSend")
+
+        # Add to grid layout
+        self.gridLayout_7.addWidget(self.splitterSend, 0, 0, 1, 1)
         icon4 = QtGui.QIcon()
         icon4.addPixmap(
             QtGui.QPixmap(":/newPrefix/images/send.png"),
@@ -372,12 +380,16 @@ class Ui_MainWindow(object):
         self.subscriptions.setObjectName("subscriptions")
         self.gridLayout_3 = QtWidgets.QGridLayout(self.subscriptions)
         self.gridLayout_3.setObjectName("gridLayout_3")
-        self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_4.setObjectName("horizontalLayout_4")
-        self.verticalLayout_3 = QtWidgets.QVBoxLayout()
+        # Subscriptions Tab Refactoring to use QSplitter
+        
+        # Create container for sidebar (TreeWidget + Button)
+        self.subscriptionsSidebar = QtWidgets.QWidget()
+        self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.subscriptionsSidebar)
+        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
-        self.treeWidgetSubscriptions = QtWidgets.QTreeWidget(parent=self.subscriptions)
-        self.treeWidgetSubscriptions.setMaximumSize(QtCore.QSize(200, 16777215))
+        # ... TreeWidget setup
+        self.treeWidgetSubscriptions = QtWidgets.QTreeWidget(parent=self.subscriptionsSidebar)
+        self.treeWidgetSubscriptions.setMaximumSize(QtCore.QSize(16777215, 16777215))  # Allow resizing
         self.treeWidgetSubscriptions.setAlternatingRowColors(True)
         self.treeWidgetSubscriptions.setSelectionMode(
             QtWidgets.QAbstractItemView.SelectionMode.SingleSelection
@@ -397,25 +409,28 @@ class Ui_MainWindow(object):
             header_item.setIcon(0, icon5)
         self.verticalLayout_3.addWidget(self.treeWidgetSubscriptions)
         self.pushButtonAddSubscription = QtWidgets.QPushButton(
-            parent=self.subscriptions
+            parent=self.subscriptionsSidebar
         )
-        self.pushButtonAddSubscription.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.pushButtonAddSubscription.setMaximumSize(QtCore.QSize(16777215, 16777215))  # Allow resizing
         self.pushButtonAddSubscription.setObjectName("pushButtonAddSubscription")
         self.verticalLayout_3.addWidget(self.pushButtonAddSubscription)
-        self.horizontalLayout_4.addLayout(self.verticalLayout_3)
-        self.verticalLayout_4 = QtWidgets.QVBoxLayout()
+
+        # Create container for main content (Search + Table + Message View)
+        self.subscriptionsContent = QtWidgets.QWidget()
+        self.verticalLayout_4 = QtWidgets.QVBoxLayout(self.subscriptionsContent)
+        self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.inboxSearchLineEditSubscriptions = QtWidgets.QLineEdit(
-            parent=self.subscriptions
+            parent=self.subscriptionsContent
         )
         self.inboxSearchLineEditSubscriptions.setObjectName(
             "inboxSearchLineEditSubscriptions"
         )
         self.horizontalLayout_2.addWidget(self.inboxSearchLineEditSubscriptions)
         self.inboxSearchOptionSubscriptions = QtWidgets.QComboBox(
-            parent=self.subscriptions
+            parent=self.subscriptionsContent
         )
         self.inboxSearchOptionSubscriptions.setObjectName(
             "inboxSearchOptionSubscriptions"
@@ -427,8 +442,13 @@ class Ui_MainWindow(object):
         self.inboxSearchOptionSubscriptions.addItem("")
         self.horizontalLayout_2.addWidget(self.inboxSearchOptionSubscriptions)
         self.verticalLayout_4.addLayout(self.horizontalLayout_2)
+
+        # Vertical Splitter for Message List and Message View
+        self.splitterSubscriptionsVertical = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        self.splitterSubscriptionsVertical.setObjectName("splitterSubscriptionsVertical")
+
         self.tableWidgetInboxSubscriptions = QtWidgets.QTableWidget(
-            parent=self.subscriptions
+            parent=self.splitterSubscriptionsVertical
         )
         self.tableWidgetInboxSubscriptions.setEditTriggers(
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
@@ -469,18 +489,26 @@ class Ui_MainWindow(object):
         if v_header is not None:
             v_header.setVisible(False)
             v_header.setDefaultSectionSize(26)
-        self.verticalLayout_4.addWidget(self.tableWidgetInboxSubscriptions)
+
         self.textEditInboxMessageSubscriptions = QtWidgets.QTextEdit(
-            parent=self.subscriptions
+            parent=self.splitterSubscriptionsVertical
         )
         self.textEditInboxMessageSubscriptions.setBaseSize(QtCore.QSize(0, 500))
         self.textEditInboxMessageSubscriptions.setReadOnly(True)
         self.textEditInboxMessageSubscriptions.setObjectName(
             "textEditInboxMessageSubscriptions"
         )
-        self.verticalLayout_4.addWidget(self.textEditInboxMessageSubscriptions)
-        self.horizontalLayout_4.addLayout(self.verticalLayout_4)
-        self.gridLayout_3.addLayout(self.horizontalLayout_4, 0, 0, 1, 1)
+        
+        self.verticalLayout_4.addWidget(self.splitterSubscriptionsVertical)
+
+        # Create Splitter
+        self.splitterSubscriptions = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.splitterSubscriptions.addWidget(self.subscriptionsSidebar)
+        self.splitterSubscriptions.addWidget(self.subscriptionsContent)
+        self.splitterSubscriptions.setObjectName("splitterSubscriptions")
+        
+        # Add splitter to grid layout
+        self.gridLayout_3.addWidget(self.splitterSubscriptions, 0, 0, 1, 1)
         icon6 = QtGui.QIcon()
         icon6.addPixmap(
             QtGui.QPixmap(":/newPrefix/images/subscriptions.png"),
@@ -492,12 +520,15 @@ class Ui_MainWindow(object):
         self.chans.setObjectName("chans")
         self.gridLayout_4 = QtWidgets.QGridLayout(self.chans)
         self.gridLayout_4.setObjectName("gridLayout_4")
-        self.horizontalLayout_7 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_7.setObjectName("horizontalLayout_7")
-        self.verticalLayout_17 = QtWidgets.QVBoxLayout()
+        # Chans Tab Refactoring to use QSplitter
+
+        # Create container for sidebar
+        self.chansSidebar = QtWidgets.QWidget()
+        self.verticalLayout_17 = QtWidgets.QVBoxLayout(self.chansSidebar)
+        self.verticalLayout_17.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_17.setObjectName("verticalLayout_17")
-        self.treeWidgetChans = QtWidgets.QTreeWidget(parent=self.chans)
-        self.treeWidgetChans.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.treeWidgetChans = QtWidgets.QTreeWidget(parent=self.chansSidebar)
+        self.treeWidgetChans.setMaximumSize(QtCore.QSize(16777215, 16777215))  # Allow resizing
         self.treeWidgetChans.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
         self.treeWidgetChans.setLineWidth(1)
         self.treeWidgetChans.setAlternatingRowColors(True)
@@ -518,19 +549,22 @@ class Ui_MainWindow(object):
         if header_item is not None:
             header_item.setIcon(0, icon7)
         self.verticalLayout_17.addWidget(self.treeWidgetChans)
-        self.pushButtonAddChan = QtWidgets.QPushButton(parent=self.chans)
-        self.pushButtonAddChan.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.pushButtonAddChan = QtWidgets.QPushButton(parent=self.chansSidebar)
+        self.pushButtonAddChan.setMaximumSize(QtCore.QSize(16777215, 16777215))  # Allow resizing
         self.pushButtonAddChan.setObjectName("pushButtonAddChan")
         self.verticalLayout_17.addWidget(self.pushButtonAddChan)
-        self.horizontalLayout_7.addLayout(self.verticalLayout_17)
-        self.verticalLayout_8 = QtWidgets.QVBoxLayout()
+        
+        # Create container for main content
+        self.chansContent = QtWidgets.QWidget()
+        self.verticalLayout_8 = QtWidgets.QVBoxLayout(self.chansContent)
+        self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_8.setObjectName("verticalLayout_8")
         self.horizontalLayout_6 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_6.setObjectName("horizontalLayout_6")
-        self.inboxSearchLineEditChans = QtWidgets.QLineEdit(parent=self.chans)
+        self.inboxSearchLineEditChans = QtWidgets.QLineEdit(parent=self.chansContent)
         self.inboxSearchLineEditChans.setObjectName("inboxSearchLineEditChans")
         self.horizontalLayout_6.addWidget(self.inboxSearchLineEditChans)
-        self.inboxSearchOptionChans = QtWidgets.QComboBox(parent=self.chans)
+        self.inboxSearchOptionChans = QtWidgets.QComboBox(parent=self.chansContent)
         self.inboxSearchOptionChans.setObjectName("inboxSearchOptionChans")
         self.inboxSearchOptionChans.addItem("")
         self.inboxSearchOptionChans.addItem("")
@@ -539,7 +573,12 @@ class Ui_MainWindow(object):
         self.inboxSearchOptionChans.addItem("")
         self.horizontalLayout_6.addWidget(self.inboxSearchOptionChans)
         self.verticalLayout_8.addLayout(self.horizontalLayout_6)
-        self.tableWidgetInboxChans = QtWidgets.QTableWidget(parent=self.chans)
+
+        # Vertical Splitter for Message List and Message View
+        self.splitterChansVertical = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        self.splitterChansVertical.setObjectName("splitterChansVertical")
+
+        self.tableWidgetInboxChans = QtWidgets.QTableWidget(parent=self.splitterChansVertical)
         self.tableWidgetInboxChans.setEditTriggers(
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers
         )
@@ -562,7 +601,6 @@ class Ui_MainWindow(object):
         self.tableWidgetInboxChans.setHorizontalHeaderItem(2, item)
         item = QtWidgets.QTableWidgetItem()
         self.tableWidgetInboxChans.setHorizontalHeaderItem(3, item)
-
         # Safe header configuration with None checks
         h_header = self.tableWidgetInboxChans.horizontalHeader()
         if h_header is not None:
@@ -577,14 +615,20 @@ class Ui_MainWindow(object):
         if v_header is not None:
             v_header.setVisible(False)
             v_header.setDefaultSectionSize(26)
-        self.verticalLayout_8.addWidget(self.tableWidgetInboxChans)
-        self.textEditInboxMessageChans = QtWidgets.QTextEdit(parent=self.chans)
+        self.textEditInboxMessageChans = QtWidgets.QTextEdit(parent=self.splitterChansVertical)
         self.textEditInboxMessageChans.setBaseSize(QtCore.QSize(0, 500))
         self.textEditInboxMessageChans.setReadOnly(True)
         self.textEditInboxMessageChans.setObjectName("textEditInboxMessageChans")
-        self.verticalLayout_8.addWidget(self.textEditInboxMessageChans)
-        self.horizontalLayout_7.addLayout(self.verticalLayout_8)
-        self.gridLayout_4.addLayout(self.horizontalLayout_7, 0, 0, 1, 1)
+
+        self.verticalLayout_8.addWidget(self.splitterChansVertical)
+        # Create Splitter
+        self.splitterChans = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.splitterChans.addWidget(self.chansSidebar)
+        self.splitterChans.addWidget(self.chansContent)
+        self.splitterChans.setObjectName("splitterChans")
+        # Add to grid layout
+        self.gridLayout_4.addWidget(self.splitterChans, 0, 0, 1, 1)
+        
         icon8 = QtGui.QIcon()
         icon8.addPixmap(
             QtGui.QPixmap(":/newPrefix/images/can-icon-16px.png"),
@@ -819,22 +863,23 @@ class Ui_MainWindow(object):
         self.tabWidget.setCurrentIndex(0)
         self.tabWidgetSend.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        # Tab order within Inbox tab
         MainWindow.setTabOrder(self.tableWidgetInbox, self.textEditInboxMessage)
-        MainWindow.setTabOrder(self.textEditInboxMessage, self.comboBoxSendFrom)
+
+        # Tab order within Send tab
         MainWindow.setTabOrder(self.comboBoxSendFrom, self.lineEditTo)
         MainWindow.setTabOrder(self.lineEditTo, self.lineEditSubject)
         MainWindow.setTabOrder(self.lineEditSubject, self.textEditMessage)
         MainWindow.setTabOrder(self.textEditMessage, self.pushButtonSend)
-        MainWindow.setTabOrder(self.pushButtonSend, self.pushButtonAddSubscription)
-        MainWindow.setTabOrder(
-            self.pushButtonAddSubscription, self.radioButtonBlacklist
-        )
+
+        # Tab order within Subscriptions tab (if any specific order needed)
+
+        # Tab order within Blacklist tab
         MainWindow.setTabOrder(self.radioButtonBlacklist, self.radioButtonWhitelist)
         MainWindow.setTabOrder(self.radioButtonWhitelist, self.pushButtonAddBlacklist)
         MainWindow.setTabOrder(self.pushButtonAddBlacklist, self.tableWidgetBlacklist)
-        MainWindow.setTabOrder(
-            self.tableWidgetBlacklist, self.tableWidgetConnectionCount
-        )
+
+        # Tab order within Network Status tab
         MainWindow.setTabOrder(
             self.tableWidgetConnectionCount, self.pushButtonStatusIcon
         )

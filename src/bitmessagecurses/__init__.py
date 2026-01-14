@@ -325,7 +325,7 @@ def drawtab(stdscr):
                 except (AttributeError, IndexError):
                     stream = 1
                 streamcount[stream] = streamcount.get(stream, 0) + 1
-            
+
             # Convert dict to list for display (index = stream number)
             # Find max stream number to size the list
             max_stream = max(streamcount.keys()) if streamcount else 0
@@ -333,7 +333,7 @@ def drawtab(stdscr):
             streamcount_list = [0] * (max_stream + 1)
             for s, count in streamcount.items():
                 streamcount_list[s] = count
-            
+
             for i, item in enumerate(streamcount_list):
                 if i < 4:
                     if i == 0:

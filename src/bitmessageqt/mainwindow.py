@@ -1039,6 +1039,23 @@ class MyForm(settingsmixin.SMainWindow):
         self.ui.horizontalSliderTTL.valueChanged.connect(self.updateTTL)
 
         self.initSettings()
+
+        # Force interactive column resizing for all tables
+        # This fixes issues where columns are locked or auto-stretched in ways users cannot change
+        # We do this here (after restoreState) to ensure we override any restricted modes loaded from settings
+        for widget in [
+            self.ui.tableWidgetInbox,
+            self.ui.tableWidgetInboxSubscriptions,
+            self.ui.tableWidgetInboxChans,
+            self.ui.tableWidgetAddressBook,
+            self.ui.tableWidgetConnectionCount,
+            self.ui.tableWidgetBlacklist,
+        ]:
+            if widget.horizontalHeader():
+                widget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
+                # Keep last section stretchable if desired, but allow others to be resized
+                widget.horizontalHeader().setStretchLastSection(True)
+
         self.resetNamecoinConnection()
         self.sqlInit()
         self.indicatorInit()
@@ -1050,6 +1067,75 @@ class MyForm(settingsmixin.SMainWindow):
         self._firstrun = config.safeGetBoolean("bitmessagesettings", "dontconnect")
 
         self._contact_selected = None
+
+    def loadSettings(self):
+        super().loadSettings()
+
+        def load_table_state(widget):
+            try:
+                if widget and widget.objectName():
+                    settings = QtCore.QSettings()
+                    settings.beginGroup(widget.objectName())
+                    state = settings.value("state")
+                    if state:
+                        widget.horizontalHeader().restoreState(state if isinstance(state, QtCore.QByteArray) else QtCore.QByteArray(state))
+                    settings.endGroup()
+                # Reset resize mode to interactive after restore, as restored state might contain 'Fixed' or 'Stretch' modes
+                if widget.horizontalHeader():
+                    widget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
+                    widget.horizontalHeader().setStretchLastSection(True)
+            except Exception:
+                pass
+
+        load_table_state(self.ui.tableWidgetInbox)
+        load_table_state(self.ui.tableWidgetInboxSubscriptions)
+        load_table_state(self.ui.tableWidgetInboxChans)
+        load_table_state(self.ui.tableWidgetAddressBook)
+        load_table_state(self.ui.tableWidgetConnectionCount)
+        if hasattr(self.ui.blackwhitelist, 'loadSettings'):
+            self.ui.blackwhitelist.loadSettings()
+
+        # Load splitter states
+        for splitter_name in ['splitterSubscriptions', 'splitterChans', 'splitterSend', 'splitterSubscriptionsVertical', 'splitterChansVertical']:
+            splitter = getattr(self.ui, splitter_name, None)
+            if splitter:
+                settings = QtCore.QSettings()
+                settings.beginGroup(splitter_name)
+                state = settings.value("state")
+                if state:
+                    splitter.restoreState(state if isinstance(state, QtCore.QByteArray) else QtCore.QByteArray(state))
+                settings.endGroup()
+
+    def saveSettings(self):
+        super().saveSettings()
+
+        def save_table_state(widget):
+            try:
+                if widget and widget.objectName():
+                    settings = QtCore.QSettings()
+                    settings.beginGroup(widget.objectName())
+                    settings.setValue("state", widget.horizontalHeader().saveState())
+                    settings.endGroup()
+            except Exception:
+                pass
+
+        save_table_state(self.ui.tableWidgetInbox)
+        save_table_state(self.ui.tableWidgetInboxSubscriptions)
+        save_table_state(self.ui.tableWidgetInboxChans)
+        save_table_state(self.ui.tableWidgetAddressBook)
+        save_table_state(self.ui.tableWidgetConnectionCount)
+        # Blacklist handles its own via its saveSettings method
+        if hasattr(self.ui.blackwhitelist, 'saveSettings'):
+            self.ui.blackwhitelist.saveSettings()
+
+        # Save splitter states
+        for splitter_name in ['splitterSubscriptions', 'splitterChans', 'splitterSend', 'splitterSubscriptionsVertical', 'splitterChansVertical']:
+            splitter = getattr(self.ui, splitter_name, None)
+            if splitter:
+                settings = QtCore.QSettings()
+                settings.beginGroup(splitter_name)
+                settings.setValue("state", splitter.saveState())
+                settings.endGroup()
 
     def getContactSelected(self):
         """Returns last selected contact once"""
@@ -3509,7 +3595,9 @@ class MyForm(settingsmixin.SMainWindow):
         toAddressAtCurrentInboxRow = tableWidget.item(
             currentInboxRow, column_to
         ).address
-        acct = accountClass(toAddressAtCurrentInboxRow)
+        acct = accountClass(toAddressAtCurrentInboxRow) or BMAccount(
+            toAddressAtCurrentInboxRow
+        )
         fromAddressAtCurrentInboxRow = tableWidget.item(
             currentInboxRow, column_from
         ).address
@@ -4953,8 +5041,7 @@ class BitmessageQtApplication(QtWidgets.QApplication):
     http://stackoverflow.com/a/12712362/2679626
     """
 
-    # Unique identifier for this application
-    uuid = "6ec0149b-96e1-4be1-93ab-1465fb3ebf7c"
+    # Unique identifier for this application is now in state.singleton_uuid
 
     @staticmethod
     def get_windowstyle():
@@ -4965,7 +5052,7 @@ class BitmessageQtApplication(QtWidgets.QApplication):
 
     def __init__(self, *argv):
         super(BitmessageQtApplication, self).__init__(*argv)
-        id = BitmessageQtApplication.uuid
+        id = state.singleton_uuid
 
         QtCore.QCoreApplication.setOrganizationName("PyBitmessage")
         QtCore.QCoreApplication.setOrganizationDomain("bitmessage.org")
@@ -4995,25 +5082,28 @@ class BitmessageQtApplication(QtWidgets.QApplication):
         socket.abort()
 
         # Checks if there's an instance of the local server id running
-        if self.is_running:
-            # This should be ignored, singleinstance.py will take care of exiting me.
-            pass
-        else:
+        if not self.is_running:
             # Nope, create a local server with this id and assign on_new_connection
             # for whenever a second instance tries to run focus the application.
             self.server = QLocalServer()
             self.server.listen(id)
             self.server.newConnection.connect(self.on_new_connection)
 
-        self.setStyleSheet("QStatusBar::item { border: 0px solid black }")
+        self.setStyleSheet(
+            "QStatusBar::item { border: 0px solid black } "
+            "QSplitter::handle { border: none; margin: 0px; padding: 0px; } "
+            "QSplitter::handle:horizontal { width: 15px; } "
+            "QSplitter::handle:vertical { height: 15px; }"
+        )
 
     def __del__(self):
         if self.server:
             self.server.close()
 
     def on_new_connection(self):
-        if myapp:
-            myapp.appIndicatorShow()
+        # We ignore new connections to prevent the GUI from popping to the front
+        # when a second instance is started.
+        pass
 
 
 def init():
@@ -5026,6 +5116,7 @@ def init():
 def run():
     global myapp
     app = init()
+
     myapp = MyForm()
 
     myapp.appIndicatorInit(app)

@@ -1070,10 +1070,10 @@ class singleWorker(StoppableThread):
                 # to bypass the address version whose length is definitely 1
                 readPosition = 1
                 _, streamNumberLength = decodeVarint(
-                    pubkeyPayload[readPosition : readPosition + 10]
+                    pubkeyPayload[readPosition:readPosition + 10]
                 )
                 readPosition += streamNumberLength
-                behaviorBitfield = pubkeyPayload[readPosition : readPosition + 4]
+                behaviorBitfield = pubkeyPayload[readPosition:readPosition + 4]
                 # Mobile users may ask us to include their address's
                 # RIPE hash on a message unencrypted. Before we actually
                 # do it the sending human must check a box
@@ -1120,7 +1120,7 @@ class singleWorker(StoppableThread):
                 # pubkeyPayload[readPosition:readPosition+64]
                 readPosition += 64
                 pubEncryptionKeyBase256 = pubkeyPayload[
-                    readPosition : readPosition + 64
+                    readPosition:readPosition + 64
                 ]
                 readPosition += 64
 
@@ -1148,11 +1148,11 @@ class singleWorker(StoppableThread):
                     )
                 elif toAddressVersionNumber >= 3:
                     requiredAverageProofOfWorkNonceTrialsPerByte, varintLength = (
-                        decodeVarint(pubkeyPayload[readPosition : readPosition + 10])
+                        decodeVarint(pubkeyPayload[readPosition:readPosition + 10])
                     )
                     readPosition += varintLength
                     requiredPayloadLengthExtraBytes, varintLength = decodeVarint(
-                        pubkeyPayload[readPosition : readPosition + 10]
+                        pubkeyPayload[readPosition:readPosition + 10]
                     )
                     readPosition += varintLength
                     # We still have to meet a minimum POW difficulty

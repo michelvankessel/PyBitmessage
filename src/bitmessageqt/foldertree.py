@@ -42,7 +42,7 @@ class AccountMixin(object):
         is_enabled = getattr(self, "isEnabled", True)
         if not is_enabled:
             return QtGui.QColor(128, 128, 128)
-        type_val = getattr(self, "type", self.NORMAL)
+        type_val = getattr(self, "type_", self.NORMAL)
         if type_val == self.CHAN:
             return QtGui.QColor(216, 119, 0)
         elif type_val in [self.MAILINGLIST, self.SUBSCRIPTION]:

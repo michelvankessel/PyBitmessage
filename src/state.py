@@ -68,6 +68,9 @@ ackdataForWhichImWatching: dict = {}
 thisapp = None
 """Singleton instance"""
 
+singleton_uuid = "6ec0149b-96e1-4be1-93ab-1465fb3ebf7c"
+"""Unique identifier for the application instance"""
+
 backend_py3_compatible = False
 
 

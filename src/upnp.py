@@ -115,7 +115,7 @@ class Router:
         parsed_url = urlparse(header["location"])
         if parsed_url.scheme not in ["http", "https"]:
             raise UPnPError("Unsupported URL scheme: %s" % parsed_url.scheme)
-        
+
         try:
             directory = urlopen(header["location"], timeout=5).read()  # nosec B310
         except (socket.timeout, OSError) as e:

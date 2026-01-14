@@ -32,9 +32,19 @@ class singleinstance(object):
 
         if state.enableGUI and not self.daemon and not state.curses:
             # Tells the already running (if any) application to get focus.
-            import bitmessageqt
-
-            bitmessageqt.init()
+            # We do this SILENTLY via QLocalSocket to avoid bouncing dock icons on macOS.
+            try:
+                from PyQt6.QtNetwork import QLocalSocket
+                socket = QLocalSocket()
+                socket.connectToServer(state.singleton_uuid)
+                if socket.waitForConnected(500):
+                    socket.abort()
+                    sys.exit("Another instance of this application is already running")
+                socket.abort()
+            except ImportError:
+                # If PyQt6 is not available, we can't do the silent check.
+                # The normal lock file logic below will still catch it.
+                pass
 
         self.lock()
 
@@ -43,6 +53,7 @@ class singleinstance(object):
 
     def lock(self):
         """Obtain single instance lock"""
+        from debug import logger
         if self.lockPid is None:
             self.lockPid = os.getpid()
         if sys.platform == "win32":
@@ -55,13 +66,16 @@ class singleinstance(object):
                 self.fd = os.open(
                     self.lockfile, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_TRUNC
                 )
+                logger.debug("Windows lock file created: %s", self.lockfile)
             except OSError as e:
                 if e.errno == 13:
+                    logger.error("Windows lock contention detected for %s", self.lockfile)
                     sys.exit("Another instance of this application is already running")
                 raise
             else:
                 pidLine = "%i\n" % self.lockPid
-                os.write(self.fd, pidLine)
+                os.write(self.fd, pidLine.encode())
+                logger.debug("PID %i written to Windows lockfile.", self.lockPid)
         else:  # non Windows
             self.fp = open(self.lockfile, "a+")
             try:

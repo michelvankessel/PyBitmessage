@@ -30,7 +30,6 @@ def search_sql(
     :rtype: list[list]
     """
     if what and what == "[Broadcast subscribers]":
-        print(f"DEBUG: Triggered Broadcast logic. account={account}, folder={folder}")
         sqlStatementParts = []
         sqlArguments = []
         if account is not None:
@@ -38,6 +37,9 @@ def search_sql(
             # In inbox: fromAddress is sender. In sent: fromAddress is sender.
             sqlStatementParts.append('fromaddress = ? ')
             sqlArguments.append(account)
+        else:
+            # Prevent leaking all messages if account is missing
+            sqlStatementParts.append("1=0")
         if unreadOnly:
             sqlStatementParts.append('read = 0')
         if not unreadOnly and folder == 'inbox':
@@ -54,28 +56,29 @@ def search_sql(
         if account is not None:
             sqlStatementPartsSent.append('fromaddress = ?')
             sqlArgumentsSent.append(account)
+        else:
+            sqlStatementPartsSent.append("1=0")
 
         sqlStatementPartsSent.append("toaddress = ?")
         sqlArgumentsSent.append(what)
 
         if not unreadOnly:  # Sent messages are technically "read"
-            # SELECT ... FROM sent
-            # We need to map columns to match INBOX:
-            # toaddress -> toaddress
-            # fromaddress -> fromaddress
-            # subject -> subject
-            # folder -> 'sent' (literal)
-            # msgid -> ackdata
-            # received -> lastactiontime
-            # read -> 1 (True)
-
-            sqlStatementBaseSent = "SELECT toaddress, fromaddress, subject, 'sent', ackdata, lastactiontime, 1 FROM sent "
+            # We map SENT columns to match INBOX structure but use 'msgid' instead of 'ackdata'
+            # to allow deduping.
+            sqlStatementBaseSent = "SELECT toaddress, fromaddress, subject, 'sent' as folder, msgid, lastactiontime as received, 1 as read FROM sent "
             if sqlStatementPartsSent:
                 sqlStatementBaseSent += 'WHERE ' + ' AND '.join(sqlStatementPartsSent)
 
-            # Combine
+            # Combine with GROUP BY to dedup self-sent broadcasts that are also in inbox.
+            # We use MIN(read) to respect 'unread' status if present in inbox.
+            # We use MIN(folder) so 'inbox' takes precedence over 'sent'.
+            finalQuery = f"""
+                SELECT toaddress, fromaddress, subject, MIN(folder), msgid, MAX(received) as received, MIN(read) as read
+                FROM ({sqlStatementBaseInbox} UNION ALL {sqlStatementBaseSent})
+                GROUP BY msgid
+                ORDER BY received DESC
+            """
             sqlArguments.extend(sqlArgumentsSent)
-            finalQuery = sqlStatementBaseInbox + " UNION " + sqlStatementBaseSent + " ORDER BY received DESC"
             return sqlQuery(finalQuery, sqlArguments)
 
     where_map = {
@@ -89,7 +92,6 @@ def search_sql(
 
     if what and not what.startswith("%") and not what.endswith("%"):
         what = f"%{what}%"
-
 
     # Find addresses matching the search term in the address book
     matching_addresses = []
@@ -117,73 +119,72 @@ def search_sql(
         except Exception as e:
             print(f"DEBUG_SEARCH: Error querying identities: {e}")
 
-
     if folder == 'trash':
-        # Union query for trash
-        results = []
-        # Inbox trash
-        sqlStatementBase = 'SELECT toaddress, fromaddress, subject, folder, msgid, received, read FROM inbox '
-        sqlStatementParts = []
-        sqlArguments = []
+        # Union query for trash to handle both inbox and sent items
+        # and dedup self-sent broadcasts.
+        sqlStatementPartsInbox = []
+        sqlArgumentsInbox = []
         if account is not None:
             if xAddress == 'both':
-                sqlStatementParts.append('(fromaddress = ? OR toaddress = ?)')
-                sqlArguments.append(account)
-                sqlArguments.append(account)
+                sqlStatementPartsInbox.append('(fromaddress = ? OR toaddress = ?)')
+                sqlArgumentsInbox.extend([account, account])
             else:
-                sqlStatementParts.append(xAddress + ' = ? ')
-                sqlArguments.append(account)
+                sqlStatementPartsInbox.append(xAddress + ' = ? ')
+                sqlArgumentsInbox.append(account)
+        else:
+            sqlStatementPartsInbox.append("1=0")
 
-        sqlStatementParts.append("folder = 'trash'")
+        sqlStatementPartsInbox.append("folder = 'trash'")
 
         if what:
             if where == "all":
-                sqlStatementParts.append(
+                sqlStatementPartsInbox.append(
                     "(subject LIKE ? OR toaddress LIKE ? OR fromaddress LIKE ? OR message LIKE ?)"
                 )
-                sqlArguments.extend([what] * 4)
+                sqlArgumentsInbox.extend([what] * 4)
             else:
-                sqlStatementParts.append('%s LIKE ?' % (where))
-                sqlArguments.append(what)
+                sqlStatementPartsInbox.append('%s LIKE ?' % (where))
+                sqlArgumentsInbox.append(what)
         if unreadOnly:
-            sqlStatementParts.append('read = 0')
+            sqlStatementPartsInbox.append('read = 0')
 
-        if sqlStatementParts:
-            sqlStatementBase += 'WHERE ' + ' AND '.join(sqlStatementParts)
+        sqlStatementBaseInbox = 'SELECT toaddress, fromaddress, subject, folder, msgid, received, read FROM inbox '
+        if sqlStatementPartsInbox:
+            sqlStatementBaseInbox += 'WHERE ' + ' AND '.join(sqlStatementPartsInbox)
 
-        results.extend(sqlQuery(sqlStatementBase, sqlArguments))
         # Sent trash
-        # For sent items, we need to map columns to match inbox structure:
-        # sent: status -> folder (dummy), ackdata -> msgid, lastactiontime -> received, 1 -> read
-        sqlStatementBase = "SELECT toaddress, fromaddress, subject, 'trash', ackdata, lastactiontime, 1 FROM sent "
-        sqlStatementParts = []
-        sqlArguments = []
+        sqlStatementPartsSent = []
+        sqlArgumentsSent = []
         if account is not None:
-            if xAddress == 'both':
-                sqlStatementParts.append('(fromaddress = ? OR toaddress = ?)')
-                sqlArguments.append(account)
-                sqlArguments.append(account)
-            else:
-                sqlStatementParts.append(xAddress + ' = ? ')
-                sqlArguments.append(account)
+            # For sent messages, ownership is determined by fromaddress
+            sqlStatementPartsSent.append('fromaddress = ? ')
+            sqlArgumentsSent.append(account)
+        else:
+            sqlStatementPartsSent.append("1=0")
 
-        sqlStatementParts.append("folder = 'trash'")
+        sqlStatementPartsSent.append("folder = 'trash'")
 
         if what:
             if where == "all":
-                sqlStatementParts.append(
+                sqlStatementPartsSent.append(
                     "(subject LIKE ? OR toaddress LIKE ? OR fromaddress LIKE ? OR message LIKE ?)"
                 )
-                sqlArguments.extend([what] * 4)
+                sqlArgumentsSent.extend([what] * 4)
             else:
-                sqlStatementParts.append('%s LIKE ?' % (where))
-                sqlArguments.append(what)
+                sqlStatementPartsSent.append('%s LIKE ?' % (where))
+                sqlArgumentsSent.append(what)
 
-        if sqlStatementParts:
-            sqlStatementBase += 'WHERE ' + ' AND '.join(sqlStatementParts)
+        sqlStatementBaseSent = "SELECT toaddress, fromaddress, subject, 'trash' as folder, msgid, lastactiontime as received, 1 as read FROM sent "
+        if sqlStatementPartsSent:
+            sqlStatementBaseSent += 'WHERE ' + ' AND '.join(sqlStatementPartsSent)
 
-        results.extend(sqlQuery(sqlStatementBase, sqlArguments))
-        return results
+        finalQuery = f"""
+            SELECT toaddress, fromaddress, subject, folder, msgid, MAX(received) as received, MIN(read) as read
+            FROM ({sqlStatementBaseInbox} UNION ALL {sqlStatementBaseSent})
+            GROUP BY msgid
+            ORDER BY received DESC
+        """
+        return sqlQuery(finalQuery, sqlArgumentsInbox + sqlArgumentsSent)
 
     print(f"DEBUG: search_sql called with what='{what}', folder='{folder}', account='{account}'")
 
