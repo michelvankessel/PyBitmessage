@@ -62,8 +62,6 @@ if __name__ == "__main__":
         "pybitmessage.bitmsghash.bitmsghash",
         sources=["src/bitmsghash/bitmsghash.cpp"],
         libraries=["pthread", "crypto"],
-        include_dirs=["/opt/homebrew/opt/openssl@3/include"],
-        library_dirs=["/opt/homebrew/opt/openssl@3/lib"],
     )
 
     installRequires: List[str] = ["cryptography", "pycryptodome", "defusedxml", "jsonrpclib-pelix"]
