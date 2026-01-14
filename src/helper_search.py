@@ -29,6 +29,55 @@ def search_sql(
     :return: all messages where <where> field contains <what>
     :rtype: list[list]
     """
+    if what and what == "[Broadcast subscribers]":
+        print(f"DEBUG: Triggered Broadcast logic. account={account}, folder={folder}")
+        sqlStatementParts = []
+        sqlArguments = []
+        if account is not None:
+            # Handle special case for 'xAddress' to ensure we capture the right sender
+            # In inbox: fromAddress is sender. In sent: fromAddress is sender.
+            sqlStatementParts.append('fromaddress = ? ')
+            sqlArguments.append(account)
+        if unreadOnly:
+            sqlStatementParts.append('read = 0')
+        if not unreadOnly and folder == 'inbox':
+            sqlStatementParts.append("folder='inbox'")
+
+        sqlStatementBaseInbox = 'SELECT toaddress, fromaddress, subject, folder, msgid, received, read FROM inbox '
+        if sqlStatementParts:
+            sqlStatementBaseInbox += 'WHERE ' + ' AND '.join(sqlStatementParts)
+
+        # Now for SENT table
+        # We want to find messages SENT by us (fromaddress = account) that were sent TO [Broadcast subscribers]
+        sqlStatementPartsSent = []
+        sqlArgumentsSent = []
+        if account is not None:
+            sqlStatementPartsSent.append('fromaddress = ?')
+            sqlArgumentsSent.append(account)
+
+        sqlStatementPartsSent.append("toaddress = ?")
+        sqlArgumentsSent.append(what)
+
+        if not unreadOnly:  # Sent messages are technically "read"
+            # SELECT ... FROM sent
+            # We need to map columns to match INBOX:
+            # toaddress -> toaddress
+            # fromaddress -> fromaddress
+            # subject -> subject
+            # folder -> 'sent' (literal)
+            # msgid -> ackdata
+            # received -> lastactiontime
+            # read -> 1 (True)
+
+            sqlStatementBaseSent = "SELECT toaddress, fromaddress, subject, 'sent', ackdata, lastactiontime, 1 FROM sent "
+            if sqlStatementPartsSent:
+                sqlStatementBaseSent += 'WHERE ' + ' AND '.join(sqlStatementPartsSent)
+
+            # Combine
+            sqlArguments.extend(sqlArgumentsSent)
+            finalQuery = sqlStatementBaseInbox + " UNION " + sqlStatementBaseSent + " ORDER BY received DESC"
+            return sqlQuery(finalQuery, sqlArguments)
+
     where_map = {
         _translate("MainWindow", "To"): "toaddress",
         _translate("MainWindow", "From"): "fromaddress",
@@ -67,7 +116,6 @@ def search_sql(
                         matching_addresses.append(address)
         except Exception as e:
             print(f"DEBUG_SEARCH: Error querying identities: {e}")
-    
 
 
     if folder == 'trash':
@@ -137,6 +185,8 @@ def search_sql(
         results.extend(sqlQuery(sqlStatementBase, sqlArguments))
         return results
 
+    print(f"DEBUG: search_sql called with what='{what}', folder='{folder}', account='{account}'")
+
     sqlStatementBase = 'SELECT toaddress, fromaddress, subject, ' + (
         'status, ackdata, lastactiontime FROM sent ' if folder == 'sent'
         else 'folder, msgid, received, read FROM inbox '
@@ -168,7 +218,7 @@ def search_sql(
             )
             sqlArguments.extend([what] * 4)
 
-             # Add matching addresses from address book
+            # Add matching addresses from address book
             if matching_addresses:
                 address_placeholders = ','.join(['?'] * len(matching_addresses))
                 sqlStatementParts[-1] = sqlStatementParts[-1][:-1] + f" OR toaddress IN ({address_placeholders}) OR fromaddress IN ({address_placeholders}))"

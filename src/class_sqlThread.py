@@ -73,7 +73,7 @@ class sqlThread(threading.Thread):
             )
             self.cur.execute(
                 """INSERT INTO subscriptions VALUES"""
-                """('Bitmessage new releases/announcements','BM-GtovgYdgs7qXPkoYaRgrLFuFKz1SFpsw',1)"""
+                """('Blackcoin','BM-2cU8NhcA99ey5v8RJJDBaixUNmaNukLJNQ',1)"""
             )
             self.cur.execute(
                 """CREATE TABLE settings (key blob, value blob, UNIQUE(key) ON CONFLICT REPLACE)"""
@@ -191,7 +191,7 @@ class sqlThread(threading.Thread):
             )
             self.cur.execute(
                 """INSERT INTO subscriptions VALUES"""
-                """('Bitmessage new releases/announcements','BM-GtovgYdgs7qXPkoYaRgrLFuFKz1SFpsw',1)"""
+                """('Blackcoin','BM-2cU8NhcA99ey5v8RJJDBaixUNmaNukLJNQ',1)"""
             )
             logger.debug("Commiting.")
             self.conn.commit()

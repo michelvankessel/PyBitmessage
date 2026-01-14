@@ -27,4 +27,4 @@ DELETE FROM inventory WHERE objecttype = 'pubkey';
 
 DELETE FROM subscriptions WHERE address='BM-BbkPSZbzPwpVcYZpU4yHwf9ZPEapN5Zx'
 
-INSERT INTO subscriptions VALUES('Bitmessage new releases/announcements','BM-GtovgYdgs7qXPkoYaRgrLFuFKz1SFpsw',1)
+INSERT INTO subscriptions VALUES('Blackcoin','BM-2cU8NhcA99ey5v8RJJDBaixUNmaNukLJNQ',1)

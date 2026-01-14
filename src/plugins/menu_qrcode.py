@@ -3,7 +3,7 @@
 A menu plugin showing QR-Code for bitmessage address in modal dialog.
 """
 
-import urllib
+import urllib.parse
 
 import qrcode
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -15,15 +15,15 @@ from pybitmessage.tr import _translate
 class Image(qrcode.image.base.BaseImage):
     """Image output class for qrcode using QPainter"""
 
-    def __init__(self, border, width, box_size):
-
+    def __init__(self, border, width, box_size, **kwargs):
         self.border = border
         self.width = width
         self.box_size = box_size
         size = (width + border * 2) * box_size
-        self._image = QtGui.QImage(
-            size, size, QtGui.QImage.Format_RGB16)
-        self._image.fill(QtCore.Qt.white)
+        self._image = QtGui.QImage(size, size, QtGui.QImage.Format.Format_RGB16)
+        self._image.fill(QtCore.Qt.GlobalColor.white)
+        # Accept qrcode_modules from newer qrcode library versions
+        self.modules = kwargs.get("qrcode_modules")
 
     def pixmap(self):
         """Get image pixmap"""
@@ -35,12 +35,15 @@ class Image(qrcode.image.base.BaseImage):
         painter.fillRect(
             (col + self.border) * self.box_size,
             (row + self.border) * self.box_size,
-            self.box_size, self.box_size,
-            QtCore.Qt.black)
+            self.box_size,
+            self.box_size,
+            QtCore.Qt.GlobalColor.black,
+        )
 
 
 class QRCodeDialog(QtWidgets.QDialog):
     """The dialog"""
+
     def __init__(self, parent):
         super(QRCodeDialog, self).__init__(parent)
         self.image = QtWidgets.QLabel(self)
@@ -50,10 +53,11 @@ class QRCodeDialog(QtWidgets.QDialog):
         font.setWeight(75)
         self.label.setFont(font)
         self.label.setAlignment(
-            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter
+        )
         buttonBox = QtWidgets.QDialogButtonBox(self)
-        buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Ok)
+        buttonBox.setOrientation(QtCore.Qt.Orientation.Horizontal)
+        buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.StandardButton.Ok)
         buttonBox.accepted.connect(self.accept)
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.image)
@@ -77,6 +81,7 @@ class QRCodeDialog(QtWidgets.QDialog):
 
 def connect_plugin(form):
     """Plugin entry point"""
+
     def on_action_ShowQR():
         """A slot for popup menu action"""
         try:
@@ -92,9 +97,12 @@ def connect_plugin(form):
             except AttributeError:
                 return
         dialog.render(
-            'bitmessage:%s' % account.address + (
-                '?' + urllib.urlencode({'label': label.encode('utf-8')})
-                if label != account.address else '')
+            "bitmessage:%s" % account.address
+            + (
+                "?" + urllib.parse.urlencode({"label": label.encode("utf-8")})
+                if label != account.address
+                else ""
+            )
         )
         dialog.exec()
 

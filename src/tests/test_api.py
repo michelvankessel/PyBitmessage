@@ -13,6 +13,8 @@ from .samples import (
     sample_inbox_msg_ids,
     sample_subscription_addresses,
     sample_subscription_name,
+    sample_default_subscription_address,
+    sample_default_subscription_label,
 )
 
 from .test_process import TestProcessProto
@@ -280,23 +282,23 @@ class TestAPI(TestAPIProto):
 
         for s in json.loads(self.api.listSubscriptions())["subscriptions"]:
             # special address, added when sqlThread starts
-            if s["address"] == sample_subscription_addresses[1]:
+            if s["address"] == sample_default_subscription_address:
                 self.assertEqual(
                     base64.decodestring(s["label"]),
-                    "Bitmessage new releases/announcements",
+                    sample_default_subscription_label,
                 )
                 self.assertTrue(s["enabled"])
                 break
         else:
             self.fail(
-                "Could not find Bitmessage new releases/announcements in subscriptions"
+                "Could not find %s in subscriptions" % sample_default_subscription_label
             )
         self.assertEqual(
             self.api.deleteSubscription(sample_subscription_addresses[0]),
             "Deleted subscription if it existed.",
         )
         self.assertEqual(
-            self.api.deleteSubscription(sample_subscription_addresses[1]),
+            self.api.deleteSubscription(sample_default_subscription_address),
             "Deleted subscription if it existed.",
         )
         self.assertEqual(json.loads(self.api.listSubscriptions())["subscriptions"], [])
@@ -481,9 +483,9 @@ class TestAPI(TestAPIProto):
             self.assertEqual(self.api.deleteAddress(addr), "success")
 
         # sending from an address without private key
-        # (Bitmessage new releases/announcements)
+        # (Blackcoin)
         result = self.api.sendBroadcast(
-            "BM-GtovgYdgs7qXPkoYaRgrLFuFKz1SFpsw",
+            "BM-2cU8NhcA99ey5v8RJJDBaixUNmaNukLJNQ",
             base64.encodestring("test_subject"),
             msg,
         )

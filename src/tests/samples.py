@@ -62,6 +62,8 @@ sample_subscription_addresses = [
     'BM-2cWQLCBGorT9pUGkYSuGGVr9LzE4mRnQaq',  # version 4
     'BM-GtovgYdgs7qXPkoYaRgrLFuFKz1SFpsw'  # version 3
 ]
+sample_default_subscription_address = 'BM-2cU8NhcA99ey5v8RJJDBaixUNmaNukLJNQ'
+sample_default_subscription_label = 'Blackcoin'
 sample_subscription_name = 'test sub'
 sample_subscription_tag = unhexlify(
     b'1a6db7c393f458c0e1efa791bbe354e3ab910006d6acd1da92fa3b0377f2dd67')
