@@ -105,6 +105,7 @@ Phase 5B (Thread/FIXME):  ░░░░░░░░░░░░░░░░░░
 | `bmconfigparser.py` | 202 | readfp assignment | ✅ Fixed |
 | `mockbm/kivy_main.py` | 10 | Import | ✅ Fixed |
 | `knownnodes.py` | 19 | Peer assignment | ✅ Fixed |
+| `bitmessagecli.py` | 27 | jsonrpclib import | ✅ Fixed |
 
 **Status:** 7/7 fixed
 **Effort:** ~8 hours
@@ -238,6 +239,19 @@ def process_message(data: dict) -> None:
 
 ---
 
+## Phase 6+: Future Security Enhancements (Optional)
+
+These items were identified during the Jan 2026 Deep Dive Security Audit.
+
+| Area | Task | Risk Level | Description |
+|------|------|------------|-------------|
+| **HTML Sanitization** | Harden `SafeHTMLParser` | Low (Defense in Depth) | Explicitly whitelist `href` schemes in `src/bitmessageqt/safehtmlparser.py`. Currently allows `javascript:` if passed to a vulnerable renderer (though `QTextBrowser` is mostly safe). |
+| **Logging Hygiene** | Redact Secrets | Medium (Privacy) | Audit `__repr__` methods of sensitive classes (keys, passwords) to ensure they don't leak data to logs, even in `DEBUG` mode. |
+| **Testing** | Fuzz Testing | Low (Quality) | Add property-based testing (e.g., `hypothesis`) for `BMProto` parser and `SafeHTMLParser` to find edge cases. |
+| **Modernization** | Rewrite `bitmsghash` | Low (Maintainability) | The C++ extension uses legacy raw pointers and threading. Consider rewriting in Rust or modern C++17. |
+
+---
+
 ## Summary Timeline
 
 ```
@@ -252,6 +266,7 @@ Week 4:  Phase 2 complete ✅
 - Phase 3: 95/96 complete (99%) ✅
 - Phase 4: Pending
 - Phase 5: Pending
+- Phase 6+: Optional Future Work
 ```
 
 ---
