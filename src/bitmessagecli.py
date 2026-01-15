@@ -19,12 +19,16 @@ import os
 import socket
 import sys
 import time
+import typing
 from pathlib import Path
 
-try:
+if typing.TYPE_CHECKING:
     import jsonrpclib
-except ImportError:
-    jsonrpclib = None  # type: ignore
+else:
+    try:
+        import jsonrpclib
+    except ImportError:
+        jsonrpclib = None
 
 from bmconfigparser import config
 
