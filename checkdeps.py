@@ -10,8 +10,8 @@ Limitations:
     EXTRAS_REQUIRE. This is fine because most developers do, too.
 """
 
-import os
 import sys
+from pathlib import Path
 
 try:
     from setuptools.errors import CompileError
@@ -115,8 +115,8 @@ def testCompiler():
     except CompileError:
         return False
     else:
-        fullPath = os.path.join(cmd.build_lib, cmd.get_ext_filename("bitmsghash"))
-        return os.path.isfile(fullPath)
+        fullPath = Path(cmd.build_lib) / cmd.get_ext_filename("bitmsghash")
+        return fullPath.is_file()
 
 
 prereqs = detectPrereqs()

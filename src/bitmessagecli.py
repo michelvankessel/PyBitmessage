@@ -245,7 +245,7 @@ def apiData():
 
     # config.read() silently ignores missing files and loads defaults from default.ini via bmconfigparser.
     # We must explicitly check if the file exists locally, otherwise we end up using defaults without credentials.
-    local_keys_exist = os.path.exists(keysPath)
+    local_keys_exist = Path(keysPath).exists()
 
     if local_keys_exist:
         try:

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import os
 import shutil
 import sys
+from pathlib import Path
 
 
 from setuptools import Extension, setup
@@ -12,7 +12,7 @@ from typing import List, Tuple, Sequence, Any
 
 # Load version without modifying sys.path or importing
 softwareVersion = "0.0.0"
-with open(os.path.join(os.path.dirname(__file__), "src", "version.py")) as f:
+with open(Path(__file__).parent / "src" / "version.py") as f:
     exec(f.read())
 
 EXTRAS_REQUIRE: Any = {
@@ -34,28 +34,22 @@ class InstallCmd(install):
     """Custom setuptools install command preparing icons"""
 
     def run(self):
-        try:
-            os.makedirs("desktop/icons/scalable")
-        except os.error:
-            pass
+        Path("desktop/icons/scalable").mkdir(parents=True, exist_ok=True)
         shutil.copyfile(
             "desktop/can-icon.svg", "desktop/icons/scalable/pybitmessage.svg"
         )
-        try:
-            os.makedirs("desktop/icons/24x24")
-        except os.error:
-            pass
+        Path("desktop/icons/24x24").mkdir(parents=True, exist_ok=True)
         shutil.copyfile("desktop/icon24.png", "desktop/icons/24x24/pybitmessage.png")
 
         return install.run(self)
 
 
 if __name__ == "__main__":
-    here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, "README.md")) as f:
+    here = Path(__file__).parent.resolve()
+    with open(here / "README.md") as f:
         README = f.read()
 
-    with open(os.path.join(here, "requirements.txt"), "r") as f:
+    with open(here / "requirements.txt", "r") as f:
         requirements = list(f.readlines())
 
     bitmsghash = Extension(
