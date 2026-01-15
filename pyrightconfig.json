@@ -9,7 +9,6 @@
         "tests_kivy_runner.py"
     ],
     "exclude": [
-        "**/pybitmessage",
         "**/.venv",
         "**/.tox",
         "**/build",
