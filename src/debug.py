@@ -52,7 +52,7 @@ helper_startup.loadConfig()
 # logging.config.fileConfig interface
 # examples are here:
 # https://web.archive.org/web/20170712122006/https://bitmessage.org/forum/index.php/topic,4820.msg11163.html#msg11163
-log_level = "WARNING"
+log_level = "DEBUG"
 
 
 def log_uncaught_exceptions(ex_cls, ex, tb):
